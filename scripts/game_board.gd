@@ -55,10 +55,12 @@ const UI_BOTTOM_MARGIN := 128
 var chips := []
 var enemies := [] # 2D массив здоровья врагов (y: 0..ENEMY_ROWS-1)
 var enemies_initial_hp := [] # Исходный HP врагов для целей
+var _enemies_hit_this_turn := [] # 2D массив флагов попадания в этом ходу
 var _monster_spawn_queue := [] # Очередь монстров для появления на поле
 var _projectiles := [] # [{x:int, start_y:float, end_y:float, t:float, d:float, delay:float, color:Color, hit_applied:bool, has_target:bool}]
 var _active_anims := [] # [{x:int, start_y:int, end_y:int, color:int, t:float, d:float}]
-var _enemy_death_anims := [] # [{x:int, y:int, t:float, d:float}]
+var _enemy_death_anims := [] # [{x:int, y:int, t:float, d:float, hp:int, init:int, id:int}]
+var _monster_shakes := {} # monster_id -> {t:float, d:float, intensity:float}
 var _board_vfx := [] # [{type:str, pos:Vector2, color:Color, t:float, d:float, scale:float}]
 var _level_targets := {} # hp -> required count
 var _enemy_move_pending: bool = false
@@ -449,11 +451,14 @@ func _init_enemies_from_config(cfg: Dictionary):
 	for y in range(ENEMY_ROWS):
 		var row := []
 		var row0 := []
+		var row_hit := []
 		for x in range(COLS):
 			row.append(0)
 			row0.append(0)
+			row_hit.append(false)
 		enemies.append(row)
 		enemies_initial_hp.append(row0)
+		_enemies_hit_this_turn.append(row_hit)
 
 	# Собираем всех монстров уровня в общую очередь
 	var all_monsters := []
@@ -590,43 +595,122 @@ func _draw():
 	# Собираем цели для анимаций, чтобы не дублировать отрисовку конечных клеток
 	var anim_targets := {}
 	for a in _active_anims:
-		if a.t < a.d:
-			anim_targets[str(a.x)+","+str(a.end_y)] = true
+		var delay = a.get("delay", 0.0)
+		# Считаем клетку занятой на весь период анимации, включая задержку
+		if a.t < delay + a.d:
+			anim_targets[Vector2i(int(a.x), int(a.end_y))] = true
 
 	# Рисуем фишки в зоне игрока (объёмные квадраты)
 	var chip_size = CELL_SIZE * CHIP_SIZE_FACTOR
 	var pad = (CELL_SIZE - chip_size) * 0.5
+	
+	var time_now = Time.get_ticks_msec() * 0.001
 
 	# Враги (монстры) в верхней зоне
 	var moving_from := {}
 	var moving_to := {}
+	
+	# Собираем данные об активных перемещениях
 	for ma in _enemy_move_anims:
-		moving_from[str(ma.fx)+","+str(ma.fy)] = true
-		moving_to[str(ma.tx)+","+str(ma.ty)] = true
+		moving_from[Vector2i(int(ma.fx), int(ma.fy))] = true
+		moving_to[Vector2i(int(ma.tx), int(ma.ty))] = true
+	
+	# 1. Собираем всех монстров (статичных, движущихся и умирающих) для правильной сортировки по глубине (Z-order)
+	var monsters_to_draw := []
+	
+	# Сначала движущиеся
+	for ma in _enemy_move_anims:
+		var k = clamp(ma.t / ma.d, 0.0, 1.0)
+		k = pow(k, 0.8)
+		var ix = lerp(float(ma.fx), float(ma.tx), k)
+		var iy = lerp(float(ma.fy), float(ma.ty), k)
+		
+		monsters_to_draw.append({
+			"x": ix,
+			"y": iy,
+			"hp": int(ma.hp),
+			"init_hp": int(ma.init),
+			"id": ma.fx + ma.fy * 10,
+			"sort_y": iy,
+			"alpha": 1.0
+		})
+	
+	# Затем умирающие (чтобы они тряслись и исчезали)
+	for da in _enemy_death_anims:
+		var alpha = 1.0 - (da.t / da.d)
+		monsters_to_draw.append({
+			"x": float(da.x),
+			"y": float(da.y),
+			"hp": int(da.hp),
+			"init_hp": int(da.init),
+			"id": da.id,
+			"sort_y": float(da.y),
+			"alpha": alpha
+		})
+	
+	# Затем статичные (те, которые не двигаются в данный момент)
 	for y in range(ENEMY_ROWS):
 		for x in range(COLS):
 			if enemies.size() > y and enemies[y].size() > x and enemies[y][x] > 0:
-				var key = str(x)+","+str(y)
-				if moving_from.has(key) or moving_to.has(key):
+				var cell = Vector2i(x, y)
+				if moving_from.has(cell) or moving_to.has(cell):
 					continue
-				# Монстры сохраняют пропорции (квадратные), но из-за малой высоты строк
-				# они будут перекрывать друг друга по вертикали.
-				var e_chip_size = Vector2(CELL_SIZE * CHIP_SIZE_FACTOR, CELL_SIZE * CHIP_SIZE_FACTOR)
-				var e_pad_x = (CELL_SIZE - e_chip_size.x) * 0.5
-				# Выравниваем монстра по нижнему краю ячейки с небольшим отступом вверх (для тени/анимации)
-				var e_top_left = Vector2(origin.x + float(x) * CELL_SIZE + e_pad_x, origin.y + float(y) * ENEMY_CELL_HEIGHT + (ENEMY_CELL_HEIGHT - e_chip_size.y) - 6)
-				_draw_enemy_monster(e_top_left, e_chip_size, enemies[y][x], enemies_initial_hp[y][x], x + y * 10)
+				# Проверяем, не умирает ли этот монстр (чтобы не рисовать дважды)
+				var is_dying = false
+				for da in _enemy_death_anims:
+					if da.x == x and da.y == y:
+						is_dying = true
+						break
+				if is_dying: continue
+				
+				monsters_to_draw.append({
+					"x": float(x),
+					"y": float(y),
+					"hp": enemies[y][x],
+					"init_hp": enemies_initial_hp[y][x],
+					"id": x + y * 10,
+					"sort_y": float(y),
+					"alpha": 1.0
+				})
+	
+	# Сортируем: монстры с большим Y (ближе к игроку) рисуются ПОЗЖЕ
+	monsters_to_draw.sort_custom(func(a, b): return a.sort_y < b.sort_y)
+	
+	# Отрисовываем всех монстров в правильном порядке
+	var e_chip_size = Vector2(CELL_SIZE * CHIP_SIZE_FACTOR, CELL_SIZE * CHIP_SIZE_FACTOR)
+	var e_pad_x = (CELL_SIZE - e_chip_size.x) * 0.5
+	for m in monsters_to_draw:
+		var shake_off = Vector2.ZERO
+		if _monster_shakes.has(m.id):
+			var s = _monster_shakes[m.id]
+			var k_s = 1.0 - (s.t / s.d)
+			shake_off = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * s.intensity * k_s
+			
+		var e_top_left = Vector2(
+			origin.x + m.x * CELL_SIZE + e_pad_x, 
+			origin.y + m.y * ENEMY_CELL_HEIGHT + (ENEMY_CELL_HEIGHT - e_chip_size.y) - 6
+		) + shake_off
+		_draw_enemy_monster(e_top_left, e_chip_size, m.hp, m.init_hp, m.id, m.alpha)
 
 	for y in range(ENEMY_ROWS, ROWS):
 		for x in range(COLS):
 			if chips.size() > y and chips[y].size() > x:
-				# Пропускаем конечные клетки активных анимаций — их рисуем отдельно как движущиеся
-				if anim_targets.has(str(x)+","+str(y)):
+				# Пропускаем клетки активных анимаций — их рисуем отдельно
+				if anim_targets.has(Vector2i(x, y)):
 					continue
 				var idx = chips[y][x]
 				# Добавляем FIELD_GAP для зоны игрока и учитываем разную высоту строк
 				var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (y - ENEMY_ROWS) * CELL_SIZE + FIELD_GAP
 				var top_left = Vector2(origin.x + float(x) * CELL_SIZE + pad, origin.y + y_pos + pad)
+				
+				# Дрожание для будущих бонусов
+				if bonus_cells.has(str(x)+","+str(y)):
+					# Каждые 2 секунды небольшое дрожание в течение 0.4 сек
+					var cycle = fmod(time_now + float(x+y)*0.1, 2.5)
+					if cycle < 0.4:
+						var intensity = 3.0 * (1.0 - cycle/0.4)
+						top_left += Vector2(sin(time_now * 50.0), cos(time_now * 45.0)) * intensity
+
 				var size_v = Vector2(chip_size, chip_size)
 				
 				if idx == RAINBOW_CHIP_IDX:
@@ -637,48 +721,35 @@ func _draw():
 					_draw_bomb_chip(top_left, size_v)
 				elif idx >= 0 and idx < CHIP_COLORS.size():
 					_draw_chip(top_left, size_v, idx)
-					
-				# Рисуем индикатор будущего бонуса
-				if bonus_cells.has(str(x)+","+str(y)):
-					var b_type = bonus_cells[str(x)+","+str(y)]
-					var center = top_left + size_v * 0.5
-					if b_type == 8:
-						# Радужная фишка (черный круг)
-						draw_circle(center, size_v.x * 0.25, Color(0, 0, 0, 0.5))
-					elif b_type == 7:
-						# Горизонтальная ракета (маленькие стрелки)
-						var a_color = Color(0, 0, 0, 0.6)
-						var a_w = size_v.x * 0.2
-						# Левая стрелка
-						draw_line(center + Vector2(-a_w, 0), center + Vector2(-a_w+10, -8), a_color, 3.0)
-						draw_line(center + Vector2(-a_w, 0), center + Vector2(-a_w+10, 8), a_color, 3.0)
-						# Правая стрелка
-						draw_line(center + Vector2(a_w, 0), center + Vector2(a_w-10, -8), a_color, 3.0)
-						draw_line(center + Vector2(a_w, 0), center + Vector2(a_w-10, 8), a_color, 3.0)
-					elif b_type == 6:
-						# Бомба (черный круг с фитилем)
-						var i_color = Color(0, 0, 0, 0.6)
-						var b_r = size_v.x * 0.2
-						draw_circle(center, b_r, i_color)
-						# Маленький фитиль
-						draw_line(center + Vector2(0, -b_r), center + Vector2(8, -b_r-8), i_color, 2.0)
 
 	# Движущиеся фишки
 	for a in _active_anims:
-		if a.t < a.d:
-			var k = clamp(a.t / a.d, 0.0, 1.0)
-			# Лёгкое ускорение к концу
-			k = pow(k, 0.65)
-			var y_interp = lerp(float(a.start_y), float(a.end_y), k)
-			# Учитываем разную высоту строк и FIELD_GAP
-			var y_pos = 0.0
-			if y_interp < ENEMY_ROWS:
-				y_pos = y_interp * ENEMY_CELL_HEIGHT
-			else:
-				y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (y_interp - ENEMY_ROWS) * CELL_SIZE + FIELD_GAP
-			
-			var top_left = Vector2(origin.x + float(a.x) * CELL_SIZE + pad, origin.y + y_pos + pad)
+		var delay = a.get("delay", 0.0)
+		var tt = a.t - delay
+		if tt < 0.0: continue
+		if tt < a.d:
+			var k = clamp(tt / a.d, 0.0, 1.0)
+			var top_left: Vector2
 			var size_v = Vector2(chip_size, chip_size)
+			
+			if a.get("type", "") == "scale":
+				# Анимация появления через скейл
+				k = pow(k, 0.5) # Плавный вход
+				size_v *= k
+				var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (float(a.end_y) - ENEMY_ROWS) * CELL_SIZE + FIELD_GAP
+				var center = origin + Vector2(float(a.x) * CELL_SIZE + CELL_SIZE * 0.5, y_pos + CELL_SIZE * 0.5)
+				top_left = center - size_v * 0.5
+			else:
+				# Обычное падение/движение
+				k = pow(k, 0.65)
+				var y_interp = lerp(float(a.start_y), float(a.end_y), k)
+				var y_pos = 0.0
+				if y_interp < ENEMY_ROWS:
+					y_pos = y_interp * ENEMY_CELL_HEIGHT
+				else:
+					y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (y_interp - ENEMY_ROWS) * CELL_SIZE + FIELD_GAP
+				top_left = Vector2(origin.x + float(a.x) * CELL_SIZE + pad, origin.y + y_pos + pad)
+			
 			if a.color == RAINBOW_CHIP_IDX:
 				_draw_rainbow_chip(top_left, size_v)
 			elif a.color == ROW_BONUS_CHIP_IDX:
@@ -694,7 +765,9 @@ func _draw():
 		if tt < 0.0:
 			continue
 		var k2 = clamp(tt / p.d, 0.0, 1.0)
+		var k_trail = k2 # Для шлейфа
 		k2 = pow(k2, 0.8)
+		
 		var y_interp2 = lerp(p.start_y, p.end_y, k2)
 		var cx = origin.x + float(p.x) * CELL_SIZE + CELL_SIZE * 0.5
 		var cy_offset = 0.0
@@ -703,11 +776,28 @@ func _draw():
 		else:
 			cy_offset = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (y_interp2 - ENEMY_ROWS) * CELL_SIZE + FIELD_GAP + CELL_SIZE * 0.5
 		var cy = origin.y + cy_offset
-		var proj_r = maxf(3.0, float(CELL_SIZE) * 0.08)
+		var proj_r = maxf(4.0, float(CELL_SIZE) * 0.1)
+		
+		# Рисуем шлейф (несколько кружков по траектории назад)
+		for i in range(1, 4):
+			var trail_k = clamp(k2 - float(i) * 0.05, 0.0, 1.0)
+			var trail_y_interp = lerp(p.start_y, p.end_y, trail_k)
+			var trail_cy_offset = 0.0
+			if trail_y_interp < ENEMY_ROWS:
+				trail_cy_offset = trail_y_interp * ENEMY_CELL_HEIGHT + ENEMY_CELL_HEIGHT * 0.5
+			else:
+				trail_cy_offset = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (trail_y_interp - ENEMY_ROWS) * CELL_SIZE + FIELD_GAP + CELL_SIZE * 0.5
+			var tcy = origin.y + trail_cy_offset
+			var t_alpha = (1.0 - float(i) / 4.0) * 0.5
+			draw_circle(Vector2(cx, tcy), proj_r * (1.0 - float(i) * 0.2), Color(p.color.r, p.color.g, p.color.b, t_alpha))
+
 		# Тень
-		draw_circle(Vector2(cx, cy + 3), proj_r, Color(0,0,0,0.2))
-		# Снаряд
-		draw_circle(Vector2(cx, cy), proj_r, p.color)
+		draw_circle(Vector2(cx, cy + 4), proj_r, Color(0, 0, 0, 0.25))
+		# Снаряд (ядро)
+		draw_circle(Vector2(cx, cy), proj_r, Color.WHITE) # Яркое ядро
+		draw_circle(Vector2(cx, cy), proj_r * 0.8, p.color) # Цветная оболочка
+		# Блик
+		draw_circle(Vector2(cx - proj_r * 0.3, cy - proj_r * 0.3), proj_r * 0.2, Color.WHITE)
 
 	# Анимации смерти врагов (вспышка поверх клетки)
 	for da in _enemy_death_anims:
@@ -721,21 +811,8 @@ func _draw():
 		draw_circle(Vector2(ex, ey), rr * 0.7, Color(0.6, 0.2, 0.8, alpha * 0.6))
 
 	# Анимации движения врагов
-	for ma in _enemy_move_anims:
-		# ... существующий код отрисовки врагов ...
-		var k = clamp(ma.t / ma.d, 0.0, 1.0)
-		k = pow(k, 0.8)
-		var fx = float(ma.fx)
-		var fy = float(ma.fy)
-		var tx = float(ma.tx)
-		var ty = float(ma.ty)
-		var ix = lerp(fx, tx, k)
-		var iy = lerp(fy, ty, k)
-		var e_chip_size2 = Vector2(CELL_SIZE * CHIP_SIZE_FACTOR, CELL_SIZE * CHIP_SIZE_FACTOR)
-		var e_pad_x2 = (CELL_SIZE - e_chip_size2.x) * 0.5
-		var e_top_left2 = Vector2(origin.x + ix * CELL_SIZE + e_pad_x2, origin.y + iy * ENEMY_CELL_HEIGHT + (ENEMY_CELL_HEIGHT - e_chip_size2.y) - 6)
-		_draw_enemy_monster(e_top_left2, e_chip_size2, int(ma.hp), int(ma.init), ma.fx + ma.fy * 10)
-
+	# (Теперь отрисовываются вместе со статичными монстрами выше для корректной сортировки по Y)
+	
 	# ОТРИСОВКА BOARD VFX
 	for vfx in _board_vfx:
 		var k = vfx.t / vfx.d
@@ -808,7 +885,7 @@ func _draw():
 
 	
 
-func _activate_bomb(bx: int, by: int):
+func _activate_bomb(bx: int, by: int, trigger_move: bool = true):
 	# VFX Бомбы
 	var vp_size = get_viewport_rect().size
 	var origin = _grid_origin(vp_size)
@@ -835,32 +912,35 @@ func _activate_bomb(bx: int, by: int):
 	set_process(true)
 
 	# Взрываем крестом (центр + 4 соседа)
-	_trigger_chip_at(bx, by)
-	_trigger_chip_at(bx + 1, by)
-	_trigger_chip_at(bx - 1, by)
-	_trigger_chip_at(bx, by + 1)
-	_trigger_chip_at(bx, by - 1)
+	_trigger_chip_at(bx, by, trigger_move)
+	_trigger_chip_at(bx + 1, by, trigger_move)
+	_trigger_chip_at(bx - 1, by, trigger_move)
+	_trigger_chip_at(bx, by + 1, trigger_move)
+	_trigger_chip_at(bx, by - 1, trigger_move)
 	
 	_apply_gravity_up()
 	queue_redraw()
 
-func _trigger_chip_at(x: int, y: int):
+func _trigger_chip_at(x: int, y: int, trigger_move: bool = true):
 	if y < ENEMY_ROWS or y >= ROWS or x < 0 or x >= COLS: return
 	var type = chips[y][x]
 	if type == -1: return
 	
+	# Эффект лопания фишки
+	_add_chip_pop_vfx(x, y, type)
+	
 	# Мгновенно помечаем клетку пустой, чтобы избежать бесконечной рекурсии
 	chips[y][x] = -1
-	_enqueue_projectiles(x, y, 1)
+	_enqueue_projectiles(x, y, 1, 0.0, trigger_move)
 	
 	# Если это был бонус — активируем его эффект
 	match type:
 		RAINBOW_CHIP_IDX:
-			_activate_rainbow_chip(x, y)
+			_activate_rainbow_chip(x, y, trigger_move)
 		ROW_BONUS_CHIP_IDX:
-			_apply_row_blast(y)
+			_apply_row_blast(y, trigger_move)
 		BOMB_CHIP_IDX:
-			_activate_bomb(x, y)
+			_activate_bomb(x, y, trigger_move)
 
 func _draw_bomb_chip(top_left: Vector2, size_v: Vector2):
 	var tex = BONUS_TEXTURES[BOMB_CHIP_IDX]
@@ -957,7 +1037,7 @@ func _get_monster_color(hp: int) -> Color:
 		return Color(0.95, 0.85, 0.25, 1) # жёлтый
 	return Color(1.00, 0.60, 0.20, 1) # запасной (янтарный)
 
-func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp: int, monster_id: int):
+func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp: int, monster_id: int, alpha: float = 1.0):
 	# Idle-анимация: "дыхание" и легкое покачивание на месте
 	var time = Time.get_ticks_msec() * 0.001
 	var phase = monster_id * 0.5
@@ -984,20 +1064,22 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 		if _freeze_turns > 0:
 			mod_color = Color(0.5, 0.8, 1.0)
 		
+		mod_color.a *= alpha
+		
 		# Тень
-		draw_texture_rect(tex, Rect2(rect.position + Vector2(0, 4), rect.size), false, Color(0, 0, 0, 0.3))
+		draw_texture_rect(tex, Rect2(rect.position + Vector2(0, 4), rect.size), false, Color(0, 0, 0, 0.3 * alpha))
 		# Сам монстр
 		draw_texture_rect(tex, rect, false, mod_color)
 		
 		# Визуальный урон (трещины поверх текстуры)
 		var damage = initial_hp - hp
 		if damage > 0:
-			_draw_monster_cracks(anim_top_left, anim_size, damage, monster_id)
+			_draw_monster_cracks(anim_top_left, anim_size, damage, monster_id, alpha)
 		
 		# Добавляем ледяной эффект поверх
 		if _freeze_turns > 0:
 			var r = anim_size.x * 0.45
-			draw_arc(bottom_center - Vector2(0, anim_size.y * 0.5), r * 0.9, 0, TAU, 32, Color(1, 1, 1, 0.4), 2.0)
+			draw_arc(bottom_center - Vector2(0, anim_size.y * 0.5), r * 0.9, 0, TAU, 32, Color(1, 1, 1, 0.4 * alpha), 2.0)
 	else:
 		# Фолбэк на старую отрисовку
 		var draw_center = bottom_center - Vector2(0, anim_size.y * 0.5)
@@ -1005,22 +1087,24 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 		var body_color = _get_monster_color(initial_hp)
 		
 		# 1. Тень
-		draw_circle(draw_center + Vector2(0, 4), r, Color(0, 0, 0, 0.3))
+		draw_circle(draw_center + Vector2(0, 4), r, Color(0, 0, 0, 0.3 * alpha))
 		
 		# 2. Тело (округлое)
 		var final_body_color = body_color
 		if _freeze_turns > 0:
 			final_body_color = body_color.lerp(Color(0.5, 0.8, 1.0), 0.6)
 		
+		final_body_color.a *= alpha
 		draw_circle(draw_center, r, final_body_color)
 		
 		# Добавляем ледяной эффект
 		if _freeze_turns > 0:
-			draw_arc(draw_center, r * 0.9, 0, TAU, 32, Color(1, 1, 1, 0.4), 2.0)
+			draw_arc(draw_center, r * 0.9, 0, TAU, 32, Color(1, 1, 1, 0.4 * alpha), 2.0)
 		
 		# 3. Детали монстра
 		if initial_hp >= 3:
 			var horn_color = body_color.lerp(Color.BLACK, 0.3)
+			horn_color.a *= alpha
 			draw_colored_polygon(PackedVector2Array([
 				draw_center + Vector2(-r*0.5, -r*0.8),
 				draw_center + Vector2(-r*0.8, -r*1.3),
@@ -1035,7 +1119,7 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 		# 4. Трещины
 		var damage = initial_hp - hp
 		if damage > 0:
-			_draw_monster_cracks(anim_top_left, anim_size, damage, monster_id)
+			_draw_monster_cracks(anim_top_left, anim_size, damage, monster_id, alpha)
 
 		# 5. Глаза
 		var eye_r = r * 0.25
@@ -1044,21 +1128,28 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 			var eye_pos = draw_center + Vector2(eye_spacing * side, -r * 0.1)
 			var eye_bg = Color.WHITE
 			if hp == 1 and initial_hp > 1: eye_bg = Color(1, 0.7, 0.7)
+			eye_bg.a *= alpha
 			draw_circle(eye_pos, eye_r, eye_bg)
 			var pupil_pos = eye_pos
 			if damage > 0:
 				pupil_pos += Vector2(sin(monster_id + hp + side), cos(monster_id + hp)) * 2.0
-			draw_circle(pupil_pos, eye_r * 0.5, Color.BLACK)
-			draw_circle(pupil_pos - Vector2(eye_r*0.2, eye_r*0.2), eye_r * 0.15, Color.WHITE)
+			var p_color = Color.BLACK
+			p_color.a *= alpha
+			draw_circle(pupil_pos, eye_r * 0.5, p_color)
+			var reflect_color = Color.WHITE
+			reflect_color.a *= alpha
+			draw_circle(pupil_pos - Vector2(eye_r*0.2, eye_r*0.2), eye_r * 0.15, reflect_color)
 		
 		# 6. Рот
 		var mouth_y = draw_center.y + r * 0.4
 		var m_w = r * 0.5
+		var mouth_color = Color.BLACK
+		mouth_color.a *= alpha
 		if damage > 0:
-			draw_line(Vector2(draw_center.x - m_w, mouth_y + 4), Vector2(draw_center.x, mouth_y - 2), Color.BLACK, 3.0)
-			draw_line(Vector2(draw_center.x, mouth_y - 2), Vector2(draw_center.x + m_w, mouth_y + 4), Color.BLACK, 3.0)
+			draw_line(Vector2(draw_center.x - m_w, mouth_y + 4), Vector2(draw_center.x, mouth_y - 2), mouth_color, 3.0)
+			draw_line(Vector2(draw_center.x, mouth_y - 2), Vector2(draw_center.x + m_w, mouth_y + 4), mouth_color, 3.0)
 		else:
-			draw_line(Vector2(draw_center.x - m_w, mouth_y), Vector2(draw_center.x + m_w, mouth_y), Color.BLACK, 2.0)
+			draw_line(Vector2(draw_center.x - m_w, mouth_y), Vector2(draw_center.x + m_w, mouth_y), mouth_color, 2.0)
 
 func _draw_player_zone_overlay():
 	var vp_size = get_viewport_rect().size
@@ -1098,10 +1189,10 @@ func _draw_player_zone_overlay():
 	var line_end = Vector2(player_rect.end.x - 10, player_rect.position.y + 2)
 	draw_line(line_start, line_end, highlight_color, 2.0)
 
-func _draw_monster_cracks(pos: Vector2, size: Vector2, damage_level: int, seed_val: int):
+func _draw_monster_cracks(pos: Vector2, size: Vector2, damage_level: int, seed_val: int, alpha: float = 1.0):
 	var rng = RandomNumberGenerator.new()
 	rng.seed = seed_val
-	var crack_color = Color(0, 0, 0, 0.5)
+	var crack_color = Color(0, 0, 0, 0.5 * alpha)
 	
 	# Чем больше урон, тем больше основных веток трещин
 	for i in range(damage_level * 2):
@@ -1123,8 +1214,9 @@ func _draw_monster_cracks(pos: Vector2, size: Vector2, damage_level: int, seed_v
 
 
 func _process(delta: float) -> void:
-	if _active_anims.is_empty() and _projectiles.is_empty() and _enemy_death_anims.is_empty() and _enemy_move_anims.is_empty() and _board_vfx.is_empty():
+	if _active_anims.is_empty():
 		# Все падения окончены — проверяем нужно ли спавнить новые фишки
+		# Мы не ждем окончания стрельбы или движения монстров, чтобы игра ощущалась динамичнее
 		_spawn_new_chips_with_fall()
 	
 	# Обновляем Board VFX
@@ -1145,9 +1237,20 @@ func _process(delta: float) -> void:
 		if vfx.t >= vfx.d:
 			_board_vfx.remove_at(i)
 
+	# Обновляем шейки монстров
+	var shakes_to_remove = []
+	for mid in _monster_shakes:
+		var s = _monster_shakes[mid]
+		s.t += delta
+		if s.t >= s.d:
+			shakes_to_remove.append(mid)
+	for mid in shakes_to_remove:
+		_monster_shakes.erase(mid)
+
 	for i in range(_active_anims.size() - 1, -1, -1):
 		_active_anims[i].t += delta
-		if _active_anims[i].t >= _active_anims[i].d:
+		var delay = _active_anims[i].get("delay", 0.0)
+		if _active_anims[i].t - delay >= _active_anims[i].d:
 			_active_anims.remove_at(i)
 	# Обновляем снаряды
 	for j in range(_projectiles.size() - 1, -1, -1):
@@ -1161,6 +1264,12 @@ func _process(delta: float) -> void:
 				if ty >= 0 and ty < ENEMY_ROWS and enemies.size() > ty and enemies[ty].size() > tx:
 					if enemies[ty][tx] > 0:
 						enemies[ty][tx] -= 1
+						_enemies_hit_this_turn[ty][tx] = true
+						
+						# Добавляем шейк при попадании
+						var mid = tx + ty * 10
+						_monster_shakes[mid] = {"t": 0.0, "d": 0.2, "intensity": 10.0}
+						
 						if enemies[ty][tx] <= 0:
 							enemies[ty][tx] = 0
 							# Уменьшаем цели по исходному HP этой клетки
@@ -1170,8 +1279,13 @@ func _process(delta: float) -> void:
 								if _level_targets[init_hp] < 0:
 									_level_targets[init_hp] = 0
 							_needs_ui_update = true
-							# Запускаем анимацию смерти
-							_enemy_death_anims.append({"x": tx, "y": ty, "t": 0.0, "d": 0.35})
+							# Запускаем анимацию смерти с сохранением данных монстра для отрисовки
+							_enemy_death_anims.append({
+								"x": tx, "y": ty, "t": 0.0, "d": 0.35,
+								"hp": 0, "init": init_hp, "id": mid
+							})
+							# При смерти шейк сильнее и дольше
+							_monster_shakes[mid] = {"t": 0.0, "d": 0.35, "intensity": 15.0}
 			_projectiles[j].hit_applied = true
 		if tt >= _projectiles[j].d + 0.05:
 			_projectiles.remove_at(j)
@@ -1206,13 +1320,25 @@ func _process(delta: float) -> void:
 func _spawn_new_chips_with_fall():
 	var new_anims := []
 	var any := false
+	var count := 0
+	# Идем по колонкам, а внутри колонок снизу вверх, чтобы создать эффект "цепочки" снизу
 	for x in range(COLS):
-		for y in range(ENEMY_ROWS, ROWS):
+		for y in range(ROWS - 1, ENEMY_ROWS - 1, -1):
 			if chips[y][x] == -1:
 				any = true
 				var color = int(randi() % CHIP_COLORS.size())
 				chips[y][x] = color
-				new_anims.append({"x": x, "start_y": float(ROWS), "end_y": y, "color": color, "t": 0.0, "d": FALL_DURATION})
+				new_anims.append({
+					"x": x, 
+					"start_y": y, # Используем int
+					"end_y": y,   # Используем int
+					"color": color, 
+					"t": 0.0, 
+					"d": 0.25, 
+					"delay": float(count) * 0.02,
+					"type": "scale"
+				})
+				count += 1
 	if any and not new_anims.is_empty():
 		_active_anims = _active_anims + new_anims
 		set_process(true)
@@ -1250,7 +1376,7 @@ func _use_booster_on_cell(cell: Vector2i):
 		BoosterType.HAMMER:
 			_apply_hammer(cell)
 		BoosterType.ROW_BLAST:
-			_apply_row_blast(cell.y)
+			_apply_row_blast(cell.y, false)
 		BoosterType.FREEZE:
 			_apply_freeze()
 	
@@ -1282,10 +1408,10 @@ func _apply_freeze():
 	queue_redraw()
 
 func _apply_hammer(cell: Vector2i):
-	_trigger_chip_at(cell.x, cell.y)
+	_trigger_chip_at(cell.x, cell.y, false)
 	_apply_gravity_up()
 
-func _apply_row_blast(row_y: int):
+func _apply_row_blast(row_y: int, trigger_move: bool = true):
 	# VFX Ракеты
 	var vp_size = get_viewport_rect().size
 	var origin = _grid_origin(vp_size)
@@ -1294,7 +1420,7 @@ func _apply_row_blast(row_y: int):
 	set_process(true)
 
 	for x in range(COLS):
-		_trigger_chip_at(x, row_y)
+		_trigger_chip_at(x, row_y, trigger_move)
 	
 	_apply_gravity_up()
 	queue_redraw()
@@ -1437,7 +1563,19 @@ func _pop_cluster(x: int, y: int):
 		
 	# Запускаем снаряды
 	if not cluster.is_empty():
-		_enqueue_projectiles(x, y, cluster.size() - (1 if created_bonus else 0))
+		# Используем счетчик для каждой колонки, чтобы добавить небольшую задержку между снарядами в одной колонке
+		var col_stagger = {}
+		for cell in cluster:
+			# Эффект лопания фишки
+			_add_chip_pop_vfx(cell.x, cell.y, color_idx)
+			
+			# Если на месте этой ячейки был создан бонус, отсюда снаряд не вылетает
+			if created_bonus and cell.x == x and cell.y == y:
+				continue
+			
+			var stagger = col_stagger.get(cell.x, 0)
+			_enqueue_projectiles(cell.x, cell.y, 1, stagger * 0.06)
+			col_stagger[cell.x] = stagger + 1
 	
 	_apply_gravity_up()
 	queue_redraw()
@@ -1603,7 +1741,7 @@ func _get_most_frequent_color_idx() -> int:
 		if counts[c] == max_c: bests.append(c)
 	return bests[randi() % bests.size()]
 
-func _activate_rainbow_chip(rx: int, ry: int):
+func _activate_rainbow_chip(rx: int, ry: int, trigger_move: bool = true):
 	var target_color = _get_most_frequent_color_idx()
 	if target_color == -1:
 		chips[ry][rx] = -1
@@ -1638,7 +1776,7 @@ func _activate_rainbow_chip(rx: int, ry: int):
 	for y in range(ENEMY_ROWS, ROWS):
 		for x in range(COLS):
 			if chips[y][x] == target_color:
-				_trigger_chip_at(x, y)
+				_trigger_chip_at(x, y, trigger_move)
 	
 	_apply_gravity_up()
 	queue_redraw()
@@ -1663,14 +1801,18 @@ func _on_level_failed():
 	# Здесь можно сделать экран поражения, сейчас просто возврат в меню
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
-func _enqueue_projectiles(col_x: int, from_y: int, count: int):
+func _enqueue_projectiles(col_x: int, from_y: int, count: int, base_delay: float = 0.0, trigger_move: bool = true):
 	# Планируем цели по ближайшим врагам снизу вверх, без превышения их суммарного HP
 	var hp_left := []
 	for yy in range(ENEMY_ROWS):
 		var row_hp = 0
 		if enemies.size() > yy and enemies[yy].size() > col_x:
 			row_hp = enemies[yy][col_x]
-		hp_left.append(row_hp)
+			# Учитываем снаряды, которые уже летят в этого врага, чтобы не было "оверкилла"
+			for p in _projectiles:
+				if not p.hit_applied and p.has_target and p.x == col_x and int(p.end_y) == yy:
+					row_hp -= 1
+		hp_left.append(max(0, row_hp))
 	var planned := [] # пары (has_target:bool, target_y:int)
 	for i in range(count):
 		var target_found = false
@@ -1692,83 +1834,119 @@ func _enqueue_projectiles(col_x: int, from_y: int, count: int):
 			"end_y": (float(ty) if has else -1.0),
 			"t": 0.0,
 			"d": 0.25,
-			"delay": float(i) * 0.06,
+			"delay": base_delay + float(i) * 0.06,
 			"color": Color(1.0, 0.85, 0.2, 1.0),
 			"hit_applied": false,
 			"has_target": has
 		}
 		_projectiles.append(proj)
 	set_process(true)
-	_enemy_move_pending = true
+	if trigger_move:
+		_enemy_move_pending = true
 
 func _enemy_move_step():
 	if _freeze_turns > 0:
 		_freeze_turns -= 1
+		# Даже при заморозке сбрасываем флаги хитов, так как ход прошел
+		for y in range(ENEMY_ROWS):
+			for x in range(COLS):
+				_enemies_hit_this_turn[y][x] = false
 		return
 
 	_enemy_move_anims.clear()
 	
-	# 1. Сдвигаем существующих врагов вниз на одну клетку (начинаем с нижнего ряда)
+	var col_forward_blocked = []
+	for i in range(COLS): col_forward_blocked.append(false)
+	
+	var moves = [] # {fx, fy, tx, ty, hp, init, is_attack}
+	var occupied_next = []
+	for yy in range(ENEMY_ROWS):
+		var row = []
+		for xx in range(COLS): row.append(enemies[yy][xx] > 0)
+		occupied_next.append(row)
+
+	# 1. Планируем перемещения существующих врагов (снизу вверх)
 	for y in range(ENEMY_ROWS - 1, -1, -1):
 		for x in range(COLS):
 			if enemies[y][x] > 0:
-				if y + 1 < ENEMY_ROWS:
-					# Если клетка ниже свободна - переносим
-					if enemies[y+1][x] == 0:
-						enemies[y+1][x] = enemies[y][x]
-						enemies_initial_hp[y+1][x] = enemies_initial_hp[y][x]
-						enemies[y][x] = 0
-						enemies_initial_hp[y][x] = 0
-						_enemy_move_anims.append({
-							"fx": x, "fy": y, 
-							"tx": x, "ty": y+1, 
-							"hp": enemies[y+1][x], 
-							"init": enemies_initial_hp[y+1][x], 
-							"t": 0.0, "d": 0.25
-						})
+				var hp = enemies[y][x]
+				var init = enemies_initial_hp[y][x]
+				# Монстр НЕ может двигаться вперед только если он получил урон В ЭТОМ ХОДУ
+				var was_hit_this_turn = _enemies_hit_this_turn[y][x]
+				
+				if was_hit_this_turn:
+					col_forward_blocked[x] = true
+					# Просто стоит на месте (блокируя колонку для тех, кто сзади)
 				else:
-					# Дошли до нижней границы - атакуем игрока!
-					_player_lives = max(0, _player_lives - 1)
-					_needs_ui_update = true
+					# Здоровый или восстановившийся монстр
+					if col_forward_blocked[x]:
+						# Если в этой колонке впереди есть заблокированный монстр, стоим на месте
+						continue
 					
-					# Уменьшаем цели (монстр исчезает, он "выполнил" свою миссию)
-					var init_hp = enemies_initial_hp[y][x]
-					if _level_targets.has(init_hp):
-						_level_targets[init_hp] = max(0, int(_level_targets[init_hp]) - 1)
-					
-					# Мгновенно убираем монстра с поля
-					enemies[y][x] = 0
-					enemies_initial_hp[y][x] = 0
-					
-					# Добавляем визуальный эффект атаки (вспышка на месте монстра)
-					var vp_size = get_viewport_rect().size
-					var origin = _grid_origin(vp_size)
-					var y_pos = float(y) * ENEMY_CELL_HEIGHT
-					var center_pos = origin + Vector2(float(x) * CELL_SIZE + CELL_SIZE * 0.5, y_pos + ENEMY_CELL_HEIGHT * 0.5)
-					
-					_board_vfx.append({
-						"type": "shockwave",
-						"pos": center_pos,
-						"color": Color(1.0, 0.2, 0.2), # Красная вспышка при атаке
-						"t": 0.0,
-						"d": 0.4
-					})
-					
-					# Тряска экрана (небольшой эффект)
-					_board_vfx.append({
-						"type": "shake",
-						"t": 0.0,
-						"d": 0.2,
-						"intensity": 8.0
-					})
+					if y + 1 < ENEMY_ROWS:
+						# Если клетка ниже свободна
+						if enemies[y+1][x] == 0 and not occupied_next[y+1][x]:
+							moves.append({"fx": x, "fy": y, "tx": x, "ty": y+1, "hp": hp, "init": init, "is_attack": false})
+							occupied_next[y][x] = false
+							occupied_next[y+1][x] = true
+					else:
+						# Атака игрока (выход за пределы поля)
+						moves.append({"fx": x, "fy": y, "tx": x, "ty": y+1, "hp": hp, "init": init, "is_attack": true})
+						occupied_next[y][x] = false
 
-	# 2. Появление новых врагов в верхнем ряду (row 0)
+	# 2. Сбрасываем флаги попаданий для следующего хода
+	for y in range(ENEMY_ROWS):
+		for x in range(COLS):
+			_enemies_hit_this_turn[y][x] = false
+
+	# 3. Применяем все запланированные перемещения
+	for m in moves:
+		enemies[m.fy][m.fx] = 0
+		enemies_initial_hp[m.fy][m.fx] = 0
+	
+	for m in moves:
+		if m.is_attack:
+			_player_lives = max(0, _player_lives - 1)
+			_needs_ui_update = true
+			var init_hp = m.init
+			if _level_targets.has(init_hp):
+				_level_targets[init_hp] = max(0, int(_level_targets[init_hp]) - 1)
+			
+			var vp_size = get_viewport_rect().size
+			var origin = _grid_origin(vp_size)
+			var y_pos = float(m.fy) * ENEMY_CELL_HEIGHT
+			var center_pos = origin + Vector2(float(m.fx) * CELL_SIZE + CELL_SIZE * 0.5, y_pos + ENEMY_CELL_HEIGHT * 0.5)
+			
+			_board_vfx.append({
+				"type": "shockwave",
+				"pos": center_pos,
+				"color": Color(1.0, 0.2, 0.2),
+				"t": 0.0,
+				"d": 0.4
+			})
+			_board_vfx.append({
+				"type": "shake",
+				"t": 0.0,
+				"d": 0.2,
+				"intensity": 8.0
+			})
+		else:
+			enemies[m.ty][m.tx] = m.hp
+			enemies_initial_hp[m.ty][m.tx] = m.init
+			_enemy_move_anims.append({
+				"fx": m.fx, "fy": m.fy, 
+				"tx": m.tx, "ty": m.ty, 
+				"hp": m.hp, 
+				"init": m.init, 
+				"t": 0.0, "d": 0.25
+			})
+
+	# 4. Появление новых врагов в верхнем ряду (row 0)
 	for x in range(COLS):
 		if enemies[0][x] == 0 and not _monster_spawn_queue.is_empty():
 			var hp = _monster_spawn_queue.pop_front()
 			enemies[0][x] = hp
 			enemies_initial_hp[0][x] = hp
-			# Анимация появления: "падают" сверху за пределами поля
 			_enemy_move_anims.append({
 				"fx": x, "fy": -1, 
 				"tx": x, "ty": 0, 
@@ -1776,6 +1954,12 @@ func _enemy_move_step():
 				"init": hp, 
 				"t": 0.0, "d": 0.25
 			})
+
+	if _enemy_move_anims.size() > 0:
+		set_process(true)
+
+	if _enemy_move_anims.size() > 0:
+		set_process(true)
 
 	if _enemy_move_anims.size() > 0:
 		set_process(true)
@@ -1803,13 +1987,13 @@ func _apply_gravity_up():
 		# Остальные клетки снизу зоны игрока очищаем
 		for y in range(write_y, ROWS):
 			chips[y][x] = -1
-	# Стартуем анимации
+	# Стартуем анимации падения и СРАЗУ заполняем пустоты новыми фишками
 	if not new_anims.is_empty():
 		_active_anims = _active_anims + new_anims
 		set_process(true)
-	else:
-		# Если смещать нечего (колонка пустая), сразу спавним новые фишки с анимацией
-		_spawn_new_chips_with_fall()
+	
+	# Заполняем образовавшиеся пустоты (они всегда снизу при гравитации вверх)
+	_spawn_new_chips_with_fall()
 
 func _init_moves_from_config(cfg: Dictionary):
 	var lvl = _get_current_level()
@@ -1820,3 +2004,76 @@ func _init_moves_from_config(cfg: Dictionary):
 		def_moves = 20
 	_moves_total = int(cfg.get("moves", def_moves))
 	_moves_left = _moves_total
+
+func _add_chip_pop_vfx(x: int, y: int, color_idx: int):
+	var vp_size = get_viewport_rect().size
+	var origin = _grid_origin(vp_size)
+	var y_pos = 0.0
+	var cell_h = CELL_SIZE
+	if y < ENEMY_ROWS:
+		y_pos = float(y) * ENEMY_CELL_HEIGHT
+		cell_h = ENEMY_CELL_HEIGHT
+	else:
+		y_pos = float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + float(y - ENEMY_ROWS) * CELL_SIZE + FIELD_GAP
+	
+	var center = origin + Vector2(float(x) * CELL_SIZE + CELL_SIZE * 0.5, y_pos + float(cell_h) * 0.5)
+	
+	var color = Color.WHITE
+	var vfx_color = Color.WHITE
+	if color_idx >= 0 and color_idx < CHIP_COLORS.size():
+		color = CHIP_COLORS[color_idx]
+		# Создаем более насыщенный цвет для эффектов брызг
+		match color_idx:
+			0: vfx_color = Color(1.0, 0.3, 0.3) # Ярко-красный
+			1: vfx_color = Color(0.3, 0.6, 1.0) # Ярко-синий
+			2: vfx_color = Color(0.4, 1.0, 0.4) # Ярко-зеленый
+			3: vfx_color = Color(1.0, 1.0, 1.0) # Чисто белый
+	elif color_idx == RAINBOW_CHIP_IDX:
+		vfx_color = Color(0.8, 0.4, 1.0) # Фиолетовый
+	elif color_idx == BOMB_CHIP_IDX:
+		vfx_color = Color(1.0, 0.5, 0.2) # Оранжевый
+	elif color_idx == ROW_BONUS_CHIP_IDX:
+		vfx_color = Color(0.3, 0.7, 1.0) # Голубой
+
+	# 1. Вспышка (ударная волна)
+	_board_vfx.append({
+		"type": "shockwave",
+		"pos": center,
+		"color": vfx_color,
+		"t": 0.0,
+		"d": 0.25
+	})
+	
+	# 2. Осколки фишки (частицы)
+	for i in range(8):
+		var angle = randf() * TAU
+		var speed = randf_range(140.0, 280.0)
+		var vel = Vector2.RIGHT.rotated(angle) * speed
+		_board_vfx.append({
+			"type": "particle",
+			"pos": center,
+			"vel": vel,
+			"gravity": Vector2(0, 600.0),
+			"color": vfx_color,
+			"t": 0.0,
+			"d": randf_range(0.4, 0.7),
+			"size": randf_range(5.0, 10.0)
+		})
+	
+	# 3. Маленькое облако пыли/света (теперь тоже подкрашено)
+	for i in range(5):
+		var angle = randf() * TAU
+		var dist = randf_range(5.0, 20.0)
+		var p_color = vfx_color.lerp(Color.WHITE, 0.6)
+		p_color.a = 0.4
+		_board_vfx.append({
+			"type": "particle",
+			"pos": center + Vector2.RIGHT.rotated(angle) * dist,
+			"vel": Vector2.RIGHT.rotated(angle) * 50.0,
+			"color": p_color,
+			"t": 0.0,
+			"d": 0.5,
+			"size": randf_range(12.0, 18.0)
+		})
+	
+	set_process(true)
