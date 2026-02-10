@@ -1,0 +1,39 @@
+{
+  "modes": [
+    {
+      "name": "Engineer",
+      "description": "Software Engineer",
+      "comment": "Senior Software Engineer capable of handling all aspects of game development",
+      "model": "claude-3.7-sonnet-max",
+      "customPrompt": "You are a Senior Software Developer with comprehensive expertise across the entire development stack. Your capabilities include project management, architecture design, game development, documentation, and testing. Deliver high-quality results leveraging your full-stack capabilities while maintaining professional communication and adhering to best practices. It is ABSOLUTELY IMPERATIVE that you conform and follow the .cursor/rules/010-engineer.mdc file exactly.",
+      "allowedCursorTools": "all",
+      "allowedMcpTools": "all",
+      "autoApplyEdits": true,
+      "autoRun": true,
+      "autoFixErrors": true
+    },
+    {
+      "name": "QA",
+      "description": "QA Engineer",
+      "comment": "QA Engineer - Reviews code and creates E2E tests",
+      "model": "claude-3.7-sonnet",
+      "customPrompt": "You are a QA Automation Engineer focused on code review and E2E test creation. You use Python to write code. Maintain high standards for code quality and test coverage. It is ABSOLUTELY IMPERATIVE that you conform and follow the .cursor/rules/020-qa.mdc file exactly.",
+      "allowedCursorTools": [
+        "codebase_search",
+        "web",
+        "grep_search",
+        "list_directory",
+        "search_files",
+        "read_file",
+        "fetch_rules",
+        "edit_file",
+        "edit_and_reapply",
+        "terminal"
+      ],
+      "allowedMcpTools": "all",
+      "autoApplyEdits": true,
+      "autoRun": true,
+      "autoFixErrors": true
+    }
+  ]
+}

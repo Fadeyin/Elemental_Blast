@@ -1,0 +1,39 @@
+---
+name: AI Agent Feature Configuration
+description: Guidelines for XML configuration files in the game
+globs: "**/*.xml"
+alwaysApply: false
+---
+
+# Unified XML Configuration Principles
+
+For detailed feature prefab XML configuration, follow: docs\guidelines\301-gff-feature-prefab-configuration-rules.md
+
+## Core Structure Principles
+
+1. **Standardized Hierarchical Structure**
+   - Follow consistent element organization patterns
+   - Structure XML with clear parent-child relationships
+
+2. **Clean Code Practices**
+   - Use proper indentation with clear hierarchical structure
+   - Use descriptive names instead of verbose comments
+   - Do not use comments in *.xml files except for tool-generated metadata
+   - Preserve all auto-generated comments containing version identifiers
+
+3. **Element Organization**
+   - Group related elements together logically by function
+   - Maintain clear boundaries of responsibility between sections
+
+4. **Naming Conventions**
+   - Follow consistent ID patterns for entities
+
+5. **Resource Management**
+   - Store complex configuration in dedicated data assets
+   - Use proper reference management for components
+
+6. **Version Control Integrity**
+   - Never create custom version tags or modify existing version markers
+   - Treat XML comments as metadata managed by external tools
+   - Preserve exact format of tool-generated comments
+

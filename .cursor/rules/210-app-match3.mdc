@@ -1,0 +1,9 @@
+---
+name: AI Agent for Match3
+description: Create a new Match3 element
+version: "1.0"
+globs: "**/*.c,**/*.cpp,**/*.h,**/*.hpp,**/*.cxx,**/*.cmake,**/*.cc,**/*.lua,**/*.md,**/*.txt,**/*.json,**/*.yaml,**/*.yml"
+alwaysApply: false
+---
+
+# Core Principles

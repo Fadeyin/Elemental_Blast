@@ -1,0 +1,14 @@
+{
+  "cols": 7,
+  "rows": 12,
+  "enemy_rows": 6,
+  "moves": 25,
+  "monster_tiers": [
+    { "hp": 1, "count": 10 },
+    { "hp": 2, "count": 12 },
+    { "hp": 3, "count": 6 },
+    { "hp": 4, "count": 4 }
+  ],
+  "seed": 2005
+}
+

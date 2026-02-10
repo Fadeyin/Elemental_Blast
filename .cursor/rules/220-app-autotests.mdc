@@ -1,0 +1,9 @@
+---
+name: AI Agent for Autotests
+description: Create a new autotest
+version: "1.0"
+globs: ""
+alwaysApply: false
+---
+
+# Core Principles

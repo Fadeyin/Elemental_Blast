@@ -1,0 +1,79 @@
+---
+name: AI Agent for GFF Feature
+description: Create a new GFF Feature
+version: "1.0"
+globs: "**/*.c,**/*.cpp,**/*.h,**/*.hpp,**/*.cxx,**/*.cmake,**/*.cc,**/*.lua,**/*.md,**/*.txt,**/*.json,**/*.yaml,**/*.yml"
+alwaysApply: false
+---
+
+# Core Principles 
+Alaways follow Senior Software Engineer rules [010-engineer.mdc](mdc:.cursor/rules/010-engineer.mdc).
+Project uses custom codegeneration described in [201-codegeneration-rules.md](mdc:docs/guidelines/201-codegeneration-rules.md).
+For featuework described in:
+- Crossproject specific part [202-vso-gff-architecture.md](mdc:docs/guidelines/202-vso-gff-architecture.md)
+- Homescapes project specific part [203-hs-gff-architecture.md](mdc:docs/guidelines/203-hs-gff-architecture.md)
+
+# Feature Implementation Steps
+
+1. Define feature requirements and architecture
+2. Create feature components inheriting from `GFFCore::Feature::BaseComponent`
+3. Configure component properties with appropriate code generation tags
+4. Implement component lifecycle methods (Initialize, Activate, Deactivate, Deinitialize)
+5. Register components with feature manager
+6. Implement persistence (if needed) via save component
+7. Add analytics integration
+8. Create tests for feature components
+9. Document feature usage
+
+# Component Types
+
+Choose appropriate base components for your feature:
+
+- **Service Components**: Extend `GFFCore::Feature::BaseComponent` for global services
+- **UI Components**: Extend appropriate Window components for user interfaces
+- **Gameplay Components**: Extend game-specific components for gameplay features
+- **Persistence Components**: Use `HSSaveFeatureComponentImpl` for persistence
+
+# Component Template Example
+
+```cpp
+// MyFeatureComponent.h
+#pragma once
+
+#include <VSO/GFF/Components/BaseComponent.h>
+
+namespace GFF {
+
+class MyFeatureComponent : public GFFCore::Feature::BaseComponent {
+    VISUAL_CLASS(MyFeatureComponent)
+public:
+    using Ptr = Core::IntrusivePtr<MyFeatureComponent>;
+    using WeakPtr = Core::IntrusiveWeakPtr<MyFeatureComponent>;
+
+    /// @property
+    /// @tooltip(Feature enabled flag)
+    bool _isEnabled = true;
+
+    /// @method
+    /// @tooltip(Initializes the feature)
+    void Initialize() override;
+
+    /// @method
+    /// @tooltip(Activates the feature)
+    void Activate() override;
+
+    /// @method
+    /// @tooltip(Deactivates the feature)
+    void Deactivate() override;
+
+    /// @method
+    /// @tooltip(Deinitializes the feature)
+    void Deinitialize() override;
+
+private:
+    // Private implementation details
+};
+
+} // namespace GFF
+```
+

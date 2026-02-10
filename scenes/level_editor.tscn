@@ -1,0 +1,79 @@
+[gd_scene load_steps=2 format=3 uid="uid://dv2im11demeio"]
+
+[ext_resource type="Script" uid="uid://bn4xequj78eaj" path="res://scripts/level_editor.gd" id="1_2k4m3"]
+
+[node name="LevelEditor" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_2k4m3")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="LevelNameEdit" type="LineEdit" parent="VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+placeholder_text = "Название уровня"
+
+[node name="DifficultySpinBox" type="SpinBox" parent="VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+min_value = 1.0
+max_value = 10.0
+value = 1.0
+
+[node name="SaveButton" type="Button" parent="VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Сохранить"
+
+[node name="LoadButton" type="Button" parent="VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Загрузить"
+
+[node name="LevelDescriptionEdit" type="TextEdit" parent="VBoxContainer"]
+custom_minimum_size = Vector2(0, 100)
+layout_mode = 2
+placeholder_text = "Описание уровня"
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="CreatureTypeButtons" type="HBoxContainer" parent="VBoxContainer/HBoxContainer2"]
+layout_mode = 2
+
+[node name="RedButton" type="Button" parent="VBoxContainer/HBoxContainer2/CreatureTypeButtons"]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+text = "🔴"
+
+[node name="BlueButton" type="Button" parent="VBoxContainer/HBoxContainer2/CreatureTypeButtons"]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+text = "🔵"
+
+[node name="GreenButton" type="Button" parent="VBoxContainer/HBoxContainer2/CreatureTypeButtons"]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+text = "🟢"
+
+[node name="PurpleButton" type="Button" parent="VBoxContainer/HBoxContainer2/CreatureTypeButtons"]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+text = "🟣"
+
+[node name="GridContainer" type="GridContainer" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+columns = 8
