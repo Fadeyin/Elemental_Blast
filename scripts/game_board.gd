@@ -34,11 +34,11 @@ const MONSTER_TEXTURES := {
 	4: preload("res://textures/Monster_4_lvl.png"),
 	5: preload("res://textures/Monster_5_lvl.png")
 }
-const CHIP_SIZE_FACTOR := 0.95
+const CHIP_SIZE_FACTOR := 1.02
 const CHIP_EDGE_WIDTH := 3.0
 const CHIP_SHADOW_OFFSET := Vector2(0, 6)
 const CHIP_SHADOW_COLOR := Color(0, 0, 0, 0.25)
-const FIELD_GAP := 2.0 # Почти вплотную
+const FIELD_GAP := 8.0 # Почти вплотную
 const CHIP_HIGHLIGHT_ALPHA := 0.08
 const FALL_DURATION := 0.2
 const RAINBOW_CHIP_IDX := -2
