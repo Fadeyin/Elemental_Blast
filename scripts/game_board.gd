@@ -918,7 +918,8 @@ func _activate_bomb(bx: int, by: int, trigger_move: bool = true):
 	_trigger_chip_at(bx, by + 1, trigger_move)
 	_trigger_chip_at(bx, by - 1, trigger_move)
 	
-	_apply_gravity_up()
+	if not _is_executing_combo:
+		_apply_gravity_up()
 	queue_redraw()
 
 func _trigger_chip_at(x: int, y: int, trigger_move: bool = true):
@@ -962,11 +963,6 @@ func _draw_bomb_chip(top_left: Vector2, size_v: Vector2):
 		# Основная текстура
 		draw_texture_rect(tex, bomb_rect, false)
 		
-		# Легкое свечение для динамики
-		var time = Time.get_ticks_msec() / 1000.0
-		var pulse = (sin(time * 8.0) + 1.0) * 0.5
-		draw_circle(top_left + size_v * 0.5, size_v.x * 0.4, Color(1, 0.9, 0.5, 0.15 * pulse))
-
 func _draw_row_bonus_chip(top_left: Vector2, size_v: Vector2):
 	var tex = BONUS_TEXTURES[ROW_BONUS_CHIP_IDX]
 	if tex:
@@ -985,12 +981,6 @@ func _draw_row_bonus_chip(top_left: Vector2, size_v: Vector2):
 		# Основная текстура
 		draw_texture_rect(tex, rocket_rect, false)
 		
-		# Оставляем пульсирующий контур для акцента
-		var time = Time.get_ticks_msec() / 1000.0
-		var pulse = (sin(time * 5.0) + 1.0) * 0.5
-		var border_color = Color(1.0, 1.0, 1.0, 0.3 + pulse * 0.3)
-		draw_rect(Rect2(top_left, size_v), border_color, false, 2.0)
-
 func _draw_rainbow_chip(top_left: Vector2, size_v: Vector2):
 	var tex = BONUS_TEXTURES[RAINBOW_CHIP_IDX]
 	if tex:
@@ -1009,13 +999,6 @@ func _draw_rainbow_chip(top_left: Vector2, size_v: Vector2):
 		# Основная текстура
 		draw_texture_rect(tex, rainbow_rect, false)
 		
-		# Сияние
-		var time = Time.get_ticks_msec() / 1000.0
-		var pulse = (sin(time * 5.0) + 1.0) * 0.5
-		var border_color = Color(1.0, 1.0, 1.0, 0.4 + pulse * 0.4)
-		var center = top_left + size_v * 0.5
-		draw_arc(center, size_v.x * 0.5, 0, TAU, 32, border_color, 3.0)
-
 func _draw_chip(top_left: Vector2, size_v: Vector2, color_idx: int):
 	if color_idx >= 0 and color_idx < CHIP_TEXTURES.size():
 		var tex = CHIP_TEXTURES[color_idx]
@@ -1422,7 +1405,8 @@ func _apply_row_blast(row_y: int, trigger_move: bool = true):
 	for x in range(COLS):
 		_trigger_chip_at(x, row_y, trigger_move)
 	
-	_apply_gravity_up()
+	if not _is_executing_combo:
+		_apply_gravity_up()
 	queue_redraw()
 
 func _apply_booster_shuffle():
@@ -1551,14 +1535,16 @@ func _pop_cluster(x: int, y: int):
 	
 	# Создание бонусов
 	var created_bonus := false
+	var bonus_idx = -1
 	if cluster.size() >= 8:
-		chips[y][x] = RAINBOW_CHIP_IDX
-		created_bonus = true
+		bonus_idx = RAINBOW_CHIP_IDX
 	elif cluster.size() == 7:
-		chips[y][x] = ROW_BONUS_CHIP_IDX
-		created_bonus = true
+		bonus_idx = ROW_BONUS_CHIP_IDX
 	elif cluster.size() == 6:
-		chips[y][x] = BOMB_CHIP_IDX
+		bonus_idx = BOMB_CHIP_IDX
+		
+	if bonus_idx != -1:
+		chips[y][x] = bonus_idx
 		created_bonus = true
 		
 	# Запускаем снаряды
@@ -1569,15 +1555,31 @@ func _pop_cluster(x: int, y: int):
 			# Эффект лопания фишки
 			_add_chip_pop_vfx(cell.x, cell.y, color_idx)
 			
-			# Если на месте этой ячейки был создан бонус, отсюда снаряд не вылетает
-			if created_bonus and cell.x == x and cell.y == y:
-				continue
-			
 			var stagger = col_stagger.get(cell.x, 0)
 			_enqueue_projectiles(cell.x, cell.y, 1, stagger * 0.06)
 			col_stagger[cell.x] = stagger + 1
 	
 	_apply_gravity_up()
+	
+	# Находим, куда улетел наш бонус, и делаем ему красивое появление через скейл с задержкой
+	if created_bonus:
+		for ay in range(ENEMY_ROWS, ROWS):
+			if chips[ay][x] == bonus_idx:
+				var found_anim = false
+				for a in _active_anims:
+					if a.x == x and a.end_y == ay:
+						a["type"] = "scale"
+						a["delay"] = 0.2 # Задержка, чтобы сначала вылетел снаряд
+						found_anim = true
+						break
+				if not found_anim:
+					_active_anims.append({
+						"x": x, "start_y": ay, "end_y": ay,
+						"color": bonus_idx, "t": 0.0, "d": 0.3,
+						"delay": 0.2, "type": "scale"
+					})
+				break
+
 	queue_redraw()
  
 	return cluster.size()
@@ -1707,21 +1709,8 @@ func _combo_rainbow_plus_special(special_type: int):
 	for i in range(0, affected_cells.size(), batch_size):
 		for j in range(i, min(i + batch_size, affected_cells.size())):
 			var p = affected_cells[j]
-			# Проверяем, что фишка всё еще на месте
+			# Проверяем, что фишка всё еще на месте (могла взорваться от соседа)
 			if chips[p.y][p.x] == special_type:
-				# Добавляем VFX для каждого взрыва
-				if special_type == BOMB_CHIP_IDX:
-					var vp_size = get_viewport_rect().size
-					var origin = _grid_origin(vp_size)
-					var center_pos = origin + Vector2(p.x * CELL_SIZE + CELL_SIZE * 0.5, p.y * CELL_SIZE + CELL_SIZE * 0.5)
-					_board_vfx.append({"type": "bomb_explosion", "pos": center_pos, "color": Color(1, 0.6, 0.2), "t": 0.0, "d": 0.3})
-					set_process(true)
-				elif special_type == ROW_BONUS_CHIP_IDX:
-					var vp_size = get_viewport_rect().size
-					var center_y = _grid_origin(vp_size).y + p.y * CELL_SIZE + CELL_SIZE * 0.5
-					_board_vfx.append({"type": "beam", "pos": Vector2(vp_size.x * 0.5, center_y), "color": Color(0.4, 0.6, 1.0), "t": 0.0, "d": 0.3})
-					set_process(true)
-				
 				_trigger_chip_at(p.x, p.y)
 		await get_tree().create_timer(0.1).timeout
 
@@ -1745,7 +1734,8 @@ func _activate_rainbow_chip(rx: int, ry: int, trigger_move: bool = true):
 	var target_color = _get_most_frequent_color_idx()
 	if target_color == -1:
 		chips[ry][rx] = -1
-		_apply_gravity_up()
+		if not _is_executing_combo:
+			_apply_gravity_up()
 		return
 
 	# VFX Радуги
@@ -1772,13 +1762,19 @@ func _activate_rainbow_chip(rx: int, ry: int, trigger_move: bool = true):
 	# Удаляем радужную фишку
 	chips[ry][rx] = -1
 	
+	var old_combo = _is_executing_combo
+	_is_executing_combo = true
+	
 	# Лопаем все фишки этого цвета через единую функцию триггера
 	for y in range(ENEMY_ROWS, ROWS):
 		for x in range(COLS):
 			if chips[y][x] == target_color:
 				_trigger_chip_at(x, y, trigger_move)
 	
-	_apply_gravity_up()
+	_is_executing_combo = old_combo
+	
+	if not _is_executing_combo:
+		_apply_gravity_up()
 	queue_redraw()
 func _check_level_completed() -> bool:
 	# Победа, если все враги уничтожены (HP == 0) и очередь пуста
@@ -1855,9 +1851,6 @@ func _enemy_move_step():
 
 	_enemy_move_anims.clear()
 	
-	var col_forward_blocked = []
-	for i in range(COLS): col_forward_blocked.append(false)
-	
 	var moves = [] # {fx, fy, tx, ty, hp, init, is_attack}
 	var occupied_next = []
 	for yy in range(ENEMY_ROWS):
@@ -1875,24 +1868,41 @@ func _enemy_move_step():
 				var was_hit_this_turn = _enemies_hit_this_turn[y][x]
 				
 				if was_hit_this_turn:
-					col_forward_blocked[x] = true
-					# Просто стоит на месте (блокируя колонку для тех, кто сзади)
+					# Просто стоит на месте (но НЕ блокирует колонку для тех, кто сзади, если там есть место)
+					pass
 				else:
-					# Здоровый или восстановившийся монстр
-					if col_forward_blocked[x]:
-						# Если в этой колонке впереди есть заблокированный монстр, стоим на месте
-						continue
+					# Здоровый или восстановившийся монстр: пытается идти вперед, иначе ищет путь вбок
+					var moved = false
 					
+					# 1. Проверка движения прямо вперед
 					if y + 1 < ENEMY_ROWS:
-						# Если клетка ниже свободна
-						if enemies[y+1][x] == 0 and not occupied_next[y+1][x]:
+						if not occupied_next[y+1][x]:
 							moves.append({"fx": x, "fy": y, "tx": x, "ty": y+1, "hp": hp, "init": init, "is_attack": false})
 							occupied_next[y][x] = false
 							occupied_next[y+1][x] = true
+							moved = true
 					else:
 						# Атака игрока (выход за пределы поля)
 						moves.append({"fx": x, "fy": y, "tx": x, "ty": y+1, "hp": hp, "init": init, "is_attack": true})
 						occupied_next[y][x] = false
+						moved = true
+					
+					# 2. Если прямо нельзя (занято), пробуем в сторону (влево или вправо на той же горизонтали)
+					if not moved:
+						var dirs = [-1, 1]
+						if (x + y + int(Time.get_ticks_msec() * 0.001)) % 2 == 0:
+							dirs.reverse()
+						
+						for dx in dirs:
+							var nx = x + dx
+							if nx >= 0 and nx < COLS:
+								# Проверяем, свободна ли клетка сбоку
+								if not occupied_next[y][nx]:
+									moves.append({"fx": x, "fy": y, "tx": nx, "ty": y, "hp": hp, "init": init, "is_attack": false})
+									occupied_next[y][x] = false
+									occupied_next[y][nx] = true
+									moved = true
+									break
 
 	# 2. Сбрасываем флаги попаданий для следующего хода
 	for y in range(ENEMY_ROWS):
@@ -1954,12 +1964,6 @@ func _enemy_move_step():
 				"init": hp, 
 				"t": 0.0, "d": 0.25
 			})
-
-	if _enemy_move_anims.size() > 0:
-		set_process(true)
-
-	if _enemy_move_anims.size() > 0:
-		set_process(true)
 
 	if _enemy_move_anims.size() > 0:
 		set_process(true)
