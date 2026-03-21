@@ -1020,6 +1020,30 @@ func _get_monster_color(hp: int) -> Color:
 		return Color(0.95, 0.85, 0.25, 1) # жёлтый
 	return Color(1.00, 0.60, 0.20, 1) # запасной (янтарный)
 
+func _draw_monster_health_bar(top_left: Vector2, width: float, hp: int, max_hp: int, alpha: float = 1.0):
+	if max_hp <= 0:
+		return
+	
+	var bar_height := 4.0
+	var bar_margin := 2.0
+	var bar_y := top_left.y - bar_height - bar_margin
+	
+	var health_ratio := float(hp) / float(max_hp)
+	health_ratio = clamp(health_ratio, 0.0, 1.0)
+	
+	var bg_color := Color(0.2, 0.2, 0.2, 0.6 * alpha)
+	draw_rect(Rect2(top_left.x, bar_y, width, bar_height), bg_color)
+	
+	if hp > 0:
+		var green_width := width * health_ratio
+		var green_color := Color(0.2, 0.8, 0.2, 0.9 * alpha)
+		draw_rect(Rect2(top_left.x, bar_y, green_width, bar_height), green_color)
+	
+	if hp < max_hp and hp > 0:
+		var damage_width := width * (1.0 - health_ratio)
+		var red_color := Color(0.9, 0.2, 0.2, 0.7 * alpha)
+		draw_rect(Rect2(top_left.x + width * health_ratio, bar_y, damage_width, bar_height), red_color)
+
 func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp: int, monster_id: int, alpha: float = 1.0):
 	# Idle-анимация: "дыхание" и легкое покачивание на месте
 	var time = Time.get_ticks_msec() * 0.001
@@ -1133,6 +1157,8 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 			draw_line(Vector2(draw_center.x, mouth_y - 2), Vector2(draw_center.x + m_w, mouth_y + 4), mouth_color, 3.0)
 		else:
 			draw_line(Vector2(draw_center.x - m_w, mouth_y), Vector2(draw_center.x + m_w, mouth_y), mouth_color, 2.0)
+	
+	_draw_monster_health_bar(anim_top_left, anim_size.x, hp, initial_hp, alpha)
 
 func _draw_player_zone_overlay():
 	var vp_size = get_viewport_rect().size
