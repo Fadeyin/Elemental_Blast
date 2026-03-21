@@ -55,6 +55,10 @@ const HEALTH_BAR_BG_COLOR := Color(0.2, 0.2, 0.2, 0.6)
 const HEALTH_BAR_HEALTH_COLOR := Color(0.2, 0.8, 0.2, 0.9)
 const HEALTH_BAR_DAMAGE_COLOR := Color(0.9, 0.2, 0.2, 0.7)
 
+# Константы препятствий
+const OBSTACLE_COLOR := Color(0.4, 0.35, 0.3, 1.0) # Коричневый (стена)
+const OBSTACLE_EDGE_COLOR := Color(0.25, 0.2, 0.15, 1.0) # Тёмно-коричневый (края)
+
 # Отступы под UI-панели
 const UI_TOP_MARGIN := 72
 const UI_BOTTOM_MARGIN := 128
@@ -64,6 +68,8 @@ var enemies := [] # 2D массив здоровья врагов (y: 0..ENEMY_R
 var enemies_initial_hp := [] # Исходный HP врагов для целей
 var _enemies_hit_this_turn := [] # 2D массив флагов попадания в этом ходу
 var _monster_spawn_queue := [] # Очередь монстров для появления на поле
+var obstacles := [] # 2D массив здоровья препятствий (y: 0..ENEMY_ROWS-1)
+var obstacles_initial_hp := [] # Исходный HP препятствий
 var _projectiles := [] # [{x:int, start_y:float, end_y:float, t:float, d:float, delay:float, color:Color, hit_applied:bool, has_target:bool}]
 var _active_anims := [] # [{x:int, start_y:int, end_y:int, color:int, t:float, d:float}]
 var _enemy_death_anims := [] # [{x:int, y:int, t:float, d:float, hp:int, init:int, id:int}]
@@ -94,6 +100,7 @@ func _ready():
 	randomize()
 	var cfg = LevelManager.get_level_config(LevelManager.current_level)
 	_init_chips()
+	_init_obstacles_from_config(cfg)
 	_init_enemies_from_config(cfg)
 	_init_moves_from_config(cfg)
 	_init_ui()
@@ -496,10 +503,36 @@ func _init_enemies_from_config(cfg: Dictionary):
 	# Начальное заполнение: заполняем первые 3 ряда монстрами из очереди
 	for y in range(3):
 		for x in range(COLS):
+			# Проверяем, что в клетке нет препятствия
+			if obstacles.size() > y and obstacles[y].size() > x and obstacles[y][x] > 0:
+				continue
 			if not _monster_spawn_queue.is_empty():
 				var hp = _monster_spawn_queue.pop_front()
 				enemies[y][x] = hp
 				enemies_initial_hp[y][x] = hp
+
+func _init_obstacles_from_config(cfg: Dictionary):
+	obstacles.clear()
+	obstacles_initial_hp.clear()
+	
+	for y in range(ENEMY_ROWS):
+		var row := []
+		var row_init := []
+		for x in range(COLS):
+			row.append(0)
+			row_init.append(0)
+		obstacles.append(row)
+		obstacles_initial_hp.append(row_init)
+	
+	if cfg.has("obstacles") and typeof(cfg.obstacles) == TYPE_ARRAY:
+		for obs in cfg.obstacles:
+			if typeof(obs) == TYPE_DICTIONARY and obs.has("x") and obs.has("y") and obs.has("hp"):
+				var ox = int(obs.x)
+				var oy = int(obs.y)
+				var hp = int(obs.hp)
+				if oy >= 0 and oy < ENEMY_ROWS and ox >= 0 and ox < COLS:
+					obstacles[oy][ox] = hp
+					obstacles_initial_hp[oy][ox] = hp
 
 func _grid_origin(vp_size: Vector2) -> Vector2:
 	var grid_size = Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT + PLAYER_ROWS * CELL_SIZE + FIELD_GAP)
@@ -682,6 +715,17 @@ func _draw():
 	
 	# Сортируем: монстры с большим Y (ближе к игроку) рисуются ПОЗЖЕ
 	monsters_to_draw.sort_custom(func(a, b): return a.sort_y < b.sort_y)
+	
+	# Отрисовываем препятствия (статичные, всегда на месте)
+	for y in range(ENEMY_ROWS):
+		for x in range(COLS):
+			if obstacles.size() > y and obstacles[y].size() > x and obstacles[y][x] > 0:
+				var obs_top_left = Vector2(
+					origin.x + float(x) * CELL_SIZE,
+					origin.y + float(y) * ENEMY_CELL_HEIGHT
+				)
+				var obs_size = Vector2(CELL_SIZE, ENEMY_CELL_HEIGHT)
+				_draw_obstacle(obs_top_left, obs_size, obstacles[y][x], obstacles_initial_hp[y][x])
 	
 	# Отрисовываем всех монстров в правильном порядке
 	var e_chip_size = Vector2(CELL_SIZE * CHIP_SIZE_FACTOR, CELL_SIZE * CHIP_SIZE_FACTOR)
@@ -1168,6 +1212,36 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 	
 	_draw_monster_health_bar(anim_top_left, anim_size.x, hp, initial_hp, alpha)
 
+func _draw_obstacle(top_left: Vector2, size: Vector2, hp: int, max_hp: int):
+	var base_color = OBSTACLE_COLOR
+	var edge_color = OBSTACLE_EDGE_COLOR
+	
+	draw_rect(Rect2(top_left + Vector2(2, 2), size - Vector2(4, 4)), Color(0, 0, 0, 0.3))
+	draw_rect(Rect2(top_left, size), base_color)
+	
+	draw_line(top_left, top_left + Vector2(size.x, 0), edge_color, 3.0)
+	draw_line(top_left, top_left + Vector2(0, size.y), edge_color, 3.0)
+	draw_line(top_left + Vector2(size.x, 0), top_left + size, edge_color, 3.0)
+	draw_line(top_left + Vector2(0, size.y), top_left + size, edge_color, 3.0)
+	
+	var block_pattern = [
+		[0.0, 0.0, 0.5, 0.33],
+		[0.5, 0.0, 1.0, 0.33],
+		[0.0, 0.33, 0.4, 0.66],
+		[0.4, 0.33, 1.0, 0.66],
+		[0.0, 0.66, 0.6, 1.0],
+		[0.6, 0.66, 1.0, 1.0]
+	]
+	
+	for block in block_pattern:
+		var bx = top_left.x + size.x * block[0]
+		var by = top_left.y + size.y * block[1]
+		var bw = size.x * (block[2] - block[0])
+		var bh = size.y * (block[3] - block[1])
+		draw_rect(Rect2(bx, by, bw, bh), edge_color, false, 1.5)
+	
+	_draw_monster_health_bar(top_left, size.x, hp, max_hp, 1.0)
+
 func _draw_player_zone_overlay():
 	var vp_size = get_viewport_rect().size
 	var origin = _grid_origin(vp_size)
@@ -1279,7 +1353,26 @@ func _process(delta: float) -> void:
 				var tx = _projectiles[j].x
 				var ty = int(_projectiles[j].end_y)
 				if ty >= 0 and ty < ENEMY_ROWS and enemies.size() > ty and enemies[ty].size() > tx:
-					if enemies[ty][tx] > 0:
+					# Проверяем препятствие
+					if obstacles[ty][tx] > 0:
+						obstacles[ty][tx] -= 1
+						if obstacles[ty][tx] <= 0:
+							obstacles[ty][tx] = 0
+							obstacles_initial_hp[ty][tx] = 0
+							# VFX разрушения препятствия
+							var vp_size = get_viewport_rect().size
+							var origin = _grid_origin(vp_size)
+							var obs_center = origin + Vector2(float(tx) * CELL_SIZE + CELL_SIZE * 0.5, float(ty) * ENEMY_CELL_HEIGHT + ENEMY_CELL_HEIGHT * 0.5)
+							_board_vfx.append({
+								"type": "explosion",
+								"pos": obs_center,
+								"color": OBSTACLE_COLOR,
+								"t": 0.0,
+								"d": 0.3
+							})
+						queue_redraw()
+					# Проверяем монстра (только если нет препятствия)
+					elif enemies[ty][tx] > 0:
 						enemies[ty][tx] -= 1
 						_enemies_hit_this_turn[ty][tx] = true
 						
@@ -1832,16 +1925,19 @@ func _on_level_failed():
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 func _enqueue_projectiles(col_x: int, from_y: int, count: int, base_delay: float = 0.0, trigger_move: bool = true):
-	# Планируем цели по ближайшим врагам снизу вверх, без превышения их суммарного HP
+	# Планируем цели по ближайшим врагам/препятствиям снизу вверх, без превышения их суммарного HP
 	var hp_left := []
 	for yy in range(ENEMY_ROWS):
 		var row_hp = 0
-		if enemies.size() > yy and enemies[yy].size() > col_x:
+		if obstacles.size() > yy and obstacles[yy].size() > col_x and obstacles[yy][col_x] > 0:
+			# Препятствие блокирует — снаряд попадёт в него
+			row_hp = obstacles[yy][col_x]
+		elif enemies.size() > yy and enemies[yy].size() > col_x:
 			row_hp = enemies[yy][col_x]
-			# Учитываем снаряды, которые уже летят в этого врага, чтобы не было "оверкилла"
-			for p in _projectiles:
-				if not p.hit_applied and p.has_target and p.x == col_x and int(p.end_y) == yy:
-					row_hp -= 1
+		# Учитываем снаряды, которые уже летят в эту цель, чтобы не было "оверкилла"
+		for p in _projectiles:
+			if not p.hit_applied and p.has_target and p.x == col_x and int(p.end_y) == yy:
+				row_hp -= 1
 		hp_left.append(max(0, row_hp))
 	var planned := [] # пары (has_target:bool, target_y:int)
 	for i in range(count):
@@ -1910,7 +2006,9 @@ func _enemy_move_step():
 					
 					# 1. Проверка движения прямо вперед
 					if y + 1 < ENEMY_ROWS:
-						if not occupied_next[y+1][x]:
+						# Проверяем препятствие и занятость клетки
+						var has_obstacle = obstacles[y+1][x] > 0
+						if not occupied_next[y+1][x] and not has_obstacle:
 							moves.append({"fx": x, "fy": y, "tx": x, "ty": y+1, "hp": hp, "init": init, "is_attack": false})
 							occupied_next[y][x] = false
 							occupied_next[y+1][x] = true
@@ -1921,7 +2019,7 @@ func _enemy_move_step():
 						occupied_next[y][x] = false
 						moved = true
 					
-					# 2. Если прямо нельзя (занято), пробуем в сторону (влево или вправо на той же горизонтали)
+					# 2. Если прямо нельзя (занято или препятствие), пробуем в сторону (влево или вправо на той же горизонтали)
 					if not moved:
 						var dirs = [-1, 1]
 						if (x + y + int(Time.get_ticks_msec() * 0.001)) % 2 == 0:
@@ -1930,8 +2028,9 @@ func _enemy_move_step():
 						for dx in dirs:
 							var nx = x + dx
 							if nx >= 0 and nx < COLS:
-								# Проверяем, свободна ли клетка сбоку
-								if not occupied_next[y][nx]:
+								# Проверяем препятствие и занятость клетки сбоку
+								var has_obstacle = obstacles[y][nx] > 0
+								if not occupied_next[y][nx] and not has_obstacle:
 									moves.append({"fx": x, "fy": y, "tx": nx, "ty": y, "hp": hp, "init": init, "is_attack": false})
 									occupied_next[y][x] = false
 									occupied_next[y][nx] = true
@@ -1987,7 +2086,8 @@ func _enemy_move_step():
 
 	# 4. Появление новых врагов в верхнем ряду (row 0)
 	for x in range(COLS):
-		if enemies[0][x] == 0 and not _monster_spawn_queue.is_empty():
+		# Проверяем, что нет препятствия в этой клетке
+		if enemies[0][x] == 0 and obstacles[0][x] == 0 and not _monster_spawn_queue.is_empty():
 			var hp = _monster_spawn_queue.pop_front()
 			enemies[0][x] = hp
 			enemies_initial_hp[0][x] = hp
