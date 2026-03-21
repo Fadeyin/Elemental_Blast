@@ -83,13 +83,20 @@ _draw_monster_health_bar(anim_top_left, anim_size.x, hp, initial_hp, alpha)
 
 ## Константы
 
+Все параметры полоски здоровья вынесены в константы в начале файла `game_board.gd`:
+
 ```gdscript
-const BAR_HEIGHT = 4.0       # Высота полоски в пикселях
-const BAR_MARGIN = 2.0       # Отступ от верхней границы монстра
-const BG_COLOR = Color(0.2, 0.2, 0.2, 0.6)     # Цвет фона
-const HEALTH_COLOR = Color(0.2, 0.8, 0.2, 0.9) # Цвет здоровья
-const DAMAGE_COLOR = Color(0.9, 0.2, 0.2, 0.7) # Цвет урона
+const HEALTH_BAR_HEIGHT := 4.0                              # Высота полоски в пикселях
+const HEALTH_BAR_MARGIN := 2.0                              # Отступ от верхней границы монстра
+const HEALTH_BAR_BG_COLOR := Color(0.2, 0.2, 0.2, 0.6)      # Цвет фона
+const HEALTH_BAR_HEALTH_COLOR := Color(0.2, 0.8, 0.2, 0.9)  # Цвет здоровья
+const HEALTH_BAR_DAMAGE_COLOR := Color(0.9, 0.2, 0.2, 0.7)  # Цвет урона
 ```
+
+Использование констант обеспечивает:
+- Лёгкую настройку визуальных параметров
+- Единую точку изменения для всех полосок
+- Улучшенную читаемость кода
 
 ## Будущие улучшения
 
