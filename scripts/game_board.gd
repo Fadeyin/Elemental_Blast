@@ -48,6 +48,13 @@ const BG_COLOR := Color(0.52, 0.58, 0.68, 1) # Пастельный светло
 const GAME_BG_TEXTURE := preload("res://textures/Game_Backgound.png")
 const ENEMY_TILE_TEXTURE := preload("res://textures/Floor_Enemy_Tile_.png")
 
+# Константы полоски здоровья монстров
+const HEALTH_BAR_HEIGHT := 4.0
+const HEALTH_BAR_MARGIN := 2.0
+const HEALTH_BAR_BG_COLOR := Color(0.2, 0.2, 0.2, 0.6)
+const HEALTH_BAR_HEALTH_COLOR := Color(0.2, 0.8, 0.2, 0.9)
+const HEALTH_BAR_DAMAGE_COLOR := Color(0.9, 0.2, 0.2, 0.7)
+
 # Отступы под UI-панели
 const UI_TOP_MARGIN := 72
 const UI_BOTTOM_MARGIN := 128
@@ -1024,25 +1031,26 @@ func _draw_monster_health_bar(top_left: Vector2, width: float, hp: int, max_hp: 
 	if max_hp <= 0:
 		return
 	
-	var bar_height := 4.0
-	var bar_margin := 2.0
-	var bar_y := top_left.y - bar_height - bar_margin
+	var bar_y := top_left.y - HEALTH_BAR_HEIGHT - HEALTH_BAR_MARGIN
 	
 	var health_ratio := float(hp) / float(max_hp)
 	health_ratio = clamp(health_ratio, 0.0, 1.0)
 	
-	var bg_color := Color(0.2, 0.2, 0.2, 0.6 * alpha)
-	draw_rect(Rect2(top_left.x, bar_y, width, bar_height), bg_color)
+	var bg_color := HEALTH_BAR_BG_COLOR
+	bg_color.a *= alpha
+	draw_rect(Rect2(top_left.x, bar_y, width, HEALTH_BAR_HEIGHT), bg_color)
 	
 	if hp > 0:
 		var green_width := width * health_ratio
-		var green_color := Color(0.2, 0.8, 0.2, 0.9 * alpha)
-		draw_rect(Rect2(top_left.x, bar_y, green_width, bar_height), green_color)
+		var green_color := HEALTH_BAR_HEALTH_COLOR
+		green_color.a *= alpha
+		draw_rect(Rect2(top_left.x, bar_y, green_width, HEALTH_BAR_HEIGHT), green_color)
 	
 	if hp < max_hp and hp > 0:
 		var damage_width := width * (1.0 - health_ratio)
-		var red_color := Color(0.9, 0.2, 0.2, 0.7 * alpha)
-		draw_rect(Rect2(top_left.x + width * health_ratio, bar_y, damage_width, bar_height), red_color)
+		var red_color := HEALTH_BAR_DAMAGE_COLOR
+		red_color.a *= alpha
+		draw_rect(Rect2(top_left.x + width * health_ratio, bar_y, damage_width, HEALTH_BAR_HEIGHT), red_color)
 
 func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp: int, monster_id: int, alpha: float = 1.0):
 	# Idle-анимация: "дыхание" и легкое покачивание на месте
