@@ -65,8 +65,9 @@ jobs:
           custom_template/debug=""
           custom_template/release=""
           variant/extensions_support=false
+          variant/thread_support=false
           vram_texture_compression/for_desktop=true
-          vram_texture_compression/for_mobile=false
+          vram_texture_compression/for_mobile=true
           html/export_icon=true
           html/custom_html_shell=""
           html/head_include=""
@@ -74,9 +75,10 @@ jobs:
           html/focus_canvas_on_start=true
           html/experimental_virtual_keyboard=false
           progressive_web_app/enabled=false
+          progressive_web_app/ensure_cross_origin_isolation_headers=false
           progressive_web_app/offline_page=""
           progressive_web_app/display=1
-          progressive_web_app/orientation=1
+          progressive_web_app/orientation=2
           progressive_web_app/icon_144x144=""
           progressive_web_app/icon_180x180=""
           progressive_web_app/icon_512x512=""
@@ -87,34 +89,13 @@ jobs:
         run: |
           ./Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --export-release "Web" build/web/index.html
       
-      - name: Add COOP/COEP Headers
+      - name: Verify Build Output
         run: |
-          cat > build/web/.htaccess << 'EOF'
-          <IfModule mod_headers.c>
-              Header set Cross-Origin-Embedder-Policy "require-corp"
-              Header set Cross-Origin-Opener-Policy "same-origin"
-          </IfModule>
-          EOF
-          
-          cat > build/web/headers.json << 'EOF'
-          {
-            "headers": [
-              {
-                "source": "**",
-                "headers": [
-                  {
-                    "key": "Cross-Origin-Embedder-Policy",
-                    "value": "require-corp"
-                  },
-                  {
-                    "key": "Cross-Origin-Opener-Policy",
-                    "value": "same-origin"
-                  }
-                ]
-              }
-            ]
-          }
-          EOF
+          echo "=== Build contents ==="
+          ls -lah build/web/
+          echo ""
+          echo "=== File sizes ==="
+          du -sh build/web/*
       
       - name: Create Index with Mobile Optimization
         run: |

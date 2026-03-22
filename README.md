@@ -10,21 +10,19 @@ Match-3 головоломка на Godot Engine 4.6
 
 ### Тестирование на телефоне
 
-Игра автоматически собирается и публикуется на **Netlify** при каждом push:
+Игра автоматически собирается и публикуется на **GitHub Pages** при каждом push:
 
-```
-https://elemental-blast-xxxxx.netlify.app
-```
-
-*URL будет доступен после настройки Netlify (см. `.github/NETLIFY_SETUP.md`)*
-
-**Альтернативно на GitHub Pages:**
 ```
 https://fadeyin.github.io/Elemental_Blast/
 ```
-⚠️ *GitHub Pages не поддерживает HTTP-заголовки для Godot 4.x, используйте Netlify*
 
-Сохраните ссылку в закладках на телефоне для быстрого доступа!
+✅ **Работает на GitHub Pages** - откройте на телефоне и сохраните в закладки!
+
+**Опционально: Netlify** (для максимальной производительности):
+```
+https://elemental-blast-xxxxx.netlify.app
+```
+*Требует настройки секретов (см. `NETLIFY_QUICK_GUIDE.md`)*
 
 ### Разработка
 
