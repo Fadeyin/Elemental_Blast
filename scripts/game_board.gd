@@ -83,6 +83,16 @@ var _booster_counts := {
 var _is_executing_combo: bool = false
 var _freeze_turns: int = 0
 
+# Выбранные предуровневые усиления игрока
+var _selected_prelevel_boosts := {
+	"bomb": false,
+	"arrow": false,
+	"rainbow": false
+}
+
+# Бонусные фишки от Шлема Морта для текущего уровня
+var _mort_helmet_bonus_chips := {}
+
 func _ready():
 	randomize()
 	var cfg = LevelManager.get_level_config(LevelManager.current_level)
@@ -95,6 +105,10 @@ func _ready():
 	if get_viewport() != null:
 		get_viewport().size_changed.connect(_on_viewport_size_changed)
 	set_process(true) # Всегда активен для idle-анимаций монстров
+	
+	# Показываем диалог старта уровня перед началом игры
+	_show_level_start_dialog()
+	
 	# Кнопка "В меню"
 	var back_btn = find_child("BackToMenu", true, false)
 	if back_btn != null:
@@ -1794,6 +1808,8 @@ func _on_level_completed():
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 func _on_level_failed():
+	# Обнуляем win streak при поражении
+	LevelManager.mark_level_failed()
 	# Здесь можно сделать экран поражения, сейчас просто возврат в меню
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
@@ -2081,3 +2097,72 @@ func _add_chip_pop_vfx(x: int, y: int, color_idx: int):
 		})
 	
 	set_process(true)
+
+func _show_level_start_dialog():
+	# Загружаем и показываем скрипт диалога старта уровня
+	var dialog_script = preload("res://scripts/level_start_dialog.gd")
+	var dialog = Control.new()
+	dialog.set_script(dialog_script)
+	dialog.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dialog.mouse_filter = Control.MOUSE_FILTER_STOP
+	
+	dialog.connect("start_gameplay", _on_level_start_dialog_completed)
+	
+	add_child(dialog)
+	dialog.setup()
+	
+	# Блокируем ввод до закрытия диалога
+	set_process_unhandled_input(false)
+
+func _on_level_start_dialog_completed(selected_boosts: Dictionary, mort_bonuses: Dictionary):
+	# Сохраняем выбранные усиления и бонусы Шлема Морта
+	_selected_prelevel_boosts = selected_boosts
+	_mort_helmet_bonus_chips = mort_bonuses
+	
+	# Спавним бонусные фишки на старте уровня
+	_spawn_bonus_chips_at_start()
+	
+	# Разблокируем игровой процесс
+	set_process_unhandled_input(true)
+
+func _spawn_bonus_chips_at_start():
+	# Собираем все бонусные фишки для спавна (предуровневые + шлем морта)
+	var bonus_chips_to_spawn := []
+	
+	# Бонусы от Шлема Морта
+	var arrow_count = _mort_helmet_bonus_chips.get("arrow", 0)
+	var bomb_count = _mort_helmet_bonus_chips.get("bomb", 0)
+	
+	for i in range(arrow_count):
+		bonus_chips_to_spawn.append(ROW_BONUS_CHIP_IDX)
+	for i in range(bomb_count):
+		bonus_chips_to_spawn.append(BOMB_CHIP_IDX)
+	
+	# Предуровневые усиления
+	if _selected_prelevel_boosts.get("arrow", false):
+		bonus_chips_to_spawn.append(ROW_BONUS_CHIP_IDX)
+	if _selected_prelevel_boosts.get("bomb", false):
+		bonus_chips_to_spawn.append(BOMB_CHIP_IDX)
+	if _selected_prelevel_boosts.get("rainbow", false):
+		bonus_chips_to_spawn.append(RAINBOW_CHIP_IDX)
+	
+	if bonus_chips_to_spawn.is_empty():
+		return
+	
+	# Получаем список всех пустых клеток в зоне игрока
+	var empty_cells := []
+	for y in range(ENEMY_ROWS, ROWS):
+		for x in range(COLS):
+			if chips[y][x] >= 0: # Обычная фишка (не пустая и не бонус)
+				empty_cells.append(Vector2i(x, y))
+	
+	# Перемешиваем и выбираем рандомные позиции
+	empty_cells.shuffle()
+	
+	var spawn_count = min(bonus_chips_to_spawn.size(), empty_cells.size())
+	for i in range(spawn_count):
+		var cell = empty_cells[i]
+		var bonus_type = bonus_chips_to_spawn[i]
+		chips[cell.y][cell.x] = bonus_type
+	
+	queue_redraw()
