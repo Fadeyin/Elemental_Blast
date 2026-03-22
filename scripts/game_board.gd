@@ -394,12 +394,20 @@ func _show_buy_booster_dialog(lm_type: int):
 	add_child(dialog)
 	dialog.popup_centered(Vector2(400, 200))
 	
-	dialog.confirmed.connect(_on_buy_booster_confirmed.bind(lm_type))
-
-func _on_buy_booster_confirmed(lm_type: int):
-	if LevelManager.buy_booster(lm_type):
-		_update_ui()
-		queue_redraw()
+	var _on_confirmed = func():
+		if not dialog.is_queued_for_deletion():
+			dialog.queue_free()
+			if LevelManager.buy_booster(lm_type):
+				_update_ui()
+				queue_redraw()
+	
+	var _on_canceled = func():
+		if not dialog.is_queued_for_deletion():
+			dialog.queue_free()
+	
+	dialog.confirmed.connect(_on_confirmed)
+	dialog.canceled.connect(_on_canceled)
+	dialog.close_requested.connect(_on_canceled)
 
 func _update_booster_buttons_visual():
 	for i in range(1, 5): # Все 4 бустера
@@ -1156,6 +1164,9 @@ func _draw_monster_health_bar(top_left: Vector2, width: float, hp: int, max_hp: 
 	if max_hp <= 0:
 		return
 	
+	var bar_width := width * 0.7
+	var bar_offset := (width - bar_width) * 0.5
+	var bar_x := top_left.x + bar_offset
 	var bar_y := top_left.y - HEALTH_BAR_HEIGHT - HEALTH_BAR_MARGIN
 	
 	var health_ratio := float(hp) / float(max_hp)
@@ -1163,19 +1174,19 @@ func _draw_monster_health_bar(top_left: Vector2, width: float, hp: int, max_hp: 
 	
 	var bg_color := HEALTH_BAR_BG_COLOR
 	bg_color.a *= alpha
-	draw_rect(Rect2(top_left.x, bar_y, width, HEALTH_BAR_HEIGHT), bg_color)
+	draw_rect(Rect2(bar_x, bar_y, bar_width, HEALTH_BAR_HEIGHT), bg_color)
 	
 	if hp > 0:
-		var green_width := width * health_ratio
+		var green_width := bar_width * health_ratio
 		var green_color := HEALTH_BAR_HEALTH_COLOR
 		green_color.a *= alpha
-		draw_rect(Rect2(top_left.x, bar_y, green_width, HEALTH_BAR_HEIGHT), green_color)
+		draw_rect(Rect2(bar_x, bar_y, green_width, HEALTH_BAR_HEIGHT), green_color)
 	
 	if hp < max_hp and hp > 0:
-		var damage_width := width * (1.0 - health_ratio)
+		var damage_width := bar_width * (1.0 - health_ratio)
 		var red_color := HEALTH_BAR_DAMAGE_COLOR
 		red_color.a *= alpha
-		draw_rect(Rect2(top_left.x + width * health_ratio, bar_y, damage_width, HEALTH_BAR_HEIGHT), red_color)
+		draw_rect(Rect2(bar_x + bar_width * health_ratio, bar_y, damage_width, HEALTH_BAR_HEIGHT), red_color)
 
 func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp: int, monster_id: int, alpha: float = 1.0):
 	# Idle-анимация: "дыхание" и легкое покачивание на месте
@@ -2014,12 +2025,18 @@ func _show_victory_dialog(total: int, base: int, bonus: int):
 	dialog.title = "Уровень пройден!"
 	dialog.dialog_text = "Поздравляем!\n\nНаграда:\n  Базовая: %d монет\n  За ходы: %d × %d = %d монет\n\nВсего получено: %d монет" % [base, _moves_left, 10, bonus, total]
 	dialog.ok_button_text = "Продолжить"
+	dialog.get_cancel_button().hide()
 	
 	add_child(dialog)
 	dialog.popup_centered(Vector2(450, 250))
 	
-	dialog.confirmed.connect(func(): get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
-	dialog.close_requested.connect(func(): get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
+	var _return_to_menu = func():
+		if not dialog.is_queued_for_deletion():
+			dialog.queue_free()
+			get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	
+	dialog.confirmed.connect(_return_to_menu)
+	dialog.close_requested.connect(_return_to_menu)
 
 func _on_level_failed():
 	# Если закончились ходы (но не жизни), предлагаем купить ходы
@@ -2047,21 +2064,25 @@ func _show_buy_moves_dialog():
 	add_child(dialog)
 	dialog.popup_centered(Vector2(500, 200))
 	
-	dialog.confirmed.connect(_on_buy_moves_confirmed.bind(cost))
-	dialog.canceled.connect(_on_buy_moves_canceled)
-	dialog.close_requested.connect(_on_buy_moves_canceled)
-
-func _on_buy_moves_confirmed(cost: int):
-	if LevelManager.spend_coins(cost):
-		_moves_left += MOVES_PER_PURCHASE
-		_moves_purchase_count += 1
-		_update_ui()
-		queue_redraw()
-	else:
-		_on_buy_moves_canceled()
-
-func _on_buy_moves_canceled():
-	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	var _on_confirmed = func():
+		if not dialog.is_queued_for_deletion():
+			dialog.queue_free()
+			if LevelManager.spend_coins(cost):
+				_moves_left += MOVES_PER_PURCHASE
+				_moves_purchase_count += 1
+				_update_ui()
+				queue_redraw()
+			else:
+				get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	
+	var _on_canceled = func():
+		if not dialog.is_queued_for_deletion():
+			dialog.queue_free()
+			get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	
+	dialog.confirmed.connect(_on_confirmed)
+	dialog.canceled.connect(_on_canceled)
+	dialog.close_requested.connect(_on_canceled)
 
 func _get_moves_purchase_cost() -> int:
 	return MOVES_PURCHASE_BASE_COST + (_moves_purchase_count * MOVES_PURCHASE_INCREMENT)
