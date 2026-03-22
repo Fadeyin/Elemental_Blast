@@ -10,3 +10,7 @@ build/
 *.zip
 *.tpz
 Godot_*
+
+# Environment variables
+.env
+.env.local
