@@ -91,12 +91,6 @@ const MOVES_PER_PURCHASE := 5
 
 enum BoosterType { NONE, HAMMER, ROW_BLAST, SHUFFLE, FREEZE }
 var _active_booster: BoosterType = BoosterType.NONE
-var _booster_counts := {
-	BoosterType.HAMMER: 4,
-	BoosterType.ROW_BLAST: 4,
-	BoosterType.SHUFFLE: 4,
-	BoosterType.FREEZE: 4
-}
 var _is_executing_combo: bool = false
 var _freeze_turns: int = 0
 
@@ -343,12 +337,18 @@ func _init_ui():
 
 func _on_booster_clicked(type: BoosterType, btn: Button):
 	if type == BoosterType.NONE: return
-	if _booster_counts.get(type, 0) <= 0: return # Нет зарядов
+	
+	var lm_type = _convert_to_lm_booster_type(type)
+	var count = LevelManager.get_booster_count(lm_type)
+	
+	if count <= 0:
+		_show_buy_booster_dialog(lm_type)
+		return
 	
 	# Если это мгновенный бустер (Перемешивание)
 	if type == BoosterType.SHUFFLE:
 		_apply_booster_shuffle()
-		_booster_counts[BoosterType.SHUFFLE] -= 1
+		LevelManager.use_booster(lm_type)
 		_update_ui()
 		return
 	
@@ -359,6 +359,47 @@ func _on_booster_clicked(type: BoosterType, btn: Button):
 		_active_booster = type
 	
 	_update_booster_buttons_visual()
+
+func _convert_to_lm_booster_type(type: BoosterType) -> int:
+	match type:
+		BoosterType.HAMMER: return LevelManager.BoosterType.HAMMER
+		BoosterType.ROW_BLAST: return LevelManager.BoosterType.ROW_BLAST
+		BoosterType.SHUFFLE: return LevelManager.BoosterType.SHUFFLE
+		BoosterType.FREEZE: return LevelManager.BoosterType.FREEZE
+	return LevelManager.BoosterType.HAMMER
+
+func _show_buy_booster_dialog(lm_type: int):
+	var booster_names = {
+		LevelManager.BoosterType.HAMMER: "Молоток",
+		LevelManager.BoosterType.ROW_BLAST: "Ракета",
+		LevelManager.BoosterType.SHUFFLE: "Перемешивание",
+		LevelManager.BoosterType.FREEZE: "Заморозка"
+	}
+	
+	var booster_name = booster_names.get(lm_type, "Бустер")
+	var cost = LevelManager.BOOSTER_PURCHASE_COST
+	var player_coins = LevelManager.get_coins()
+	
+	var dialog = AcceptDialog.new()
+	dialog.title = "Купить бустер?"
+	dialog.dialog_text = "Бустер: %s\nЦена: %d монет\n\nУ вас: %d монет" % [booster_name, cost, player_coins]
+	dialog.ok_button_text = "Купить (%d)" % cost
+	dialog.cancel_button_text = "Отмена"
+	
+	if player_coins < cost:
+		dialog.dialog_text = "Недостаточно монет!\n\nБустер: %s\nЦена: %d монет\nУ вас: %d монет" % [booster_name, cost, player_coins]
+		dialog.ok_button_text = "Понятно"
+		dialog.get_ok_button().disabled = true
+	
+	add_child(dialog)
+	dialog.popup_centered(Vector2(400, 200))
+	
+	dialog.confirmed.connect(_on_buy_booster_confirmed.bind(lm_type))
+
+func _on_buy_booster_confirmed(lm_type: int):
+	if LevelManager.buy_booster(lm_type):
+		_update_ui()
+		queue_redraw()
 
 func _update_booster_buttons_visual():
 	for i in range(1, 5): # Все 4 бустера
@@ -471,7 +512,8 @@ func _update_ui():
 		var btn_path = "CanvasUI/UIRoot/BottomBar/Booster" + str(i+1)
 		if has_node(btn_path):
 			var btn: Button = get_node(btn_path)
-			var count = _booster_counts.get(type, 0)
+			var lm_type = _convert_to_lm_booster_type(type)
+			var count = LevelManager.get_booster_count(lm_type)
 			# Обновляем текст метки количества
 			if btn.has_node("CountLabel"):
 				var lbl: Label = btn.get_node("CountLabel")
@@ -1530,7 +1572,8 @@ func _use_booster_on_cell(cell: Vector2i):
 			_apply_freeze()
 	
 	if type_used != BoosterType.NONE:
-		_booster_counts[type_used] -= 1
+		var lm_type = _convert_to_lm_booster_type(type_used)
+		LevelManager.use_booster(lm_type)
 		_update_ui()
 	
 	_active_booster = BoosterType.NONE

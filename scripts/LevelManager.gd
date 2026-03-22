@@ -2,15 +2,26 @@ extends Node
 
 const SAVE_PATH := "user://progress.cfg"
 const INITIAL_COINS := 500
+const INITIAL_BOOSTERS := 4
+const BOOSTER_PURCHASE_COST := 350
+
+enum BoosterType { HAMMER = 1, ROW_BLAST = 2, SHUFFLE = 3, FREEZE = 4 }
 
 var current_level: int = 1
 var max_unlocked_level: int = 1
 var is_campaign_started: bool = false
 var player_coins: int = INITIAL_COINS
+var booster_counts := {
+	BoosterType.HAMMER: INITIAL_BOOSTERS,
+	BoosterType.ROW_BLAST: INITIAL_BOOSTERS,
+	BoosterType.SHUFFLE: INITIAL_BOOSTERS,
+	BoosterType.FREEZE: INITIAL_BOOSTERS
+}
 
 signal level_started(level: int)
 signal level_completed(level: int)
 signal coins_changed(new_amount: int)
+signal boosters_changed()
 
 func _ready():
 	_load_progress()
@@ -119,12 +130,35 @@ func spend_coins(amount: int) -> bool:
 func get_coins() -> int:
 	return player_coins
 
+func use_booster(type: BoosterType) -> bool:
+	if booster_counts.get(type, 0) > 0:
+		booster_counts[type] -= 1
+		_save_progress()
+		emit_signal("boosters_changed")
+		return true
+	return false
+
+func buy_booster(type: BoosterType) -> bool:
+	if spend_coins(BOOSTER_PURCHASE_COST):
+		booster_counts[type] = booster_counts.get(type, 0) + 1
+		_save_progress()
+		emit_signal("boosters_changed")
+		return true
+	return false
+
+func get_booster_count(type: BoosterType) -> int:
+	return booster_counts.get(type, 0)
+
 func _save_progress():
 	var cfg := ConfigFile.new()
 	cfg.set_value("progress", "current_level", current_level)
 	cfg.set_value("progress", "max_unlocked_level", max_unlocked_level)
 	cfg.set_value("progress", "is_campaign_started", is_campaign_started)
 	cfg.set_value("progress", "player_coins", player_coins)
+	cfg.set_value("boosters", "hammer", booster_counts.get(BoosterType.HAMMER, INITIAL_BOOSTERS))
+	cfg.set_value("boosters", "row_blast", booster_counts.get(BoosterType.ROW_BLAST, INITIAL_BOOSTERS))
+	cfg.set_value("boosters", "shuffle", booster_counts.get(BoosterType.SHUFFLE, INITIAL_BOOSTERS))
+	cfg.set_value("boosters", "freeze", booster_counts.get(BoosterType.FREEZE, INITIAL_BOOSTERS))
 	cfg.save(SAVE_PATH)
 
 func _load_progress():
@@ -135,4 +169,8 @@ func _load_progress():
 		max_unlocked_level = int(cfg.get_value("progress", "max_unlocked_level", 1))
 		is_campaign_started = bool(cfg.get_value("progress", "is_campaign_started", false))
 		player_coins = int(cfg.get_value("progress", "player_coins", INITIAL_COINS))
+		booster_counts[BoosterType.HAMMER] = int(cfg.get_value("boosters", "hammer", INITIAL_BOOSTERS))
+		booster_counts[BoosterType.ROW_BLAST] = int(cfg.get_value("boosters", "row_blast", INITIAL_BOOSTERS))
+		booster_counts[BoosterType.SHUFFLE] = int(cfg.get_value("boosters", "shuffle", INITIAL_BOOSTERS))
+		booster_counts[BoosterType.FREEZE] = int(cfg.get_value("boosters", "freeze", INITIAL_BOOSTERS))
 
