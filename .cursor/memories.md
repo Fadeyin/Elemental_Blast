@@ -76,6 +76,21 @@
 ## Последние изменения
 - 2026-03-22: Настроена автосборка и GitHub Pages
 - Коммиты:
-  - dcbd6d4: Добавлена быстрая шпаргалка
+  - 1dec432: Добавлены бейджи статуса в README
+  - f83abd3: Документация по альтернативным хостингам
+  - 124570d: Добавлен README и скрипт локального тестирования
+  - 65de46e: Визуальная схема процесса сборки
+  - 981758b: Память проекта для агентов
+  - dcbd6d4: Быстрая шпаргалка
   - 02b785c: Обновлён .gitignore
   - cf063e6: Создан GitHub Actions workflow
+
+## Созданные файлы
+- `.github/workflows/godot-web-export.yml` - GitHub Actions workflow
+- `.github/QUICK_START.md` - Быстрая шпаргалка
+- `.github/WORKFLOW_DIAGRAM.md` - Визуальная схема процесса
+- `.github/ALTERNATIVE_HOSTING.md` - Альтернативные хостинги
+- `DEPLOYMENT.md` - Подробная документация
+- `README.md` - Главный README проекта
+- `serve_local.sh` - Скрипт для локального тестирования
+- `.cursor/memories.md` - Память для агентов
