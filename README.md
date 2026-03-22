@@ -76,6 +76,7 @@ https://fadeyin.github.io/Elemental_Blast/
 | **[WORKFLOW_DIAGRAM.md](.github/WORKFLOW_DIAGRAM.md)** | Визуальная схема процесса сборки |
 | **[SETUP_CHECKLIST.md](.github/SETUP_CHECKLIST.md)** | Чеклист для проверки настройки |
 | **[ALTERNATIVE_HOSTING.md](.github/ALTERNATIVE_HOSTING.md)** | Альтернативные варианты хостинга |
+| **[COMMANDS.md](COMMANDS.md)** | Полезные команды и шпаргалки |
 
 ## 🔧 Локальная разработка
 
