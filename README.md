@@ -1,5 +1,9 @@
 # 🎮 Elemental Blast
 
+[![Godot Web Export](https://github.com/Fadeyin/Elemental_Blast/actions/workflows/godot-web-export.yml/badge.svg)](https://github.com/Fadeyin/Elemental_Blast/actions/workflows/godot-web-export.yml)
+[![GitHub Pages](https://img.shields.io/badge/play-online-success)](https://fadeyin.github.io/Elemental_Blast/)
+[![Godot Engine](https://img.shields.io/badge/Godot-4.6-blue.svg)](https://godotengine.org/)
+
 Match-3 головоломка на Godot Engine 4.6
 
 ## 🚀 Быстрый старт
