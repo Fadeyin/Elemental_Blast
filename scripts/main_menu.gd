@@ -16,6 +16,8 @@ extends Control
 const GAME_BOARD_SCENE_PATH = "res://scenes/game_board.tscn"
 
 func _ready():
+	_create_top_bar()
+	
 	if is_instance_valid(play_button):
 		play_button.pressed.connect(_on_play_pressed)
 		_style_play_button()
@@ -24,6 +26,209 @@ func _ready():
 	_update_level_label()
 	_build_levels_grid()
 	_switch_tab("main")
+	
+	LevelManager.coins_changed.connect(_on_coins_changed)
+
+func _on_coins_changed(new_amount: int):
+	var coins_label = find_child("TopBarCoinsCount", true, false)
+	if coins_label:
+		coins_label.text = str(new_amount)
+
+func _create_top_bar():
+	var top_bar = ColorRect.new()
+	top_bar.name = "TopBar"
+	top_bar.custom_minimum_size = Vector2(0, 80)
+	top_bar.color = Color(0.08, 0.1, 0.12, 0.9)
+	top_bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	top_bar.offset_bottom = 80
+	add_child(top_bar)
+	move_child(top_bar, 1)
+	
+	var hbox = HBoxContainer.new()
+	hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hbox.add_theme_constant_override("separation", 15)
+	top_bar.add_child(hbox)
+	
+	hbox.add_child(_create_spacer(20))
+	
+	var avatar_container = _create_avatar()
+	hbox.add_child(avatar_container)
+	
+	hbox.add_child(_create_spacer(15))
+	
+	var coins_container = _create_coins_display()
+	hbox.add_child(coins_container)
+	
+	var buy_coins_btn = _create_buy_coins_button()
+	hbox.add_child(buy_coins_btn)
+	
+	hbox.add_child(_create_flexible_spacer())
+	
+	var settings_btn = _create_settings_button()
+	hbox.add_child(settings_btn)
+	
+	hbox.add_child(_create_spacer(20))
+
+func _create_spacer(width: float) -> Control:
+	var spacer = Control.new()
+	spacer.custom_minimum_size = Vector2(width, 0)
+	return spacer
+
+func _create_flexible_spacer() -> Control:
+	var spacer = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return spacer
+
+func _create_avatar() -> Control:
+	var container = PanelContainer.new()
+	container.custom_minimum_size = Vector2(64, 64)
+	
+	var bg_style = StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.3, 0.35, 0.4, 1.0)
+	bg_style.corner_radius_top_left = 32
+	bg_style.corner_radius_top_right = 32
+	bg_style.corner_radius_bottom_left = 32
+	bg_style.corner_radius_bottom_right = 32
+	bg_style.border_width_top = 3
+	bg_style.border_width_bottom = 3
+	bg_style.border_width_left = 3
+	bg_style.border_width_right = 3
+	bg_style.border_color = Color(0.5, 0.6, 0.7, 1.0)
+	container.add_theme_stylebox_override("panel", bg_style)
+	
+	var avatar_label = Label.new()
+	avatar_label.text = "👤"
+	avatar_label.add_theme_font_size_override("font_size", 42)
+	avatar_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	avatar_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	container.add_child(avatar_label)
+	
+	return container
+
+func _create_coins_display() -> Control:
+	var container = HBoxContainer.new()
+	container.add_theme_constant_override("separation", 8)
+	
+	var coin_icon = Label.new()
+	coin_icon.text = "🪙"
+	coin_icon.add_theme_font_size_override("font_size", 36)
+	coin_icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	container.add_child(coin_icon)
+	
+	var coins_label = Label.new()
+	coins_label.name = "TopBarCoinsCount"
+	coins_label.text = str(LevelManager.get_coins())
+	coins_label.add_theme_font_size_override("font_size", 32)
+	coins_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
+	coins_label.add_theme_color_override("font_outline_color", Color(0.3, 0.2, 0.0, 0.9))
+	coins_label.add_theme_constant_override("outline_size", 4)
+	coins_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	container.add_child(coins_label)
+	
+	return container
+
+func _create_buy_coins_button() -> Button:
+	var btn = Button.new()
+	btn.text = "+"
+	btn.custom_minimum_size = Vector2(50, 50)
+	
+	var normal_style = StyleBoxFlat.new()
+	normal_style.bg_color = Color(0.2, 0.6, 0.3, 1.0)
+	normal_style.corner_radius_top_left = 25
+	normal_style.corner_radius_top_right = 25
+	normal_style.corner_radius_bottom_left = 25
+	normal_style.corner_radius_bottom_right = 25
+	normal_style.border_width_top = 2
+	normal_style.border_width_bottom = 2
+	normal_style.border_width_left = 2
+	normal_style.border_width_right = 2
+	normal_style.border_color = Color(0.3, 0.8, 0.4, 1.0)
+	
+	var hover_style = normal_style.duplicate()
+	hover_style.bg_color = Color(0.3, 0.7, 0.4, 1.0)
+	
+	var pressed_style = normal_style.duplicate()
+	pressed_style.bg_color = Color(0.15, 0.5, 0.25, 1.0)
+	
+	btn.add_theme_stylebox_override("normal", normal_style)
+	btn.add_theme_stylebox_override("hover", hover_style)
+	btn.add_theme_stylebox_override("pressed", pressed_style)
+	btn.add_theme_font_size_override("font_size", 36)
+	btn.add_theme_color_override("font_color", Color.WHITE)
+	btn.add_theme_color_override("font_outline_color", Color(0, 0.3, 0, 0.9))
+	btn.add_theme_constant_override("outline_size", 3)
+	
+	btn.pressed.connect(_on_buy_coins_pressed)
+	
+	return btn
+
+func _create_settings_button() -> Button:
+	var btn = Button.new()
+	btn.text = "⚙"
+	btn.custom_minimum_size = Vector2(60, 60)
+	
+	var normal_style = StyleBoxFlat.new()
+	normal_style.bg_color = Color(0.25, 0.3, 0.35, 1.0)
+	normal_style.corner_radius_top_left = 30
+	normal_style.corner_radius_top_right = 30
+	normal_style.corner_radius_bottom_left = 30
+	normal_style.corner_radius_bottom_right = 30
+	normal_style.border_width_top = 2
+	normal_style.border_width_bottom = 2
+	normal_style.border_width_left = 2
+	normal_style.border_width_right = 2
+	normal_style.border_color = Color(0.4, 0.5, 0.6, 1.0)
+	
+	var hover_style = normal_style.duplicate()
+	hover_style.bg_color = Color(0.35, 0.4, 0.45, 1.0)
+	
+	var pressed_style = normal_style.duplicate()
+	pressed_style.bg_color = Color(0.2, 0.25, 0.3, 1.0)
+	
+	btn.add_theme_stylebox_override("normal", normal_style)
+	btn.add_theme_stylebox_override("hover", hover_style)
+	btn.add_theme_stylebox_override("pressed", pressed_style)
+	btn.add_theme_font_size_override("font_size", 40)
+	btn.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	
+	btn.pressed.connect(_on_settings_pressed)
+	
+	return btn
+
+func _on_buy_coins_pressed():
+	_show_buy_coins_dialog()
+
+func _on_settings_pressed():
+	var dialog = AcceptDialog.new()
+	dialog.title = "Настройки"
+	dialog.dialog_text = "Настройки будут добавлены позже"
+	dialog.ok_button_text = "Закрыть"
+	add_child(dialog)
+	dialog.popup_centered(Vector2(400, 150))
+	
+	var _on_close = func():
+		if not dialog.is_queued_for_deletion():
+			dialog.queue_free()
+	
+	dialog.confirmed.connect(_on_close)
+	dialog.close_requested.connect(_on_close)
+
+func _show_buy_coins_dialog():
+	var dialog = AcceptDialog.new()
+	dialog.title = "Купить монеты"
+	dialog.dialog_text = "Выберите пакет монет:\n\n100 монет - 50₽\n500 монет - 200₽\n1000 монет - 350₽\n\n(Покупка временно недоступна)"
+	dialog.ok_button_text = "Закрыть"
+	dialog.get_ok_button().disabled = false
+	
+	add_child(dialog)
+	dialog.popup_centered(Vector2(450, 250))
+	
+	var _on_close = func():
+		if not dialog.is_queued_for_deletion():
+			dialog.queue_free()
+	
+	dialog.confirmed.connect(_on_close)
+	dialog.close_requested.connect(_on_close)
 
 func _setup_navigation():
 	shop_btn.pressed.connect(func(): _switch_tab("shop"))
