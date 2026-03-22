@@ -32,7 +32,6 @@
 - Разрешение: 648x1200 (портретная ориентация)
 - Главная сцена: uid://q6kql6yp0x11
 - Автозагрузка:
-  - MyGlobalState: res://scripts/GameState.gd
   - LevelManager: res://scripts/LevelManager.gd
 
 ### Важные файлы
@@ -68,14 +67,24 @@
 - Cross-Origin-Opener-Policy: same-origin
 
 ## Pull Requests
+- PR #6: Критическое исправление: ошибка загрузки игры на GitHub Pages
+  - Статус: смержен
+  - URL: https://github.com/Fadeyin/Elemental_Blast/pull/6
+  - Решена проблема с несуществующим autoload GameState
 - PR #4: Автоматическая сборка и деплой веб-версии
-  - Статус: открыт
+  - Статус: смержен
   - URL: https://github.com/Fadeyin/Elemental_Blast/pull/4
   - Ветка: cursor/godot-web-9125 → main
 
 ## Последние изменения
+- 2026-03-22: Исправлена критическая ошибка загрузки игры
+  - Удалён несуществующий autoload MyGlobalState
+  - Исправлены настройки экспорта для GitHub Pages
+  - Добавлена документация решения проблемы
 - 2026-03-22: Настроена автосборка и GitHub Pages
 - Коммиты:
+  - 07f9194: Добавлена документация решения проблемы загрузки игры
+  - a394fa4: Критическое исправление: ошибка загрузки игры на GitHub Pages (#6)
   - 1dec432: Добавлены бейджи статуса в README
   - f83abd3: Документация по альтернативным хостингам
   - 124570d: Добавлен README и скрипт локального тестирования
@@ -87,6 +96,7 @@
 
 ## Созданные файлы
 - `.github/workflows/godot-web-export.yml` - GitHub Actions workflow
+- `.github/TROUBLESHOOTING_GAMESTATE.md` - Решение проблемы загрузки игры
 - `.github/QUICK_START.md` - Быстрая шпаргалка
 - `.github/WORKFLOW_DIAGRAM.md` - Визуальная схема процесса
 - `.github/ALTERNATIVE_HOSTING.md` - Альтернативные хостинги
@@ -94,3 +104,8 @@
 - `README.md` - Главный README проекта
 - `serve_local.sh` - Скрипт для локального тестирования
 - `.cursor/memories.md` - Память для агентов
+
+## Известные проблемы и решения
+- **Ошибка загрузки игры**: Решена удалением несуществующего autoload и отключением требований COOP/COEP заголовков
+- **Netlify деплой**: Требует настройки секретов NETLIFY_AUTH_TOKEN и NETLIFY_SITE_ID (опционально)
+- **Кеширование**: GitHub Pages может кешировать старую версию до 10 минут
