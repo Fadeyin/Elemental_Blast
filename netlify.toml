@@ -1,0 +1,51 @@
+# Конфигурация Netlify для Godot Web
+
+[build]
+  publish = "build/web"
+  command = ""
+
+# HTTP заголовки для Godot 4.x (обязательно!)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cross-Origin-Embedder-Policy = "require-corp"
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cache-Control = "public, max-age=3600"
+
+# Дополнительные заголовки для WebAssembly
+[[headers]]
+  for = "/*.wasm"
+  [headers.values]
+    Content-Type = "application/wasm"
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.pck"
+  [headers.values]
+    Content-Type = "application/octet-stream"
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Редиректы (на случай 404)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false
+
+# Настройки для лучшей производительности
+[build.processing]
+  skip_processing = false
+
+[build.processing.css]
+  bundle = true
+  minify = true
+
+[build.processing.js]
+  bundle = true
+  minify = true
+
+[build.processing.html]
+  pretty_urls = false
+
+[build.processing.images]
+  compress = true
