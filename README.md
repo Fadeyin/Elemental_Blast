@@ -10,13 +10,21 @@ Match-3 головоломка на Godot Engine 4.6
 
 ### Тестирование на телефоне
 
-Игра автоматически собирается и публикуется на GitHub Pages при каждом push:
+Игра автоматически собирается и публикуется на **Netlify** при каждом push:
 
+```
+https://elemental-blast-xxxxx.netlify.app
+```
+
+*URL будет доступен после настройки Netlify (см. `.github/NETLIFY_SETUP.md`)*
+
+**Альтернативно на GitHub Pages:**
 ```
 https://fadeyin.github.io/Elemental_Blast/
 ```
+⚠️ *GitHub Pages не поддерживает HTTP-заголовки для Godot 4.x, используйте Netlify*
 
-Сохраните эту ссылку в закладках на телефоне для быстрого доступа!
+Сохраните ссылку в закладках на телефоне для быстрого доступа!
 
 ### Разработка
 
@@ -71,10 +79,12 @@ https://fadeyin.github.io/Elemental_Blast/
 
 | Документ | Описание |
 |----------|----------|
+| **[NETLIFY_SETUP.md](.github/NETLIFY_SETUP.md)** | ⭐ Настройка Netlify (рекомендуется) |
 | **[QUICK_START.md](.github/QUICK_START.md)** | Быстрая шпаргалка для начала работы |
 | **[DEPLOYMENT.md](DEPLOYMENT.md)** | Подробная инструкция по деплою и настройке |
 | **[WORKFLOW_DIAGRAM.md](.github/WORKFLOW_DIAGRAM.md)** | Визуальная схема процесса сборки |
 | **[SETUP_CHECKLIST.md](.github/SETUP_CHECKLIST.md)** | Чеклист для проверки настройки |
+| **[TROUBLESHOOTING.md](.github/TROUBLESHOOTING.md)** | Решение проблем с загрузкой |
 | **[ALTERNATIVE_HOSTING.md](.github/ALTERNATIVE_HOSTING.md)** | Альтернативные варианты хостинга |
 | **[COMMANDS.md](COMMANDS.md)** | Полезные команды и шпаргалки |
 
