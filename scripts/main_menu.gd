@@ -25,9 +25,14 @@ func _ready():
 	_setup_navigation()
 	_update_level_label()
 	_build_levels_grid()
+	_build_shop_tab()
 	_switch_tab("main")
 	
 	LevelManager.coins_changed.connect(_on_coins_changed)
+	LevelManager.boosters_changed.connect(_on_boosters_changed)
+
+func _on_boosters_changed():
+	_build_shop_tab()
 
 func _on_coins_changed(new_amount: int):
 	var coins_label = find_child("TopBarCoinsCount", true, false)
@@ -394,3 +399,205 @@ func _highlight_selected_in_grid():
 	for b in levels_grid.get_children():
 		if b is Button:
 			b.button_pressed = (int(b.text) == LevelManager.current_level)
+
+func _build_shop_tab():
+	if not has_node("TabContent/ShopTab"):
+		return
+	
+	var shop_tab_node = get_node("TabContent/ShopTab")
+	for child in shop_tab_node.get_children():
+		child.queue_free()
+	
+	var scroll = ScrollContainer.new()
+	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	scroll.add_theme_constant_override("margin_left", 20)
+	scroll.add_theme_constant_override("margin_right", 20)
+	scroll.add_theme_constant_override("margin_top", 20)
+	scroll.add_theme_constant_override("margin_bottom", 20)
+	shop_tab_node.add_child(scroll)
+	
+	var vbox = VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_theme_constant_override("separation", 20)
+	scroll.add_child(vbox)
+	
+	var title = Label.new()
+	title.text = "МАГАЗИН"
+	title.add_theme_font_size_override("font_size", 48)
+	title.add_theme_color_override("font_color", Color.WHITE)
+	title.add_theme_color_override("font_outline_color", Color.BLACK)
+	title.add_theme_constant_override("outline_size", 5)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+	
+	vbox.add_child(_create_spacer_v(20))
+	
+	if not LevelManager.is_starter_pack_purchased():
+		var starter = _create_shop_offer(
+			"СТАРТОВЫЙ ПАКЕТ",
+			"🎁 Специальное предложение!",
+			["1000 золотых 🪙", "4 бустера каждого вида 🎮"],
+			"1$",
+			Color(0.8, 0.3, 0.2, 1.0),
+			"starter",
+			true
+		)
+		vbox.add_child(starter)
+		vbox.add_child(_create_spacer_v(15))
+	
+	var medium = _create_shop_offer(
+		"СРЕДНИЙ ПАКЕТ",
+		"Отличное предложение",
+		["2500 золотых 🪙", "5 бустеров каждого вида 🎮"],
+		"5$",
+		Color(0.2, 0.5, 0.8, 1.0),
+		"medium",
+		false
+	)
+	vbox.add_child(medium)
+	vbox.add_child(_create_spacer_v(15))
+	
+	var best = _create_shop_offer(
+		"САМЫЙ ВЫГОДНЫЙ",
+		"⭐ Лучшее предложение!",
+		["5000 золотых 🪙", "10 бустеров каждого вида 🎮"],
+		"9$",
+		Color(0.6, 0.3, 0.8, 1.0),
+		"best",
+		false
+	)
+	vbox.add_child(best)
+
+func _create_spacer_v(height: float) -> Control:
+	var spacer = Control.new()
+	spacer.custom_minimum_size = Vector2(0, height)
+	return spacer
+
+func _create_shop_offer(title: String, subtitle: String, items: Array, price: String, color: Color, pack_type: String, is_special: bool) -> Control:
+	var panel = PanelContainer.new()
+	panel.custom_minimum_size = Vector2(0, 180)
+	
+	var bg_style = StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.15, 0.15, 0.15, 0.95)
+	bg_style.corner_radius_top_left = 20
+	bg_style.corner_radius_top_right = 20
+	bg_style.corner_radius_bottom_left = 20
+	bg_style.corner_radius_bottom_right = 20
+	bg_style.border_width_top = 4
+	bg_style.border_width_bottom = 4
+	bg_style.border_width_left = 4
+	bg_style.border_width_right = 4
+	bg_style.border_color = color
+	bg_style.shadow_color = Color(0, 0, 0, 0.5)
+	bg_style.shadow_size = 10
+	bg_style.shadow_offset = Vector2(0, 5)
+	panel.add_theme_stylebox_override("panel", bg_style)
+	
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 20)
+	panel.add_child(hbox)
+	
+	hbox.add_child(_create_spacer(15))
+	
+	var content_vbox = VBoxContainer.new()
+	content_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_vbox.add_theme_constant_override("separation", 8)
+	hbox.add_child(content_vbox)
+	
+	var title_label = Label.new()
+	title_label.text = title
+	title_label.add_theme_font_size_override("font_size", 32)
+	title_label.add_theme_color_override("font_color", color)
+	title_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	title_label.add_theme_constant_override("outline_size", 4)
+	content_vbox.add_child(title_label)
+	
+	var subtitle_label = Label.new()
+	subtitle_label.text = subtitle
+	subtitle_label.add_theme_font_size_override("font_size", 18)
+	subtitle_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	content_vbox.add_child(subtitle_label)
+	
+	content_vbox.add_child(_create_spacer_v(5))
+	
+	for item in items:
+		var item_label = Label.new()
+		item_label.text = "  • " + item
+		item_label.add_theme_font_size_override("font_size", 22)
+		item_label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
+		content_vbox.add_child(item_label)
+	
+	var buy_btn = Button.new()
+	buy_btn.text = price
+	buy_btn.custom_minimum_size = Vector2(150, 80)
+	
+	var btn_style = StyleBoxFlat.new()
+	btn_style.bg_color = color
+	btn_style.corner_radius_top_left = 15
+	btn_style.corner_radius_top_right = 15
+	btn_style.corner_radius_bottom_left = 15
+	btn_style.corner_radius_bottom_right = 15
+	btn_style.border_width_top = 3
+	btn_style.border_width_bottom = 3
+	btn_style.border_width_left = 3
+	btn_style.border_width_right = 3
+	btn_style.border_color = color.lightened(0.3)
+	
+	var hover_style = btn_style.duplicate()
+	hover_style.bg_color = color.lightened(0.2)
+	
+	var pressed_style = btn_style.duplicate()
+	pressed_style.bg_color = color.darkened(0.2)
+	
+	buy_btn.add_theme_stylebox_override("normal", btn_style)
+	buy_btn.add_theme_stylebox_override("hover", hover_style)
+	buy_btn.add_theme_stylebox_override("pressed", pressed_style)
+	buy_btn.add_theme_font_size_override("font_size", 36)
+	buy_btn.add_theme_color_override("font_color", Color.WHITE)
+	buy_btn.add_theme_color_override("font_outline_color", Color.BLACK)
+	buy_btn.add_theme_constant_override("outline_size", 4)
+	
+	buy_btn.pressed.connect(_on_shop_purchase.bind(pack_type))
+	hbox.add_child(buy_btn)
+	
+	hbox.add_child(_create_spacer(15))
+	
+	if is_special:
+		var badge = Label.new()
+		badge.text = "ТОЛЬКО 1 РАЗ!"
+		badge.add_theme_font_size_override("font_size", 16)
+		badge.add_theme_color_override("font_color", Color(1.0, 0.9, 0.2))
+		badge.add_theme_color_override("font_outline_color", Color(0.5, 0.2, 0.0))
+		badge.add_theme_constant_override("outline_size", 3)
+		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		badge.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+		badge.offset_left = -150
+		badge.offset_top = 5
+		badge.offset_right = -10
+		badge.offset_bottom = 30
+		panel.add_child(badge)
+	
+	return panel
+
+func _on_shop_purchase(pack_type: String):
+	var dialog = AcceptDialog.new()
+	dialog.title = "Покупка"
+	
+	match pack_type:
+		"starter":
+			dialog.dialog_text = "Стартовый пакет:\n\n• 1000 золотых 🪙\n• 4 бустера каждого вида 🎮\n• Цена: 1$\n\n(Покупка через платёжную систему\nвременно недоступна)"
+		"medium":
+			dialog.dialog_text = "Средний пакет:\n\n• 2500 золотых 🪙\n• 5 бустеров каждого вида 🎮\n• Цена: 5$\n\n(Покупка через платёжную систему\nвременно недоступна)"
+		"best":
+			dialog.dialog_text = "Самый выгодный пакет:\n\n• 5000 золотых 🪙\n• 10 бустеров каждого вида 🎮\n• Цена: 9$\n\n(Покупка через платёжную систему\nвременно недоступна)"
+	
+	dialog.ok_button_text = "Понятно"
+	add_child(dialog)
+	dialog.popup_centered(Vector2(500, 300))
+	
+	var _on_close = func():
+		if not dialog.is_queued_for_deletion():
+			dialog.queue_free()
+	
+	dialog.confirmed.connect(_on_close)
+	dialog.close_requested.connect(_on_close)
