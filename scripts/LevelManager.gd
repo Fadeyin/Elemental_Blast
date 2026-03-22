@@ -1,13 +1,16 @@
 extends Node
 
 const SAVE_PATH := "user://progress.cfg"
+const INITIAL_COINS := 500
 
 var current_level: int = 1
 var max_unlocked_level: int = 1
 var is_campaign_started: bool = false
+var player_coins: int = INITIAL_COINS
 
 signal level_started(level: int)
 signal level_completed(level: int)
+signal coins_changed(new_amount: int)
 
 func _ready():
 	_load_progress()
@@ -100,11 +103,28 @@ func get_available_level_numbers() -> Array:
 	out.sort()
 	return out
 
+func add_coins(amount: int):
+	player_coins += amount
+	_save_progress()
+	emit_signal("coins_changed", player_coins)
+
+func spend_coins(amount: int) -> bool:
+	if player_coins >= amount:
+		player_coins -= amount
+		_save_progress()
+		emit_signal("coins_changed", player_coins)
+		return true
+	return false
+
+func get_coins() -> int:
+	return player_coins
+
 func _save_progress():
 	var cfg := ConfigFile.new()
 	cfg.set_value("progress", "current_level", current_level)
 	cfg.set_value("progress", "max_unlocked_level", max_unlocked_level)
 	cfg.set_value("progress", "is_campaign_started", is_campaign_started)
+	cfg.set_value("progress", "player_coins", player_coins)
 	cfg.save(SAVE_PATH)
 
 func _load_progress():
@@ -114,4 +134,5 @@ func _load_progress():
 		current_level = int(cfg.get_value("progress", "current_level", 1))
 		max_unlocked_level = int(cfg.get_value("progress", "max_unlocked_level", 1))
 		is_campaign_started = bool(cfg.get_value("progress", "is_campaign_started", false))
+		player_coins = int(cfg.get_value("progress", "player_coins", INITIAL_COINS))
 

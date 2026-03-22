@@ -84,6 +84,10 @@ var _moves_total: int = 15
 var _moves_left: int = 15
 var _player_lives: int = 5
 var _needs_ui_update: bool = false
+var _moves_purchase_count: int = 0
+const MOVES_PURCHASE_BASE_COST := 100
+const MOVES_PURCHASE_INCREMENT := 150
+const MOVES_PER_PURCHASE := 5
 
 enum BoosterType { NONE, HAMMER, ROW_BLAST, SHUFFLE, FREEZE }
 var _active_booster: BoosterType = BoosterType.NONE
@@ -223,6 +227,32 @@ func _init_ui():
 		m_count.add_theme_constant_override("outline_size", 5)
 		m_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		mc.add_child(m_count)
+		
+		# 3. Монеты (после ходов)
+		var cc = VBoxContainer.new()
+		cc.name = "CoinsContainerNew"
+		cc.custom_minimum_size = Vector2(110, 0)
+		cc.add_theme_constant_override("separation", -8)
+		cc.alignment = BoxContainer.ALIGNMENT_CENTER
+		tb.add_child(cc)
+		tb.move_child(cc, 2)
+		
+		var c_title = Label.new()
+		c_title.text = "МОНЕТЫ"
+		c_title.add_theme_font_size_override("font_size", 14)
+		c_title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+		c_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cc.add_child(c_title)
+		
+		var c_count = Label.new()
+		c_count.name = "CoinsCount"
+		c_count.text = str(LevelManager.get_coins())
+		c_count.add_theme_font_size_override("font_size", 38)
+		c_count.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
+		c_count.add_theme_color_override("font_outline_color", Color(0.3, 0.2, 0.0, 0.9))
+		c_count.add_theme_constant_override("outline_size", 5)
+		c_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cc.add_child(c_count)
 
 	# Оформление кнопок бустеров
 	var booster_types = [BoosterType.HAMMER, BoosterType.ROW_BLAST, BoosterType.SHUFFLE, BoosterType.FREEZE]
@@ -374,6 +404,15 @@ func _update_ui():
 		mt.add_theme_color_override("font_color", Color(0.85, 0.9, 0.95))
 		mt.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
 		mt.add_theme_constant_override("outline_size", 3)
+	
+	# Обновление монет
+	var coins_lbl = find_child("CoinsCount", true, false)
+	if coins_lbl:
+		coins_lbl.text = str(LevelManager.get_coins())
+		coins_lbl.add_theme_font_size_override("font_size", 38)
+		coins_lbl.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
+		coins_lbl.add_theme_color_override("font_outline_color", Color(0.3, 0.2, 0.0, 0.9))
+		coins_lbl.add_theme_constant_override("outline_size", 5)
 
 	# Обновление целей в GoalsContainer
 	if has_node("CanvasUI/UIRoot/TopBar/GoalsContainer"):
@@ -1916,13 +1955,73 @@ func _check_level_completed() -> bool:
 
 
 func _on_level_completed():
+	# Награда за победу
+	var base_reward = 50
+	var moves_bonus = _moves_left * 10
+	var total_reward = base_reward + moves_bonus
+	
+	LevelManager.add_coins(total_reward)
 	LevelManager.mark_level_completed()
-	# Возврат в меню
-	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	
+	# Показываем экран победы с наградой
+	_show_victory_dialog(total_reward, base_reward, moves_bonus)
+
+func _show_victory_dialog(total: int, base: int, bonus: int):
+	var dialog = AcceptDialog.new()
+	dialog.title = "Уровень пройден!"
+	dialog.dialog_text = "Поздравляем!\n\nНаграда:\n  Базовая: %d монет\n  За ходы: %d × %d = %d монет\n\nВсего получено: %d монет" % [base, _moves_left, 10, bonus, total]
+	dialog.ok_button_text = "Продолжить"
+	
+	add_child(dialog)
+	dialog.popup_centered(Vector2(450, 250))
+	
+	dialog.confirmed.connect(func(): get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
+	dialog.close_requested.connect(func(): get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
 
 func _on_level_failed():
-	# Здесь можно сделать экран поражения, сейчас просто возврат в меню
+	# Если закончились ходы (но не жизни), предлагаем купить ходы
+	if _moves_left == 0 and _player_lives > 0:
+		_show_buy_moves_dialog()
+	else:
+		# Поражение (закончились жизни) - возврат в меню
+		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+
+func _show_buy_moves_dialog():
+	var cost = _get_moves_purchase_cost()
+	var player_coins = LevelManager.get_coins()
+	
+	var dialog = AcceptDialog.new()
+	dialog.title = "Закончились ходы!"
+	dialog.dialog_text = "Хотите купить ещё %d ходов за %d монет?\n\nУ вас: %d монет" % [MOVES_PER_PURCHASE, cost, player_coins]
+	dialog.ok_button_text = "Купить (%d)" % cost
+	dialog.cancel_button_text = "Выйти"
+	
+	if player_coins < cost:
+		dialog.dialog_text = "Недостаточно монет!\nНужно: %d монет\nУ вас: %d монет" % [cost, player_coins]
+		dialog.ok_button_text = "Понятно"
+		dialog.get_ok_button().disabled = true
+	
+	add_child(dialog)
+	dialog.popup_centered(Vector2(500, 200))
+	
+	dialog.confirmed.connect(_on_buy_moves_confirmed.bind(cost))
+	dialog.canceled.connect(_on_buy_moves_canceled)
+	dialog.close_requested.connect(_on_buy_moves_canceled)
+
+func _on_buy_moves_confirmed(cost: int):
+	if LevelManager.spend_coins(cost):
+		_moves_left += MOVES_PER_PURCHASE
+		_moves_purchase_count += 1
+		_update_ui()
+		queue_redraw()
+	else:
+		_on_buy_moves_canceled()
+
+func _on_buy_moves_canceled():
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+
+func _get_moves_purchase_cost() -> int:
+	return MOVES_PURCHASE_BASE_COST + (_moves_purchase_count * MOVES_PURCHASE_INCREMENT)
 
 func _enqueue_projectiles(col_x: int, from_y: int, count: int, base_delay: float = 0.0, trigger_move: bool = true):
 	# Планируем цели по ближайшим врагам/препятствиям снизу вверх, без превышения их суммарного HP
