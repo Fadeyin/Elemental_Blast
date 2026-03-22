@@ -69,9 +69,13 @@ https://fadeyin.github.io/Elemental_Blast/
 
 ## 📚 Документация
 
-- **[QUICK_START.md](.github/QUICK_START.md)** - Быстрая шпаргалка
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Подробная инструкция по деплою
-- **[WORKFLOW_DIAGRAM.md](.github/WORKFLOW_DIAGRAM.md)** - Схема процесса сборки
+| Документ | Описание |
+|----------|----------|
+| **[QUICK_START.md](.github/QUICK_START.md)** | Быстрая шпаргалка для начала работы |
+| **[DEPLOYMENT.md](DEPLOYMENT.md)** | Подробная инструкция по деплою и настройке |
+| **[WORKFLOW_DIAGRAM.md](.github/WORKFLOW_DIAGRAM.md)** | Визуальная схема процесса сборки |
+| **[SETUP_CHECKLIST.md](.github/SETUP_CHECKLIST.md)** | Чеклист для проверки настройки |
+| **[ALTERNATIVE_HOSTING.md](.github/ALTERNATIVE_HOSTING.md)** | Альтернативные варианты хостинга |
 
 ## 🔧 Локальная разработка
 
