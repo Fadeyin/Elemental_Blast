@@ -42,7 +42,9 @@ https://elemental-blast-xxxxx.netlify.app
 
 **Новая функция!** Теперь можно собирать и тестировать игру из любой ветки:
 
-#### Способ 1: Ручной запуск
+> **⚡ Быстрый ответ:** [QUICK_ANSWER.md](QUICK_ANSWER.md) - 4 способа за 1 минуту!
+
+#### Способ 1: Ручной запуск (Рекомендуется)
 
 1. Откройте [GitHub Actions](https://github.com/Fadeyin/Elemental_Blast/actions)
 2. Выберите "Godot Web Export" → "Run workflow"
@@ -62,11 +64,19 @@ git push origin feature/my-feature
 
 Запустите workflow без деплоя и скачайте артефакт для локального тестирования.
 
+#### Способ 4: Автоматическая ветка
+
+Добавьте вашу ветку в workflow для автоматической сборки при каждом push.
+
 ---
 
-**📖 Быстрый старт:** [BRANCH_BUILD_QUICKSTART.md](.github/BRANCH_BUILD_QUICKSTART.md)  
-**📚 Полное руководство:** [MULTI_BRANCH_BUILD.md](.github/MULTI_BRANCH_BUILD.md)  
-**📊 Визуальные схемы:** [MULTI_BRANCH_WORKFLOW_DIAGRAM.md](.github/MULTI_BRANCH_WORKFLOW_DIAGRAM.md)
+**Документация:**
+
+- 🎯 **[QUICK_ANSWER.md](QUICK_ANSWER.md)** - быстрый ответ (1 минута)
+- 📋 **[MULTI_BRANCH_SUMMARY.md](.github/MULTI_BRANCH_SUMMARY.md)** - краткое резюме (2 минуты)
+- 📖 **[BRANCH_BUILD_QUICKSTART.md](.github/BRANCH_BUILD_QUICKSTART.md)** - быстрый старт (5 минут)
+- 📚 **[MULTI_BRANCH_BUILD.md](.github/MULTI_BRANCH_BUILD.md)** - полное руководство
+- 📊 **[MULTI_BRANCH_WORKFLOW_DIAGRAM.md](.github/MULTI_BRANCH_WORKFLOW_DIAGRAM.md)** - визуальные схемы
 
 ## 📋 Требования
 
