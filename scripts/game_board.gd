@@ -48,6 +48,17 @@ const BG_COLOR := Color(0.52, 0.58, 0.68, 1) # Пастельный светло
 const GAME_BG_TEXTURE := preload("res://textures/Game_Backgound.png")
 const ENEMY_TILE_TEXTURE := preload("res://textures/Floor_Enemy_Tile_.png")
 
+# Константы полоски здоровья монстров
+const HEALTH_BAR_HEIGHT := 4.0
+const HEALTH_BAR_MARGIN := 2.0
+const HEALTH_BAR_BG_COLOR := Color(0.2, 0.2, 0.2, 0.6)
+const HEALTH_BAR_HEALTH_COLOR := Color(0.2, 0.8, 0.2, 0.9)
+const HEALTH_BAR_DAMAGE_COLOR := Color(0.9, 0.2, 0.2, 0.7)
+
+# Константы препятствий
+const OBSTACLE_COLOR := Color(0.4, 0.35, 0.3, 1.0) # Коричневый (стена)
+const OBSTACLE_EDGE_COLOR := Color(0.25, 0.2, 0.15, 1.0) # Тёмно-коричневый (края)
+
 # Отступы под UI-панели
 const UI_TOP_MARGIN := 72
 const UI_BOTTOM_MARGIN := 128
@@ -57,6 +68,8 @@ var enemies := [] # 2D массив здоровья врагов (y: 0..ENEMY_R
 var enemies_initial_hp := [] # Исходный HP врагов для целей
 var _enemies_hit_this_turn := [] # 2D массив флагов попадания в этом ходу
 var _monster_spawn_queue := [] # Очередь монстров для появления на поле
+var obstacles := [] # 2D массив здоровья препятствий (y: 0..ENEMY_ROWS-1)
+var obstacles_initial_hp := [] # Исходный HP препятствий
 var _projectiles := [] # [{x:int, start_y:float, end_y:float, t:float, d:float, delay:float, color:Color, hit_applied:bool, has_target:bool}]
 var _active_anims := [] # [{x:int, start_y:int, end_y:int, color:int, t:float, d:float}]
 var _enemy_death_anims := [] # [{x:int, y:int, t:float, d:float, hp:int, init:int, id:int}]
@@ -71,15 +84,13 @@ var _moves_total: int = 15
 var _moves_left: int = 15
 var _player_lives: int = 5
 var _needs_ui_update: bool = false
+var _moves_purchase_count: int = 0
+const MOVES_PURCHASE_BASE_COST := 100
+const MOVES_PURCHASE_INCREMENT := 150
+const MOVES_PER_PURCHASE := 5
 
 enum BoosterType { NONE, HAMMER, ROW_BLAST, SHUFFLE, FREEZE }
 var _active_booster: BoosterType = BoosterType.NONE
-var _booster_counts := {
-	BoosterType.HAMMER: 4,
-	BoosterType.ROW_BLAST: 4,
-	BoosterType.SHUFFLE: 4,
-	BoosterType.FREEZE: 4
-}
 var _is_executing_combo: bool = false
 var _freeze_turns: int = 0
 
@@ -97,10 +108,15 @@ var _selected_prelevel_boosts := {
 # Бонусные фишки от Шлема Морта для текущего уровня
 var _mort_helmet_bonus_chips := {}
 
+# Флаги защиты от повторного показа диалогов
+var _victory_dialog_shown: bool = false
+var _defeat_dialog_shown: bool = false
+
 func _ready():
 	randomize()
 	var cfg = LevelManager.get_level_config(LevelManager.current_level)
 	_init_chips()
+	_init_obstacles_from_config(cfg)
 	_init_enemies_from_config(cfg)
 	_init_moves_from_config(cfg)
 	_init_ui()
@@ -231,6 +247,32 @@ func _init_ui():
 		m_count.add_theme_constant_override("outline_size", 5)
 		m_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		mc.add_child(m_count)
+		
+		# 3. Монеты (после ходов)
+		var cc = VBoxContainer.new()
+		cc.name = "CoinsContainerNew"
+		cc.custom_minimum_size = Vector2(110, 0)
+		cc.add_theme_constant_override("separation", -8)
+		cc.alignment = BoxContainer.ALIGNMENT_CENTER
+		tb.add_child(cc)
+		tb.move_child(cc, 2)
+		
+		var c_title = Label.new()
+		c_title.text = "МОНЕТЫ"
+		c_title.add_theme_font_size_override("font_size", 14)
+		c_title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+		c_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cc.add_child(c_title)
+		
+		var c_count = Label.new()
+		c_count.name = "CoinsCount"
+		c_count.text = str(LevelManager.get_coins())
+		c_count.add_theme_font_size_override("font_size", 38)
+		c_count.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
+		c_count.add_theme_color_override("font_outline_color", Color(0.3, 0.2, 0.0, 0.9))
+		c_count.add_theme_constant_override("outline_size", 5)
+		c_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cc.add_child(c_count)
 
 	# Оформление кнопок бустеров
 	var booster_types = [BoosterType.HAMMER, BoosterType.ROW_BLAST, BoosterType.SHUFFLE, BoosterType.FREEZE]
@@ -321,12 +363,18 @@ func _init_ui():
 
 func _on_booster_clicked(type: BoosterType, btn: Button):
 	if type == BoosterType.NONE: return
-	if _booster_counts.get(type, 0) <= 0: return # Нет зарядов
+	
+	var lm_type = _convert_to_lm_booster_type(type)
+	var count = LevelManager.get_booster_count(lm_type)
+	
+	if count <= 0:
+		_show_buy_booster_dialog(lm_type)
+		return
 	
 	# Если это мгновенный бустер (Перемешивание)
 	if type == BoosterType.SHUFFLE:
 		_apply_booster_shuffle()
-		_booster_counts[BoosterType.SHUFFLE] -= 1
+		LevelManager.use_booster(lm_type)
 		_update_ui()
 		return
 	
@@ -337,6 +385,55 @@ func _on_booster_clicked(type: BoosterType, btn: Button):
 		_active_booster = type
 	
 	_update_booster_buttons_visual()
+
+func _convert_to_lm_booster_type(type: BoosterType) -> int:
+	match type:
+		BoosterType.HAMMER: return LevelManager.BoosterType.HAMMER
+		BoosterType.ROW_BLAST: return LevelManager.BoosterType.ROW_BLAST
+		BoosterType.SHUFFLE: return LevelManager.BoosterType.SHUFFLE
+		BoosterType.FREEZE: return LevelManager.BoosterType.FREEZE
+	return LevelManager.BoosterType.HAMMER
+
+func _show_buy_booster_dialog(lm_type: int):
+	var booster_names = {
+		LevelManager.BoosterType.HAMMER: "Молоток",
+		LevelManager.BoosterType.ROW_BLAST: "Ракета",
+		LevelManager.BoosterType.SHUFFLE: "Перемешивание",
+		LevelManager.BoosterType.FREEZE: "Заморозка"
+	}
+	
+	var booster_name = booster_names.get(lm_type, "Бустер")
+	var cost = LevelManager.BOOSTER_PURCHASE_COST
+	var player_coins = LevelManager.get_coins()
+	
+	var dialog = AcceptDialog.new()
+	dialog.title = "Купить бустер?"
+	dialog.dialog_text = "Бустер: %s\nЦена: %d монет\n\nУ вас: %d монет" % [booster_name, cost, player_coins]
+	dialog.ok_button_text = "Купить (%d)" % cost
+	dialog.cancel_button_text = "Отмена"
+	
+	if player_coins < cost:
+		dialog.dialog_text = "Недостаточно монет!\n\nБустер: %s\nЦена: %d монет\nУ вас: %d монет" % [booster_name, cost, player_coins]
+		dialog.ok_button_text = "Понятно"
+		dialog.get_ok_button().disabled = true
+	
+	add_child(dialog)
+	dialog.popup_centered(Vector2(400, 200))
+	
+	var _on_confirmed = func():
+		if not dialog.is_queued_for_deletion():
+			dialog.queue_free()
+			if LevelManager.buy_booster(lm_type):
+				_update_ui()
+				queue_redraw()
+	
+	var _on_canceled = func():
+		if not dialog.is_queued_for_deletion():
+			dialog.queue_free()
+	
+	dialog.confirmed.connect(_on_confirmed)
+	dialog.canceled.connect(_on_canceled)
+	dialog.close_requested.connect(_on_canceled)
 
 func _update_booster_buttons_visual():
 	for i in range(1, 5): # Все 4 бустера
@@ -382,6 +479,15 @@ func _update_ui():
 		mt.add_theme_color_override("font_color", Color(0.85, 0.9, 0.95))
 		mt.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
 		mt.add_theme_constant_override("outline_size", 3)
+	
+	# Обновление монет
+	var coins_lbl = find_child("CoinsCount", true, false)
+	if coins_lbl:
+		coins_lbl.text = str(LevelManager.get_coins())
+		coins_lbl.add_theme_font_size_override("font_size", 38)
+		coins_lbl.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
+		coins_lbl.add_theme_color_override("font_outline_color", Color(0.3, 0.2, 0.0, 0.9))
+		coins_lbl.add_theme_constant_override("outline_size", 5)
 
 	# Обновление целей в GoalsContainer
 	if has_node("CanvasUI/UIRoot/TopBar/GoalsContainer"):
@@ -440,7 +546,8 @@ func _update_ui():
 		var btn_path = "CanvasUI/UIRoot/BottomBar/Booster" + str(i+1)
 		if has_node(btn_path):
 			var btn: Button = get_node(btn_path)
-			var count = _booster_counts.get(type, 0)
+			var lm_type = _convert_to_lm_booster_type(type)
+			var count = LevelManager.get_booster_count(lm_type)
 			# Обновляем текст метки количества
 			if btn.has_node("CountLabel"):
 				var lbl: Label = btn.get_node("CountLabel")
@@ -511,10 +618,36 @@ func _init_enemies_from_config(cfg: Dictionary):
 	# Начальное заполнение: заполняем первые 3 ряда монстрами из очереди
 	for y in range(3):
 		for x in range(COLS):
+			# Проверяем, что в клетке нет препятствия
+			if obstacles.size() > y and obstacles[y].size() > x and obstacles[y][x] > 0:
+				continue
 			if not _monster_spawn_queue.is_empty():
 				var hp = _monster_spawn_queue.pop_front()
 				enemies[y][x] = hp
 				enemies_initial_hp[y][x] = hp
+
+func _init_obstacles_from_config(cfg: Dictionary):
+	obstacles.clear()
+	obstacles_initial_hp.clear()
+	
+	for y in range(ENEMY_ROWS):
+		var row := []
+		var row_init := []
+		for x in range(COLS):
+			row.append(0)
+			row_init.append(0)
+		obstacles.append(row)
+		obstacles_initial_hp.append(row_init)
+	
+	if cfg.has("obstacles") and typeof(cfg.obstacles) == TYPE_ARRAY:
+		for obs in cfg.obstacles:
+			if typeof(obs) == TYPE_DICTIONARY and obs.has("x") and obs.has("y") and obs.has("hp"):
+				var ox = int(obs.x)
+				var oy = int(obs.y)
+				var hp = int(obs.hp)
+				if oy >= 0 and oy < ENEMY_ROWS and ox >= 0 and ox < COLS:
+					obstacles[oy][ox] = hp
+					obstacles_initial_hp[oy][ox] = hp
 
 func _grid_origin(vp_size: Vector2) -> Vector2:
 	var grid_size = Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT + PLAYER_ROWS * CELL_SIZE + FIELD_GAP)
@@ -697,6 +830,17 @@ func _draw():
 	
 	# Сортируем: монстры с большим Y (ближе к игроку) рисуются ПОЗЖЕ
 	monsters_to_draw.sort_custom(func(a, b): return a.sort_y < b.sort_y)
+	
+	# Отрисовываем препятствия (статичные, всегда на месте)
+	for y in range(ENEMY_ROWS):
+		for x in range(COLS):
+			if obstacles.size() > y and obstacles[y].size() > x and obstacles[y][x] > 0:
+				var obs_top_left = Vector2(
+					origin.x + float(x) * CELL_SIZE,
+					origin.y + float(y) * ENEMY_CELL_HEIGHT
+				)
+				var obs_size = Vector2(CELL_SIZE, ENEMY_CELL_HEIGHT)
+				_draw_obstacle(obs_top_left, obs_size, obstacles[y][x], obstacles_initial_hp[y][x])
 	
 	# Отрисовываем всех монстров в правильном порядке
 	var e_chip_size = Vector2(CELL_SIZE * CHIP_SIZE_FACTOR, CELL_SIZE * CHIP_SIZE_FACTOR)
@@ -1042,6 +1186,34 @@ func _get_monster_color(hp: int) -> Color:
 		return Color(0.95, 0.85, 0.25, 1) # жёлтый
 	return Color(1.00, 0.60, 0.20, 1) # запасной (янтарный)
 
+func _draw_monster_health_bar(top_left: Vector2, width: float, hp: int, max_hp: int, alpha: float = 1.0):
+	if max_hp <= 0:
+		return
+	
+	var bar_width := width * 0.7
+	var bar_offset := (width - bar_width) * 0.5
+	var bar_x := top_left.x + bar_offset
+	var bar_y := top_left.y - HEALTH_BAR_HEIGHT - HEALTH_BAR_MARGIN
+	
+	var health_ratio := float(hp) / float(max_hp)
+	health_ratio = clamp(health_ratio, 0.0, 1.0)
+	
+	var bg_color := HEALTH_BAR_BG_COLOR
+	bg_color.a *= alpha
+	draw_rect(Rect2(bar_x, bar_y, bar_width, HEALTH_BAR_HEIGHT), bg_color)
+	
+	if hp > 0:
+		var green_width := bar_width * health_ratio
+		var green_color := HEALTH_BAR_HEALTH_COLOR
+		green_color.a *= alpha
+		draw_rect(Rect2(bar_x, bar_y, green_width, HEALTH_BAR_HEIGHT), green_color)
+	
+	if hp < max_hp and hp > 0:
+		var damage_width := bar_width * (1.0 - health_ratio)
+		var red_color := HEALTH_BAR_DAMAGE_COLOR
+		red_color.a *= alpha
+		draw_rect(Rect2(bar_x + bar_width * health_ratio, bar_y, damage_width, HEALTH_BAR_HEIGHT), red_color)
+
 func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp: int, monster_id: int, alpha: float = 1.0):
 	# Idle-анимация: "дыхание" и легкое покачивание на месте
 	var time = Time.get_ticks_msec() * 0.001
@@ -1155,6 +1327,38 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 			draw_line(Vector2(draw_center.x, mouth_y - 2), Vector2(draw_center.x + m_w, mouth_y + 4), mouth_color, 3.0)
 		else:
 			draw_line(Vector2(draw_center.x - m_w, mouth_y), Vector2(draw_center.x + m_w, mouth_y), mouth_color, 2.0)
+	
+	_draw_monster_health_bar(anim_top_left, anim_size.x, hp, initial_hp, alpha)
+
+func _draw_obstacle(top_left: Vector2, size: Vector2, hp: int, max_hp: int):
+	var base_color = OBSTACLE_COLOR
+	var edge_color = OBSTACLE_EDGE_COLOR
+	
+	draw_rect(Rect2(top_left + Vector2(2, 2), size - Vector2(4, 4)), Color(0, 0, 0, 0.3))
+	draw_rect(Rect2(top_left, size), base_color)
+	
+	draw_line(top_left, top_left + Vector2(size.x, 0), edge_color, 3.0)
+	draw_line(top_left, top_left + Vector2(0, size.y), edge_color, 3.0)
+	draw_line(top_left + Vector2(size.x, 0), top_left + size, edge_color, 3.0)
+	draw_line(top_left + Vector2(0, size.y), top_left + size, edge_color, 3.0)
+	
+	var block_pattern = [
+		[0.0, 0.0, 0.5, 0.33],
+		[0.5, 0.0, 1.0, 0.33],
+		[0.0, 0.33, 0.4, 0.66],
+		[0.4, 0.33, 1.0, 0.66],
+		[0.0, 0.66, 0.6, 1.0],
+		[0.6, 0.66, 1.0, 1.0]
+	]
+	
+	for block in block_pattern:
+		var bx = top_left.x + size.x * block[0]
+		var by = top_left.y + size.y * block[1]
+		var bw = size.x * (block[2] - block[0])
+		var bh = size.y * (block[3] - block[1])
+		draw_rect(Rect2(bx, by, bw, bh), edge_color, false, 1.5)
+	
+	_draw_monster_health_bar(top_left, size.x, hp, max_hp, 1.0)
 
 func _draw_player_zone_overlay():
 	var vp_size = get_viewport_rect().size
@@ -1267,7 +1471,26 @@ func _process(delta: float) -> void:
 				var tx = _projectiles[j].x
 				var ty = int(_projectiles[j].end_y)
 				if ty >= 0 and ty < ENEMY_ROWS and enemies.size() > ty and enemies[ty].size() > tx:
-					if enemies[ty][tx] > 0:
+					# Проверяем препятствие
+					if obstacles[ty][tx] > 0:
+						obstacles[ty][tx] -= 1
+						if obstacles[ty][tx] <= 0:
+							obstacles[ty][tx] = 0
+							obstacles_initial_hp[ty][tx] = 0
+							# VFX разрушения препятствия
+							var vp_size = get_viewport_rect().size
+							var origin = _grid_origin(vp_size)
+							var obs_center = origin + Vector2(float(tx) * CELL_SIZE + CELL_SIZE * 0.5, float(ty) * ENEMY_CELL_HEIGHT + ENEMY_CELL_HEIGHT * 0.5)
+							_board_vfx.append({
+								"type": "explosion",
+								"pos": obs_center,
+								"color": OBSTACLE_COLOR,
+								"t": 0.0,
+								"d": 0.3
+							})
+						queue_redraw()
+					# Проверяем монстра (только если нет препятствия)
+					elif enemies[ty][tx] > 0:
 						enemies[ty][tx] -= 1
 						_enemies_hit_this_turn[ty][tx] = true
 						
@@ -1308,11 +1531,9 @@ func _process(delta: float) -> void:
 	# Удаляем завершённые после отрисовки
 	# Автопобеда/поражение и шаги врагов после завершения всех эффектов
 	if _projectiles.is_empty() and _active_anims.is_empty() and _enemy_death_anims.is_empty():
-		if _check_level_completed() and not _level_completed_triggered:
-			_level_completed_triggered = true
+		if _check_level_completed() and not _victory_dialog_shown:
 			_on_level_completed()
-		elif (_moves_left == 0 or _player_lives == 0) and not _level_failed_triggered:
-			_level_failed_triggered = true
+		elif (_moves_left == 0 or _player_lives == 0) and not _defeat_dialog_shown:
 			_on_level_failed()
 		elif _enemy_move_pending:
 			_enemy_move_step()
@@ -1388,7 +1609,8 @@ func _use_booster_on_cell(cell: Vector2i):
 			_apply_freeze()
 	
 	if type_used != BoosterType.NONE:
-		_booster_counts[type_used] -= 1
+		var lm_type = _convert_to_lm_booster_type(type_used)
+		LevelManager.use_booster(lm_type)
 		_update_ui()
 	
 	_active_booster = BoosterType.NONE
@@ -1813,27 +2035,101 @@ func _check_level_completed() -> bool:
 
 
 func _on_level_completed():
+	# Награда за победу
+	var base_reward = 50
+	var moves_bonus = _moves_left * 10
+	var total_reward = base_reward + moves_bonus
+	
+	LevelManager.add_coins(total_reward)
 	LevelManager.mark_level_completed()
-	# Возврат в меню
-	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	
+	# Показываем экран победы с наградой
+	_show_victory_dialog(total_reward, base_reward, moves_bonus)
+
+func _show_victory_dialog(total: int, base: int, bonus: int):
+	var dialog = AcceptDialog.new()
+	dialog.title = "Уровень пройден!"
+	dialog.dialog_text = "Поздравляем!\n\nНаграда:\n  Базовая: %d монет\n  За ходы: %d × %d = %d монет\n\nВсего получено: %d монет" % [base, _moves_left, 10, bonus, total]
+	dialog.ok_button_text = "Продолжить"
+	dialog.get_cancel_button().hide()
+	
+	add_child(dialog)
+	dialog.popup_centered(Vector2(450, 250))
+	
+	var _return_to_menu = func():
+		if not dialog.is_queued_for_deletion():
+			dialog.queue_free()
+			get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	
+	dialog.confirmed.connect(_return_to_menu)
+	dialog.close_requested.connect(_return_to_menu)
 
 func _on_level_failed():
-	# Обнуляем win streak при поражении
-	LevelManager.mark_level_failed()
-	# Здесь можно сделать экран поражения, сейчас просто возврат в меню
-	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	# Если закончились ходы (но не жизни), предлагаем купить ходы
+	if _moves_left == 0 and _player_lives > 0:
+		_show_buy_moves_dialog()
+	else:
+		# Поражение (закончились жизни) - обнуляем win streak и возврат в меню
+		LevelManager.mark_level_failed()
+		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+
+func _show_buy_moves_dialog():
+	var cost = _get_moves_purchase_cost()
+	var player_coins = LevelManager.get_coins()
+	
+	var dialog = AcceptDialog.new()
+	dialog.title = "Закончились ходы!"
+	dialog.dialog_text = "Хотите купить ещё %d ходов за %d монет?\n\nУ вас: %d монет" % [MOVES_PER_PURCHASE, cost, player_coins]
+	dialog.ok_button_text = "Купить (%d)" % cost
+	dialog.cancel_button_text = "Выйти"
+	
+	if player_coins < cost:
+		dialog.dialog_text = "Недостаточно монет!\nНужно: %d монет\nУ вас: %d монет" % [cost, player_coins]
+		dialog.ok_button_text = "Понятно"
+		dialog.get_ok_button().disabled = true
+	
+	add_child(dialog)
+	dialog.popup_centered(Vector2(500, 200))
+	
+	var _on_confirmed = func():
+		if not dialog.is_queued_for_deletion():
+			dialog.queue_free()
+			if LevelManager.spend_coins(cost):
+				_moves_left += MOVES_PER_PURCHASE
+				_moves_purchase_count += 1
+				_update_ui()
+				queue_redraw()
+			else:
+				LevelManager.mark_level_failed()
+				get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	
+	var _on_canceled = func():
+		if not dialog.is_queued_for_deletion():
+			dialog.queue_free()
+			LevelManager.mark_level_failed()
+			get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	
+	dialog.confirmed.connect(_on_confirmed)
+	dialog.canceled.connect(_on_canceled)
+	dialog.close_requested.connect(_on_canceled)
+
+func _get_moves_purchase_cost() -> int:
+	return MOVES_PURCHASE_BASE_COST + (_moves_purchase_count * MOVES_PURCHASE_INCREMENT)
 
 func _enqueue_projectiles(col_x: int, from_y: int, count: int, base_delay: float = 0.0, trigger_move: bool = true):
-	# Планируем цели по ближайшим врагам снизу вверх, без превышения их суммарного HP
+	# Планируем цели по ближайшим врагам/препятствиям снизу вверх, без превышения их суммарного HP
 	var hp_left := []
 	for yy in range(ENEMY_ROWS):
 		var row_hp = 0
-		if enemies.size() > yy and enemies[yy].size() > col_x:
+		if obstacles.size() > yy and obstacles[yy].size() > col_x and obstacles[yy][col_x] > 0:
+			# Препятствие блокирует — снаряд попадёт в него
+			row_hp = obstacles[yy][col_x]
+		elif enemies.size() > yy and enemies[yy].size() > col_x:
 			row_hp = enemies[yy][col_x]
-			# Учитываем снаряды, которые уже летят в этого врага, чтобы не было "оверкилла"
-			for p in _projectiles:
-				if not p.hit_applied and p.has_target and p.x == col_x and int(p.end_y) == yy:
-					row_hp -= 1
+		# Учитываем снаряды, которые уже летят в эту цель, чтобы не было "оверкилла"
+		for p in _projectiles:
+			if not p.hit_applied and p.has_target and p.x == col_x and int(p.end_y) == yy:
+				row_hp -= 1
 		hp_left.append(max(0, row_hp))
 	var planned := [] # пары (has_target:bool, target_y:int)
 	for i in range(count):
@@ -1902,7 +2198,9 @@ func _enemy_move_step():
 					
 					# 1. Проверка движения прямо вперед
 					if y + 1 < ENEMY_ROWS:
-						if not occupied_next[y+1][x]:
+						# Проверяем препятствие и занятость клетки
+						var has_obstacle = obstacles[y+1][x] > 0
+						if not occupied_next[y+1][x] and not has_obstacle:
 							moves.append({"fx": x, "fy": y, "tx": x, "ty": y+1, "hp": hp, "init": init, "is_attack": false})
 							occupied_next[y][x] = false
 							occupied_next[y+1][x] = true
@@ -1913,7 +2211,7 @@ func _enemy_move_step():
 						occupied_next[y][x] = false
 						moved = true
 					
-					# 2. Если прямо нельзя (занято), пробуем в сторону (влево или вправо на той же горизонтали)
+					# 2. Если прямо нельзя (занято или препятствие), пробуем в сторону (влево или вправо на той же горизонтали)
 					if not moved:
 						var dirs = [-1, 1]
 						if (x + y + int(Time.get_ticks_msec() * 0.001)) % 2 == 0:
@@ -1922,8 +2220,9 @@ func _enemy_move_step():
 						for dx in dirs:
 							var nx = x + dx
 							if nx >= 0 and nx < COLS:
-								# Проверяем, свободна ли клетка сбоку
-								if not occupied_next[y][nx]:
+								# Проверяем препятствие и занятость клетки сбоку
+								var has_obstacle = obstacles[y][nx] > 0
+								if not occupied_next[y][nx] and not has_obstacle:
 									moves.append({"fx": x, "fy": y, "tx": nx, "ty": y, "hp": hp, "init": init, "is_attack": false})
 									occupied_next[y][x] = false
 									occupied_next[y][nx] = true
@@ -1979,7 +2278,8 @@ func _enemy_move_step():
 
 	# 4. Появление новых врагов в верхнем ряду (row 0)
 	for x in range(COLS):
-		if enemies[0][x] == 0 and not _monster_spawn_queue.is_empty():
+		# Проверяем, что нет препятствия в этой клетке
+		if enemies[0][x] == 0 and obstacles[0][x] == 0 and not _monster_spawn_queue.is_empty():
 			var hp = _monster_spawn_queue.pop_front()
 			enemies[0][x] = hp
 			enemies_initial_hp[0][x] = hp
