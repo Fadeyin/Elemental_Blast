@@ -38,6 +38,17 @@ https://elemental-blast-xxxxx.netlify.app
 3. **Подождите 3-5 минут** (автоматическая сборка)
 4. **Обновите страницу** на телефоне и тестируйте!
 
+### 🔀 Билд из других веток
+
+**Новая функция!** Теперь можно собирать и тестировать игру из любой ветки:
+
+- **Ручной запуск** - через GitHub Actions из любой ветки
+- **Pull Request Preview** - автоматический preview на Netlify
+- **Скачать артефакт** - для локального тестирования
+
+**📖 Быстрый старт:** [BRANCH_BUILD_QUICKSTART.md](.github/BRANCH_BUILD_QUICKSTART.md)  
+**📚 Полное руководство:** [MULTI_BRANCH_BUILD.md](.github/MULTI_BRANCH_BUILD.md)
+
 ## 📋 Требования
 
 - Godot Engine 4.6 (для локальной разработки)
@@ -79,6 +90,8 @@ https://elemental-blast-xxxxx.netlify.app
 
 | Документ | Описание |
 |----------|----------|
+| **[BRANCH_BUILD_QUICKSTART.md](.github/BRANCH_BUILD_QUICKSTART.md)** | ⚡ **НОВОЕ:** Билд из других веток (быстрый старт) |
+| **[MULTI_BRANCH_BUILD.md](.github/MULTI_BRANCH_BUILD.md)** | 🔀 **НОВОЕ:** Полное руководство по сборке из веток |
 | **[NETLIFY_SETUP.md](.github/NETLIFY_SETUP.md)** | ⭐ Настройка Netlify (рекомендуется) |
 | **[QUICK_START.md](.github/QUICK_START.md)** | Быстрая шпаргалка для начала работы |
 | **[DEPLOYMENT.md](DEPLOYMENT.md)** | Подробная инструкция по деплою и настройке |

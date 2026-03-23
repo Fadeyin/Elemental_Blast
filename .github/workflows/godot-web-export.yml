@@ -8,6 +8,18 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      deploy_to_pages:
+        description: 'Деплоить на GitHub Pages?'
+        required: false
+        type: boolean
+        default: false
+      deploy_to_netlify:
+        description: 'Деплоить на Netlify?'
+        required: false
+        type: boolean
+        default: false
 
 env:
   GODOT_VERSION: 4.6
@@ -123,7 +135,9 @@ jobs:
           retention-days: 14
       
       - name: Deploy to GitHub Pages
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/cursor/godot-web-9125'
+        if: |
+          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/cursor/godot-web-9125') ||
+          (github.event_name == 'workflow_dispatch' && inputs.deploy_to_pages == true)
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -132,7 +146,9 @@ jobs:
           cname: false
       
       - name: Deploy to Netlify
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/cursor/godot-web-9125'
+        if: |
+          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/cursor/godot-web-9125') ||
+          (github.event_name == 'workflow_dispatch' && inputs.deploy_to_netlify == true)
         uses: nwtgck/actions-netlify@v3
         with:
           publish-dir: './build/web'
