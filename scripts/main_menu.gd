@@ -15,6 +15,9 @@ extends Control
 # Путь к игровой сцене
 const GAME_BOARD_SCENE_PATH = "res://scenes/game_board.tscn"
 
+# Флаг для предотвращения множественного открытия диалога
+var _level_start_dialog_shown: bool = false
+
 func _ready():
 	if is_instance_valid(play_button):
 		play_button.pressed.connect(_on_play_pressed)
@@ -190,6 +193,12 @@ func _highlight_selected_in_grid():
 			b.button_pressed = (int(b.text) == LevelManager.current_level)
 
 func _show_level_start_dialog(level: int):
+	# Предотвращаем множественное открытие диалога
+	if _level_start_dialog_shown:
+		return
+	
+	_level_start_dialog_shown = true
+	
 	# Загружаем и показываем скрипт диалога старта уровня
 	var dialog_script = preload("res://scripts/level_start_dialog.gd")
 	var dialog = Control.new()
@@ -199,6 +208,11 @@ func _show_level_start_dialog(level: int):
 	dialog.z_index = 100
 	
 	dialog.connect("start_gameplay", _on_level_start_dialog_completed)
+	
+	# Сбрасываем флаг при удалении диалога
+	dialog.tree_exiting.connect(func():
+		_level_start_dialog_shown = false
+	)
 	
 	add_child(dialog)
 	dialog.setup()

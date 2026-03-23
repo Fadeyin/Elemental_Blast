@@ -83,6 +83,10 @@ var _booster_counts := {
 var _is_executing_combo: bool = false
 var _freeze_turns: int = 0
 
+# Флаги для предотвращения множественного срабатывания диалогов
+var _level_completed_triggered: bool = false
+var _level_failed_triggered: bool = false
+
 # Выбранные предуровневые усиления игрока
 var _selected_prelevel_boosts := {
 	"bomb": false,
@@ -1304,9 +1308,11 @@ func _process(delta: float) -> void:
 	# Удаляем завершённые после отрисовки
 	# Автопобеда/поражение и шаги врагов после завершения всех эффектов
 	if _projectiles.is_empty() and _active_anims.is_empty() and _enemy_death_anims.is_empty():
-		if _check_level_completed():
+		if _check_level_completed() and not _level_completed_triggered:
+			_level_completed_triggered = true
 			_on_level_completed()
-		elif _moves_left == 0 or _player_lives == 0:
+		elif (_moves_left == 0 or _player_lives == 0) and not _level_failed_triggered:
+			_level_failed_triggered = true
 			_on_level_failed()
 		elif _enemy_move_pending:
 			_enemy_move_step()

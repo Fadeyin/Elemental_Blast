@@ -11,6 +11,9 @@ var _selected_prelevel_boosts := {
 	"rainbow": false
 }
 
+# Флаг для предотвращения множественного закрытия диалога
+var _dialog_closing: bool = false
+
 func setup():
 	_build_dialog()
 
@@ -68,7 +71,8 @@ func _build_dialog():
 	close_btn.focus_mode = Control.FOCUS_NONE
 	
 	close_btn.pressed.connect(func():
-		if not is_queued_for_deletion():
+		if not _dialog_closing and not is_queued_for_deletion():
+			_dialog_closing = true
 			_on_start_pressed()
 	)
 	panel.add_child(close_btn)
@@ -115,7 +119,8 @@ func _build_dialog():
 	play_btn.focus_mode = Control.FOCUS_NONE
 	
 	play_btn.pressed.connect(func():
-		if not is_queued_for_deletion():
+		if not _dialog_closing and not is_queued_for_deletion():
+			_dialog_closing = true
 			_on_start_pressed()
 	)
 	
