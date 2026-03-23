@@ -24,6 +24,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+VersionManager="*res://scripts/VersionManager.gd"
 LevelManager="*res://scripts/LevelManager.gd"
 
 [display]

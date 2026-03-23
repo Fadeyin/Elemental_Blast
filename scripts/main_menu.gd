@@ -3,6 +3,7 @@ extends Control
 @onready var play_button = $TabContent/MainTab/PlayButton
 @onready var start_level_label = $TabContent/MainTab/StartLevelLabel
 @onready var levels_grid = $TabContent/MainTab/LevelsScroll/LevelsGrid
+@onready var version_label = $VersionLabel
 
 @onready var shop_tab = $TabContent/ShopTab
 @onready var main_tab = $TabContent/MainTab
@@ -27,6 +28,7 @@ func _ready():
 	
 	_setup_navigation()
 	_update_level_label()
+	_update_version_label()
 	_build_levels_grid()
 	_build_shop_tab()
 	_switch_tab("main")
@@ -342,6 +344,14 @@ func _update_level_label():
 	# Обновляем текст кнопки
 	if is_instance_valid(play_button):
 		play_button.text = "Уровень " + str(LevelManager.current_level)
+
+func _update_version_label():
+	if is_instance_valid(version_label):
+		version_label.text = "v" + VersionManager.get_version()
+		version_label.add_theme_font_size_override("font_size", 18)
+		version_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65, 0.8))
+		version_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.4))
+		version_label.add_theme_constant_override("outline_size", 2)
 
 # удалены обработчики стрелок
 
