@@ -174,12 +174,11 @@ func _build_levels_grid():
 		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		
-		b.toggle_mode = true
-		b.button_pressed = (n == LevelManager.current_level)
+		b.toggle_mode = false
 		b.pressed.connect(func():
 			LevelManager.set_current_level(int(b.text))
 			_update_level_label()
-			_highlight_selected_in_grid()
+			_show_level_start_dialog(int(b.text))
 		)
 		levels_grid.add_child(b)
 
@@ -189,3 +188,26 @@ func _highlight_selected_in_grid():
 	for b in levels_grid.get_children():
 		if b is Button:
 			b.button_pressed = (int(b.text) == LevelManager.current_level)
+
+func _show_level_start_dialog(level: int):
+	# Загружаем и показываем скрипт диалога старта уровня
+	var dialog_script = preload("res://scripts/level_start_dialog.gd")
+	var dialog = Control.new()
+	dialog.set_script(dialog_script)
+	dialog.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dialog.mouse_filter = Control.MOUSE_FILTER_STOP
+	dialog.z_index = 100
+	
+	dialog.connect("start_gameplay", _on_level_start_dialog_completed)
+	
+	add_child(dialog)
+	dialog.setup()
+
+func _on_level_start_dialog_completed(selected_boosts: Dictionary, mort_bonuses: Dictionary):
+	# Сохраняем выбранные усиления в LevelManager
+	LevelManager.selected_prelevel_boosts = selected_boosts
+	
+	# Загружаем игровую сцену
+	var err = get_tree().change_scene_to_file(GAME_BOARD_SCENE_PATH)
+	if err != OK:
+		printerr("Не удалось загрузить сцену игрового поля: ", err)

@@ -17,6 +17,13 @@ var prelevel_boosts := {
 	"rainbow": 3    # Шар (радужная фишка)
 }
 
+# Выбранные предуровневые усиления для текущего уровня (передается из main_menu в game_board)
+var selected_prelevel_boosts := {
+	"bomb": false,
+	"arrow": false,
+	"rainbow": false
+}
+
 const PRELEVEL_BOOST_PURCHASE_COST := 200
 const PRELEVEL_BOOST_PURCHASE_COUNT := 3
 
@@ -52,6 +59,9 @@ func mark_level_completed():
 	win_streak += 1
 	_update_mort_helmet_level()
 	
+	# Сбрасываем выбранные усиления для следующего уровня
+	selected_prelevel_boosts = {"bomb": false, "arrow": false, "rainbow": false}
+	
 	_save_progress()
 	emit_signal("level_completed", current_level)
 	# Подготовить следующий уровень для следующего старта из меню
@@ -62,6 +72,10 @@ func mark_level_failed():
 	# При поражении обнуляем win streak и шлем Морта
 	win_streak = 0
 	mort_helmet_level = 0
+	
+	# Сбрасываем выбранные усиления
+	selected_prelevel_boosts = {"bomb": false, "arrow": false, "rainbow": false}
+	
 	_save_progress()
 
 func _update_mort_helmet_level():

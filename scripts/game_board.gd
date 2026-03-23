@@ -106,8 +106,12 @@ func _ready():
 		get_viewport().size_changed.connect(_on_viewport_size_changed)
 	set_process(true) # Всегда активен для idle-анимаций монстров
 	
-	# Показываем диалог старта уровня перед началом игры
-	_show_level_start_dialog()
+	# Получаем предуровневые усиления из LevelManager (переданные из главного меню)
+	_selected_prelevel_boosts = LevelManager.selected_prelevel_boosts
+	_mort_helmet_bonus_chips = LevelManager.get_mort_helmet_bonus_chips()
+	
+	# Спавним бонусные фишки на старте уровня
+	_spawn_bonus_chips_at_start()
 	
 	# Кнопка "В меню"
 	var back_btn = find_child("BackToMenu", true, false)
@@ -2097,33 +2101,6 @@ func _add_chip_pop_vfx(x: int, y: int, color_idx: int):
 		})
 	
 	set_process(true)
-
-func _show_level_start_dialog():
-	# Загружаем и показываем скрипт диалога старта уровня
-	var dialog_script = preload("res://scripts/level_start_dialog.gd")
-	var dialog = Control.new()
-	dialog.set_script(dialog_script)
-	dialog.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dialog.mouse_filter = Control.MOUSE_FILTER_STOP
-	
-	dialog.connect("start_gameplay", _on_level_start_dialog_completed)
-	
-	add_child(dialog)
-	dialog.setup()
-	
-	# Блокируем ввод до закрытия диалога
-	set_process_unhandled_input(false)
-
-func _on_level_start_dialog_completed(selected_boosts: Dictionary, mort_bonuses: Dictionary):
-	# Сохраняем выбранные усиления и бонусы Шлема Морта
-	_selected_prelevel_boosts = selected_boosts
-	_mort_helmet_bonus_chips = mort_bonuses
-	
-	# Спавним бонусные фишки на старте уровня
-	_spawn_bonus_chips_at_start()
-	
-	# Разблокируем игровой процесс
-	set_process_unhandled_input(true)
 
 func _spawn_bonus_chips_at_start():
 	# Собираем все бонусные фишки для спавна (предуровневые + шлем морта)
