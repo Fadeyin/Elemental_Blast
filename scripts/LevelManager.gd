@@ -47,6 +47,7 @@ signal boosters_changed()
 
 func _ready():
 	_load_progress()
+	print("LevelManager инициализирован: уровень=%d, монеты=%d" % [current_level, player_coins])
 
 func start_new_game():
 	is_campaign_started = true

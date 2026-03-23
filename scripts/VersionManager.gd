@@ -14,25 +14,18 @@ func _ready():
 	print("Git ветка: ", branch)
 
 func _load_version():
-	# Пытаемся получить версию через скрипт get_version.sh
-	if FileAccess.file_exists("res://get_version.sh"):
-		var output = []
-		var exit_code = OS.execute("bash", ["res://get_version.sh"], output, true)
-		if exit_code == 0 and output.size() > 0:
-			version = output[0].strip_edges()
-	
-	# Пытаемся получить имя ветки
-	var branch_output = []
-	var branch_exit = OS.execute("git", ["rev-parse", "--abbrev-ref", "HEAD"], branch_output, true)
-	if branch_exit == 0 and branch_output.size() > 0:
-		branch = branch_output[0].strip_edges()
-	
-	# Если скрипт не сработал, читаем VERSION файл
-	if version == "0.1" and FileAccess.file_exists("res://VERSION"):
+	# Читаем VERSION файл (он всегда должен существовать)
+	if FileAccess.file_exists("res://VERSION"):
 		var file = FileAccess.open("res://VERSION", FileAccess.READ)
 		if file:
 			var base_version = file.get_as_text().strip_edges()
 			file.close()
+			
+			# Пытаемся получить имя ветки через git
+			var branch_output = []
+			var branch_exit = OS.execute("git", ["rev-parse", "--abbrev-ref", "HEAD"], branch_output, true)
+			if branch_exit == 0 and branch_output.size() > 0:
+				branch = branch_output[0].strip_edges()
 			
 			# Если не в main, добавляем суффикс ветки
 			if branch != "main" and branch != "unknown":
@@ -40,6 +33,10 @@ func _load_version():
 				version = base_version + "." + branch_suffix
 			else:
 				version = base_version
+		else:
+			print("ОШИБКА: Не удалось открыть файл VERSION")
+	else:
+		print("ПРЕДУПРЕЖДЕНИЕ: Файл VERSION не найден, используется версия по умолчанию ", version)
 
 func get_version() -> String:
 	return version
