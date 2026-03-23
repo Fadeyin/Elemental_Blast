@@ -107,6 +107,8 @@ var _mort_helmet_bonus_chips := {}
 # Флаги защиты от повторного показа диалогов
 var _victory_dialog_shown: bool = false
 var _defeat_dialog_shown: bool = false
+const LEVEL_END_DIALOG_SCRIPT := preload("res://scripts/level_end_dialog.gd")
+var _level_end_overlay: Control = null
 
 func _ready():
 	randomize()
@@ -2040,26 +2042,41 @@ func _on_level_completed():
 	LevelManager.add_coins(total_reward)
 	LevelManager.mark_level_completed()
 	
-	# Показываем экран победы с наградой
-	_show_victory_dialog(total_reward, base_reward, moves_bonus)
+	_show_level_end_victory(total_reward, base_reward, moves_bonus)
 
-func _show_victory_dialog(total: int, base: int, bonus: int):
-	var dialog = AcceptDialog.new()
-	dialog.title = "Уровень пройден!"
-	dialog.dialog_text = "Поздравляем!\n\nНаграда:\n  Базовая: %d монет\n  За ходы: %d × %d = %d монет\n\nВсего получено: %d монет" % [base, _moves_left, 10, bonus, total]
-	dialog.ok_button_text = "Продолжить"
-	dialog.get_cancel_button().hide()
-	
-	add_child(dialog)
-	dialog.popup_centered(Vector2(450, 250))
-	
-	var _return_to_menu = func():
-		if not dialog.is_queued_for_deletion():
-			dialog.queue_free()
-			get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
-	
-	dialog.confirmed.connect(_return_to_menu)
-	dialog.close_requested.connect(_return_to_menu)
+func _attach_level_end_overlay() -> Control:
+	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
+		return _level_end_overlay
+	var ui = find_child("UIRoot", true, false)
+	var parent: Node = self
+	if ui != null:
+		parent = ui
+	var overlay = Control.new()
+	overlay.set_script(LEVEL_END_DIALOG_SCRIPT)
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.z_index = 200
+	parent.add_child(overlay)
+	_level_end_overlay = overlay
+	return overlay
+
+func _show_level_end_victory(total: int, base_reward: int, bonus: int) -> void:
+	var overlay = _attach_level_end_overlay()
+	overlay.setup_victory(total, base_reward, bonus, _moves_left)
+	if not overlay.to_menu_pressed.is_connected(_on_level_end_to_menu):
+		overlay.to_menu_pressed.connect(_on_level_end_to_menu)
+
+func _on_level_end_to_menu() -> void:
+	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
+		_level_end_overlay.queue_free()
+		_level_end_overlay = null
+	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+
+func _show_level_end_defeat_no_lives() -> void:
+	var overlay = _attach_level_end_overlay()
+	overlay.setup_defeat_no_lives()
+	if not overlay.to_menu_pressed.is_connected(_on_level_end_to_menu):
+		overlay.to_menu_pressed.connect(_on_level_end_to_menu)
 
 func _on_level_failed():
 	_defeat_dialog_shown = true
@@ -2067,50 +2084,41 @@ func _on_level_failed():
 	if _moves_left == 0 and _player_lives > 0:
 		_show_buy_moves_dialog()
 	else:
-		# Поражение (закончились жизни) - обнуляем win streak и возврат в меню
 		LevelManager.mark_level_failed()
-		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+		_show_level_end_defeat_no_lives()
 
-func _show_buy_moves_dialog():
+func _show_buy_moves_dialog() -> void:
 	var cost = _get_moves_purchase_cost()
 	var player_coins = LevelManager.get_coins()
-	
-	var dialog = AcceptDialog.new()
-	dialog.title = "Закончились ходы!"
-	dialog.dialog_text = "Хотите купить ещё %d ходов за %d монет?\n\nУ вас: %d монет" % [MOVES_PER_PURCHASE, cost, player_coins]
-	dialog.ok_button_text = "Купить (%d)" % cost
-	dialog.cancel_button_text = "Выйти"
-	
-	if player_coins < cost:
-		dialog.dialog_text = "Недостаточно монет!\nНужно: %d монет\nУ вас: %d монет" % [cost, player_coins]
-		dialog.ok_button_text = "Понятно"
-		dialog.get_ok_button().disabled = true
-	
-	add_child(dialog)
-	dialog.popup_centered(Vector2(500, 200))
-	
-	var _on_confirmed = func():
-		if not dialog.is_queued_for_deletion():
-			dialog.queue_free()
-			if LevelManager.spend_coins(cost):
-				_defeat_dialog_shown = false
-				_moves_left += MOVES_PER_PURCHASE
-				_moves_purchase_count += 1
-				_update_ui()
-				queue_redraw()
-			else:
-				LevelManager.mark_level_failed()
-				get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
-	
-	var _on_canceled = func():
-		if not dialog.is_queued_for_deletion():
-			dialog.queue_free()
-			LevelManager.mark_level_failed()
-			get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
-	
-	dialog.confirmed.connect(_on_confirmed)
-	dialog.canceled.connect(_on_canceled)
-	dialog.close_requested.connect(_on_canceled)
+	var can_afford = player_coins >= cost
+	var overlay = _attach_level_end_overlay()
+	overlay.setup_buy_moves(cost, player_coins, MOVES_PER_PURCHASE, can_afford)
+	if not overlay.to_menu_pressed.is_connected(_on_buy_moves_exit_to_menu):
+		overlay.to_menu_pressed.connect(_on_buy_moves_exit_to_menu)
+	if can_afford:
+		if not overlay.buy_moves_pressed.is_connected(_on_buy_moves_confirmed.bind(cost)):
+			overlay.buy_moves_pressed.connect(_on_buy_moves_confirmed.bind(cost))
+
+func _on_buy_moves_exit_to_menu() -> void:
+	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
+		_level_end_overlay.queue_free()
+		_level_end_overlay = null
+	LevelManager.mark_level_failed()
+	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+
+func _on_buy_moves_confirmed(cost: int) -> void:
+	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
+		_level_end_overlay.queue_free()
+		_level_end_overlay = null
+	if LevelManager.spend_coins(cost):
+		_defeat_dialog_shown = false
+		_moves_left += MOVES_PER_PURCHASE
+		_moves_purchase_count += 1
+		_update_ui()
+		queue_redraw()
+	else:
+		LevelManager.mark_level_failed()
+		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 func _get_moves_purchase_cost() -> int:
 	return MOVES_PURCHASE_BASE_COST + (_moves_purchase_count * MOVES_PURCHASE_INCREMENT)
