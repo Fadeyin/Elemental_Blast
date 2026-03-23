@@ -38,6 +38,46 @@ https://elemental-blast-xxxxx.netlify.app
 3. **Подождите 3-5 минут** (автоматическая сборка)
 4. **Обновите страницу** на телефоне и тестируйте!
 
+### 🔀 Билд из других веток
+
+**Новая функция!** Теперь можно собирать и тестировать игру из любой ветки:
+
+> **⚡ Быстрый ответ:** [QUICK_ANSWER.md](QUICK_ANSWER.md) - 4 способа за 1 минуту!
+
+#### Способ 1: Ручной запуск (Рекомендуется)
+
+1. Откройте [GitHub Actions](https://github.com/Fadeyin/Elemental_Blast/actions)
+2. Выберите "Godot Web Export" → "Run workflow"
+3. Выберите вашу ветку из списка
+4. Отметьте нужные опции деплоя
+5. Запустите!
+
+#### Способ 2: Pull Request Preview
+
+```bash
+git checkout -b feature/my-feature
+git push origin feature/my-feature
+# Создайте PR → автоматический preview на Netlify
+```
+
+#### Способ 3: Скачать артефакт
+
+Запустите workflow без деплоя и скачайте артефакт для локального тестирования.
+
+#### Способ 4: Автоматическая ветка
+
+Добавьте вашу ветку в workflow для автоматической сборки при каждом push.
+
+---
+
+**Документация:**
+
+- 🎯 **[QUICK_ANSWER.md](QUICK_ANSWER.md)** - быстрый ответ (1 минута)
+- 📋 **[MULTI_BRANCH_SUMMARY.md](.github/MULTI_BRANCH_SUMMARY.md)** - краткое резюме (2 минуты)
+- 📖 **[BRANCH_BUILD_QUICKSTART.md](.github/BRANCH_BUILD_QUICKSTART.md)** - быстрый старт (5 минут)
+- 📚 **[MULTI_BRANCH_BUILD.md](.github/MULTI_BRANCH_BUILD.md)** - полное руководство
+- 📊 **[MULTI_BRANCH_WORKFLOW_DIAGRAM.md](.github/MULTI_BRANCH_WORKFLOW_DIAGRAM.md)** - визуальные схемы
+
 ## 📋 Требования
 
 - Godot Engine 4.6 (для локальной разработки)
@@ -79,6 +119,8 @@ https://elemental-blast-xxxxx.netlify.app
 
 | Документ | Описание |
 |----------|----------|
+| **[BRANCH_BUILD_QUICKSTART.md](.github/BRANCH_BUILD_QUICKSTART.md)** | ⚡ **НОВОЕ:** Билд из других веток (быстрый старт) |
+| **[MULTI_BRANCH_BUILD.md](.github/MULTI_BRANCH_BUILD.md)** | 🔀 **НОВОЕ:** Полное руководство по сборке из веток |
 | **[NETLIFY_SETUP.md](.github/NETLIFY_SETUP.md)** | ⭐ Настройка Netlify (рекомендуется) |
 | **[QUICK_START.md](.github/QUICK_START.md)** | Быстрая шпаргалка для начала работы |
 | **[DEPLOYMENT.md](DEPLOYMENT.md)** | Подробная инструкция по деплою и настройке |
