@@ -127,7 +127,8 @@ func _create_coins_display() -> Control:
 	
 	var coins_label = Label.new()
 	coins_label.name = "TopBarCoinsCount"
-	coins_label.text = str(LevelManager.get_coins())
+	var coins = LevelManager.get_coins() if LevelManager else 0
+	coins_label.text = str(coins)
 	coins_label.add_theme_font_size_override("font_size", 32)
 	coins_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
 	coins_label.add_theme_color_override("font_outline_color", Color(0.3, 0.2, 0.0, 0.9))
@@ -333,7 +334,7 @@ func _style_play_button():
 
 func _update_level_label():
 	if is_instance_valid(start_level_label):
-		var lvl = LevelManager.current_level
+		var lvl = LevelManager.current_level if LevelManager else 1
 		start_level_label.text = "Стартовый уровень: " + str(lvl)
 		# Применяем игровой шрифт к лейблу
 		start_level_label.add_theme_font_size_override("font_size", 32)
@@ -343,11 +344,13 @@ func _update_level_label():
 	
 	# Обновляем текст кнопки
 	if is_instance_valid(play_button):
-		play_button.text = "Уровень " + str(LevelManager.current_level)
+		var lvl = LevelManager.current_level if LevelManager else 1
+		play_button.text = "Уровень " + str(lvl)
 
 func _update_version_label():
 	if is_instance_valid(version_label):
-		version_label.text = "v" + VersionManager.get_version()
+		var ver = VersionManager.get_version() if VersionManager else "0.1"
+		version_label.text = "v" + str(ver)
 		version_label.add_theme_font_size_override("font_size", 18)
 		version_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65, 0.8))
 		version_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.4))
@@ -360,6 +363,11 @@ func _build_levels_grid():
 		return
 	for c in levels_grid.get_children():
 		c.queue_free()
+	
+	if not LevelManager:
+		print("ОШИБКА: LevelManager не инициализирован!")
+		return
+	
 	var levels = LevelManager.get_available_level_numbers()
 	for n in levels:
 		var b = Button.new()

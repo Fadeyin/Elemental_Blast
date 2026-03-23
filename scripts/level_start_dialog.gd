@@ -79,7 +79,8 @@ func _build_dialog():
 	
 	# Заголовок
 	var title = Label.new()
-	title.text = "УРОВЕНЬ " + str(LevelManager.current_level)
+	var level_num = LevelManager.current_level if LevelManager else 1
+	title.text = "УРОВЕНЬ " + str(level_num)
 	title.add_theme_font_size_override("font_size", 48)
 	title.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4))
 	title.add_theme_color_override("font_outline_color", Color.BLACK)
@@ -129,6 +130,9 @@ func _build_dialog():
 	vbox.add_child(play_container)
 
 func _add_mort_helmet_section(vbox: VBoxContainer):
+	if not LevelManager:
+		return
+	
 	var helmet_level = LevelManager.mort_helmet_level
 	var win_streak = LevelManager.win_streak
 	
@@ -206,6 +210,9 @@ func _add_mort_helmet_section(vbox: VBoxContainer):
 		vbox.add_child(no_bonus)
 
 func _add_prelevel_boosts_section(vbox: VBoxContainer):
+	if not LevelManager:
+		return
+	
 	# Заголовок секции
 	var boosts_title = Label.new()
 	boosts_title.text = "ПРЕДУРОВНЕВЫЕ УСИЛЕНИЯ"
@@ -324,6 +331,6 @@ func _show_buy_prelevel_boost_dialog(boost_type: String):
 	pass
 
 func _on_start_pressed():
-	var mort_bonuses = LevelManager.get_mort_helmet_bonus_chips()
+	var mort_bonuses = LevelManager.get_mort_helmet_bonus_chips() if LevelManager else {}
 	emit_signal("start_gameplay", _selected_prelevel_boosts, mort_bonuses)
 	queue_free()

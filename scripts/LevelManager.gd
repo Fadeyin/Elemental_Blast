@@ -19,9 +19,6 @@ var booster_counts := {
 }
 var starter_pack_purchased: bool = false
 
-# Монеты игрока
-var player_coins: int = 500
-
 # Шлем Морта (win streak система)
 var mort_helmet_level: int = 0 # 0, 1, 2, 3
 var win_streak: int = 0 # Количество побед подряд
@@ -50,6 +47,7 @@ signal boosters_changed()
 
 func _ready():
 	_load_progress()
+	print("LevelManager инициализирован: уровень=%d, монеты=%d" % [current_level, player_coins])
 
 func start_new_game():
 	is_campaign_started = true
@@ -160,20 +158,6 @@ func get_win_streak() -> int:
 	return win_streak
 
 # Функции управления монетами
-func add_coins(amount: int):
-	player_coins += amount
-	_save_progress()
-
-func spend_coins(amount: int) -> bool:
-	if player_coins >= amount:
-		player_coins -= amount
-		_save_progress()
-		return true
-	return false
-
-func get_coins() -> int:
-	return player_coins
-
 func get_level_config(level: int) -> Dictionary:
 	# Пытаемся загрузить JSON-конфиг уровня из res://levels/
 	var candidates := [
@@ -312,9 +296,9 @@ func _save_progress():
 	cfg.set_value("mort_helmet", "win_streak", win_streak)
 	
 	# Сохранение предуровневых усилений
-	cfg.set_value("prelevel_boosts", "bomb", prelevel_boosts.bomb)
-	cfg.set_value("prelevel_boosts", "arrow", prelevel_boosts.arrow)
-	cfg.set_value("prelevel_boosts", "rainbow", prelevel_boosts.rainbow)
+	cfg.set_value("prelevel_boosts", "bomb", prelevel_boosts["bomb"])
+	cfg.set_value("prelevel_boosts", "arrow", prelevel_boosts["arrow"])
+	cfg.set_value("prelevel_boosts", "rainbow", prelevel_boosts["rainbow"])
 	
 	# Сохранение бустеров
 	cfg.set_value("boosters", "hammer", booster_counts.get(BoosterType.HAMMER, INITIAL_BOOSTERS))
@@ -339,9 +323,9 @@ func _load_progress():
 		win_streak = int(cfg.get_value("mort_helmet", "win_streak", 0))
 		
 		# Загрузка предуровневых усилений
-		prelevel_boosts.bomb = int(cfg.get_value("prelevel_boosts", "bomb", 3))
-		prelevel_boosts.arrow = int(cfg.get_value("prelevel_boosts", "arrow", 3))
-		prelevel_boosts.rainbow = int(cfg.get_value("prelevel_boosts", "rainbow", 3))
+		prelevel_boosts["bomb"] = int(cfg.get_value("prelevel_boosts", "bomb", 3))
+		prelevel_boosts["arrow"] = int(cfg.get_value("prelevel_boosts", "arrow", 3))
+		prelevel_boosts["rainbow"] = int(cfg.get_value("prelevel_boosts", "rainbow", 3))
 		
 		# Загрузка бустеров
 		booster_counts[BoosterType.HAMMER] = int(cfg.get_value("boosters", "hammer", INITIAL_BOOSTERS))
