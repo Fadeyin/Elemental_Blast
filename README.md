@@ -42,12 +42,31 @@ https://elemental-blast-xxxxx.netlify.app
 
 **Новая функция!** Теперь можно собирать и тестировать игру из любой ветки:
 
-- **Ручной запуск** - через GitHub Actions из любой ветки
-- **Pull Request Preview** - автоматический preview на Netlify
-- **Скачать артефакт** - для локального тестирования
+#### Способ 1: Ручной запуск
+
+1. Откройте [GitHub Actions](https://github.com/Fadeyin/Elemental_Blast/actions)
+2. Выберите "Godot Web Export" → "Run workflow"
+3. Выберите вашу ветку из списка
+4. Отметьте нужные опции деплоя
+5. Запустите!
+
+#### Способ 2: Pull Request Preview
+
+```bash
+git checkout -b feature/my-feature
+git push origin feature/my-feature
+# Создайте PR → автоматический preview на Netlify
+```
+
+#### Способ 3: Скачать артефакт
+
+Запустите workflow без деплоя и скачайте артефакт для локального тестирования.
+
+---
 
 **📖 Быстрый старт:** [BRANCH_BUILD_QUICKSTART.md](.github/BRANCH_BUILD_QUICKSTART.md)  
-**📚 Полное руководство:** [MULTI_BRANCH_BUILD.md](.github/MULTI_BRANCH_BUILD.md)
+**📚 Полное руководство:** [MULTI_BRANCH_BUILD.md](.github/MULTI_BRANCH_BUILD.md)  
+**📊 Визуальные схемы:** [MULTI_BRANCH_WORKFLOW_DIAGRAM.md](.github/MULTI_BRANCH_WORKFLOW_DIAGRAM.md)
 
 ## 📋 Требования
 
