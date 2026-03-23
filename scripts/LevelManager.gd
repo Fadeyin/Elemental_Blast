@@ -19,6 +19,9 @@ var booster_counts := {
 }
 var starter_pack_purchased: bool = false
 
+# Монеты игрока
+var player_coins: int = 500
+
 # Шлем Морта (win streak система)
 var mort_helmet_level: int = 0 # 0, 1, 2, 3
 var win_streak: int = 0 # Количество побед подряд
@@ -149,6 +152,27 @@ func get_prelevel_boost_texture(boost_type: String) -> Texture2D:
 		"arrow": return preload("res://textures/Сhip_Bonus_Arrows.png")
 		"rainbow": return preload("res://textures/Сhip_Bonus_Rainbow_Ball.png")
 		_: return null
+
+func get_mort_helmet_level() -> int:
+	return mort_helmet_level
+
+func get_win_streak() -> int:
+	return win_streak
+
+# Функции управления монетами
+func add_coins(amount: int):
+	player_coins += amount
+	_save_progress()
+
+func spend_coins(amount: int) -> bool:
+	if player_coins >= amount:
+		player_coins -= amount
+		_save_progress()
+		return true
+	return false
+
+func get_coins() -> int:
+	return player_coins
 
 func get_level_config(level: int) -> Dictionary:
 	# Пытаемся загрузить JSON-конфиг уровня из res://levels/
