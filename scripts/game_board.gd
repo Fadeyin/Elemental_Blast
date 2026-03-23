@@ -93,6 +93,10 @@ var _selected_prelevel_boosts := {
 # Бонусные фишки от Шлема Морта для текущего уровня
 var _mort_helmet_bonus_chips := {}
 
+# Флаги защиты от повторного показа диалогов
+var _victory_dialog_shown: bool = false
+var _defeat_dialog_shown: bool = false
+
 func _ready():
 	randomize()
 	var cfg = LevelManager.get_level_config(LevelManager.current_level)
@@ -1304,9 +1308,9 @@ func _process(delta: float) -> void:
 	# Удаляем завершённые после отрисовки
 	# Автопобеда/поражение и шаги врагов после завершения всех эффектов
 	if _projectiles.is_empty() and _active_anims.is_empty() and _enemy_death_anims.is_empty():
-		if _check_level_completed():
+		if _check_level_completed() and not _victory_dialog_shown:
 			_on_level_completed()
-		elif _moves_left == 0 or _player_lives == 0:
+		elif (_moves_left == 0 or _player_lives == 0) and not _defeat_dialog_shown:
 			_on_level_failed()
 		elif _enemy_move_pending:
 			_enemy_move_step()
@@ -1807,15 +1811,379 @@ func _check_level_completed() -> bool:
 
 
 func _on_level_completed():
-	LevelManager.mark_level_completed()
-	# Возврат в меню
-	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	# Устанавливаем флаг, чтобы диалог не показывался повторно
+	_victory_dialog_shown = true
+	
+	# Останавливаем обработку игровой логики
+	set_process(false)
+	
+	# Показываем диалог победы
+	_show_victory_dialog()
 
 func _on_level_failed():
-	# Обнуляем win streak при поражении
-	LevelManager.mark_level_failed()
-	# Здесь можно сделать экран поражения, сейчас просто возврат в меню
-	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	# Устанавливаем флаг, чтобы диалог не показывался повторно
+	_defeat_dialog_shown = true
+	
+	# Останавливаем обработку игровой логики
+	set_process(false)
+	
+	# Показываем диалог поражения
+	_show_defeat_dialog()
+
+func _show_victory_dialog():
+	# Создаем затемнение фона
+	var overlay = ColorRect.new()
+	overlay.name = "VictoryOverlay"
+	overlay.color = Color(0, 0, 0, 0.7)
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.z_index = 100
+	add_child(overlay)
+	
+	# Создаем диалоговое окно
+	var dialog = Panel.new()
+	dialog.name = "VictoryDialog"
+	dialog.custom_minimum_size = Vector2(600, 500)
+	dialog.z_index = 101
+	
+	# Центрируем диалог
+	dialog.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	dialog.position = Vector2(-300, -250)
+	
+	# Стиль диалога
+	var dialog_style = StyleBoxFlat.new()
+	dialog_style.bg_color = Color(0.15, 0.2, 0.3, 0.98)
+	dialog_style.set_corner_radius_all(20)
+	dialog_style.border_width_left = 4
+	dialog_style.border_width_top = 4
+	dialog_style.border_width_right = 4
+	dialog_style.border_width_bottom = 4
+	dialog_style.border_color = Color(0.8, 0.7, 0.3, 1.0)
+	dialog_style.shadow_color = Color(0, 0, 0, 0.6)
+	dialog_style.shadow_size = 20
+	dialog_style.shadow_offset = Vector2(0, 10)
+	dialog.add_theme_stylebox_override("panel", dialog_style)
+	
+	var vbox = VBoxContainer.new()
+	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vbox.add_theme_constant_override("separation", 20)
+	dialog.add_child(vbox)
+	
+	# Заголовок
+	var title = Label.new()
+	title.text = "ПОБЕДА!"
+	title.add_theme_font_size_override("font_size", 64)
+	title.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
+	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	title.add_theme_constant_override("outline_size", 8)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.custom_minimum_size.y = 100
+	vbox.add_child(title)
+	
+	# Статистика
+	var stats = VBoxContainer.new()
+	stats.add_theme_constant_override("separation", 15)
+	
+	# Оставшиеся ходы
+	var moves_left_label = Label.new()
+	moves_left_label.text = "Осталось ходов: " + str(_moves_left)
+	moves_left_label.add_theme_font_size_override("font_size", 32)
+	moves_left_label.add_theme_color_override("font_color", Color.WHITE)
+	moves_left_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+	moves_left_label.add_theme_constant_override("outline_size", 4)
+	moves_left_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stats.add_child(moves_left_label)
+	
+	# Награда за победу
+	var base_reward = 50
+	var bonus_reward = _moves_left * 10
+	var total_reward = base_reward + bonus_reward
+	
+	var reward_label = Label.new()
+	reward_label.text = "Награда: " + str(base_reward) + " + " + str(bonus_reward) + " = " + str(total_reward) + " монет"
+	reward_label.add_theme_font_size_override("font_size", 28)
+	reward_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	reward_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+	reward_label.add_theme_constant_override("outline_size", 4)
+	reward_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stats.add_child(reward_label)
+	
+	# Новый уровень шлема Морта
+	var helmet_level = LevelManager.get_mort_helmet_level()
+	var win_streak = LevelManager.get_win_streak()
+	
+	var helmet_label = Label.new()
+	helmet_label.text = "Победы подряд: " + str(win_streak) + " | Уровень шлема: " + str(helmet_level)
+	helmet_label.add_theme_font_size_override("font_size", 24)
+	helmet_label.add_theme_color_override("font_color", Color(0.7, 0.9, 1.0))
+	helmet_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+	helmet_label.add_theme_constant_override("outline_size", 3)
+	helmet_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stats.add_child(helmet_label)
+	
+	vbox.add_child(stats)
+	
+	# Пространство
+	var spacer = Control.new()
+	spacer.custom_minimum_size.y = 30
+	vbox.add_child(spacer)
+	
+	# Кнопки
+	var buttons = HBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", 30)
+	
+	# Кнопка "В меню"
+	var menu_btn = Button.new()
+	menu_btn.text = "В МЕНЮ"
+	menu_btn.custom_minimum_size = Vector2(240, 80)
+	menu_btn.add_theme_font_size_override("font_size", 32)
+	menu_btn.add_theme_color_override("font_color", Color.WHITE)
+	menu_btn.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	menu_btn.add_theme_constant_override("outline_size", 5)
+	
+	var menu_style = StyleBoxFlat.new()
+	menu_style.bg_color = Color(0.3, 0.4, 0.5, 0.95)
+	menu_style.set_corner_radius_all(15)
+	menu_style.border_width_left = 3
+	menu_style.border_width_top = 3
+	menu_style.border_width_right = 3
+	menu_style.border_width_bottom = 3
+	menu_style.border_color = Color(0.6, 0.65, 0.7, 1.0)
+	
+	var menu_hover = menu_style.duplicate()
+	menu_hover.bg_color = Color(0.4, 0.5, 0.6, 1.0)
+	
+	menu_btn.add_theme_stylebox_override("normal", menu_style)
+	menu_btn.add_theme_stylebox_override("hover", menu_hover)
+	menu_btn.add_theme_stylebox_override("pressed", menu_hover)
+	menu_btn.focus_mode = Control.FOCUS_NONE
+	
+	# Кнопка "Следующий уровень"
+	var next_btn = Button.new()
+	next_btn.text = "ДАЛЕЕ"
+	next_btn.custom_minimum_size = Vector2(240, 80)
+	next_btn.add_theme_font_size_override("font_size", 32)
+	next_btn.add_theme_color_override("font_color", Color.WHITE)
+	next_btn.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	next_btn.add_theme_constant_override("outline_size", 5)
+	
+	var next_style = StyleBoxFlat.new()
+	next_style.bg_color = Color(0.2, 0.7, 0.3, 0.95)
+	next_style.set_corner_radius_all(15)
+	next_style.border_width_left = 3
+	next_style.border_width_top = 3
+	next_style.border_width_right = 3
+	next_style.border_width_bottom = 3
+	next_style.border_color = Color(0.4, 0.9, 0.5, 1.0)
+	
+	var next_hover = next_style.duplicate()
+	next_hover.bg_color = Color(0.3, 0.8, 0.4, 1.0)
+	
+	next_btn.add_theme_stylebox_override("normal", next_style)
+	next_btn.add_theme_stylebox_override("hover", next_hover)
+	next_btn.add_theme_stylebox_override("pressed", next_hover)
+	next_btn.focus_mode = Control.FOCUS_NONE
+	
+	buttons.add_child(menu_btn)
+	buttons.add_child(next_btn)
+	vbox.add_child(buttons)
+	
+	add_child(dialog)
+	
+	# Обработчики кнопок с защитой от повторного нажатия
+	var button_clicked = false
+	
+	menu_btn.pressed.connect(func():
+		if button_clicked: return
+		button_clicked = true
+		if not overlay.is_queued_for_deletion():
+			overlay.queue_free()
+		if not dialog.is_queued_for_deletion():
+			dialog.queue_free()
+		# Начисляем награду и возвращаемся в меню
+		LevelManager.add_coins(total_reward)
+		LevelManager.mark_level_completed()
+		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	)
+	
+	next_btn.pressed.connect(func():
+		if button_clicked: return
+		button_clicked = true
+		if not overlay.is_queued_for_deletion():
+			overlay.queue_free()
+		if not dialog.is_queued_for_deletion():
+			dialog.queue_free()
+		# Начисляем награду и переходим к следующему уровню
+		LevelManager.add_coins(total_reward)
+		LevelManager.mark_level_completed()
+		# Переходим к следующему уровню
+		LevelManager.current_level = LevelManager.current_level + 1
+		get_tree().reload_current_scene()
+	)
+
+func _show_defeat_dialog():
+	# Создаем затемнение фона
+	var overlay = ColorRect.new()
+	overlay.name = "DefeatOverlay"
+	overlay.color = Color(0, 0, 0, 0.7)
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.z_index = 100
+	add_child(overlay)
+	
+	# Создаем диалоговое окно
+	var dialog = Panel.new()
+	dialog.name = "DefeatDialog"
+	dialog.custom_minimum_size = Vector2(600, 500)
+	dialog.z_index = 101
+	
+	# Центрируем диалог
+	dialog.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	dialog.position = Vector2(-300, -250)
+	
+	# Стиль диалога
+	var dialog_style = StyleBoxFlat.new()
+	dialog_style.bg_color = Color(0.2, 0.15, 0.15, 0.98)
+	dialog_style.set_corner_radius_all(20)
+	dialog_style.border_width_left = 4
+	dialog_style.border_width_top = 4
+	dialog_style.border_width_right = 4
+	dialog_style.border_width_bottom = 4
+	dialog_style.border_color = Color(0.8, 0.3, 0.3, 1.0)
+	dialog_style.shadow_color = Color(0, 0, 0, 0.6)
+	dialog_style.shadow_size = 20
+	dialog_style.shadow_offset = Vector2(0, 10)
+	dialog.add_theme_stylebox_override("panel", dialog_style)
+	
+	var vbox = VBoxContainer.new()
+	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vbox.add_theme_constant_override("separation", 20)
+	dialog.add_child(vbox)
+	
+	# Заголовок
+	var title = Label.new()
+	title.text = "ПОРАЖЕНИЕ"
+	title.add_theme_font_size_override("font_size", 56)
+	title.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	title.add_theme_constant_override("outline_size", 8)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.custom_minimum_size.y = 100
+	vbox.add_child(title)
+	
+	# Причина поражения
+	var reason = Label.new()
+	if _moves_left == 0:
+		reason.text = "Закончились ходы"
+	elif _player_lives == 0:
+		reason.text = "Закончились жизни"
+	else:
+		reason.text = "Уровень не пройден"
+	
+	reason.add_theme_font_size_override("font_size", 32)
+	reason.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	reason.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+	reason.add_theme_constant_override("outline_size", 4)
+	reason.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(reason)
+	
+	# Пространство
+	var spacer = Control.new()
+	spacer.custom_minimum_size.y = 40
+	vbox.add_child(spacer)
+	
+	# Кнопки
+	var buttons = VBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", 20)
+	
+	# Кнопка "Повторить"
+	var retry_btn = Button.new()
+	retry_btn.text = "ПОВТОРИТЬ"
+	retry_btn.custom_minimum_size = Vector2(350, 80)
+	retry_btn.add_theme_font_size_override("font_size", 36)
+	retry_btn.add_theme_color_override("font_color", Color.WHITE)
+	retry_btn.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	retry_btn.add_theme_constant_override("outline_size", 5)
+	
+	var retry_style = StyleBoxFlat.new()
+	retry_style.bg_color = Color(0.7, 0.4, 0.2, 0.95)
+	retry_style.set_corner_radius_all(15)
+	retry_style.border_width_left = 3
+	retry_style.border_width_top = 3
+	retry_style.border_width_right = 3
+	retry_style.border_width_bottom = 3
+	retry_style.border_color = Color(0.9, 0.6, 0.4, 1.0)
+	
+	var retry_hover = retry_style.duplicate()
+	retry_hover.bg_color = Color(0.8, 0.5, 0.3, 1.0)
+	
+	retry_btn.add_theme_stylebox_override("normal", retry_style)
+	retry_btn.add_theme_stylebox_override("hover", retry_hover)
+	retry_btn.add_theme_stylebox_override("pressed", retry_hover)
+	retry_btn.focus_mode = Control.FOCUS_NONE
+	
+	# Кнопка "В меню"
+	var menu_btn = Button.new()
+	menu_btn.text = "В МЕНЮ"
+	menu_btn.custom_minimum_size = Vector2(350, 80)
+	menu_btn.add_theme_font_size_override("font_size", 36)
+	menu_btn.add_theme_color_override("font_color", Color.WHITE)
+	menu_btn.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	menu_btn.add_theme_constant_override("outline_size", 5)
+	
+	var menu_style = StyleBoxFlat.new()
+	menu_style.bg_color = Color(0.3, 0.3, 0.4, 0.95)
+	menu_style.set_corner_radius_all(15)
+	menu_style.border_width_left = 3
+	menu_style.border_width_top = 3
+	menu_style.border_width_right = 3
+	menu_style.border_width_bottom = 3
+	menu_style.border_color = Color(0.5, 0.5, 0.6, 1.0)
+	
+	var menu_hover = menu_style.duplicate()
+	menu_hover.bg_color = Color(0.4, 0.4, 0.5, 1.0)
+	
+	menu_btn.add_theme_stylebox_override("normal", menu_style)
+	menu_btn.add_theme_stylebox_override("hover", menu_hover)
+	menu_btn.add_theme_stylebox_override("pressed", menu_hover)
+	menu_btn.focus_mode = Control.FOCUS_NONE
+	
+	buttons.add_child(retry_btn)
+	buttons.add_child(menu_btn)
+	vbox.add_child(buttons)
+	
+	add_child(dialog)
+	
+	# Обработчики кнопок с защитой от повторного нажатия
+	var button_clicked = false
+	
+	retry_btn.pressed.connect(func():
+		if button_clicked: return
+		button_clicked = true
+		if not overlay.is_queued_for_deletion():
+			overlay.queue_free()
+		if not dialog.is_queued_for_deletion():
+			dialog.queue_free()
+		# Обнуляем win streak при поражении
+		LevelManager.mark_level_failed()
+		# Перезагружаем уровень
+		get_tree().reload_current_scene()
+	)
+	
+	menu_btn.pressed.connect(func():
+		if button_clicked: return
+		button_clicked = true
+		if not overlay.is_queued_for_deletion():
+			overlay.queue_free()
+		if not dialog.is_queued_for_deletion():
+			dialog.queue_free()
+		# Обнуляем win streak при поражении
+		LevelManager.mark_level_failed()
+		# Возвращаемся в меню
+		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	)
 
 func _enqueue_projectiles(col_x: int, from_y: int, count: int, base_delay: float = 0.0, trigger_move: bool = true):
 	# Планируем цели по ближайшим врагам снизу вверх, без превышения их суммарного HP

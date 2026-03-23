@@ -6,6 +6,9 @@ var current_level: int = 1
 var max_unlocked_level: int = 1
 var is_campaign_started: bool = false
 
+# Монеты игрока
+var player_coins: int = 500
+
 # Шлем Морта (win streak система)
 var mort_helmet_level: int = 0 # 0, 1, 2, 3
 var win_streak: int = 0 # Количество побед подряд
@@ -135,6 +138,27 @@ func get_prelevel_boost_texture(boost_type: String) -> Texture2D:
 		"rainbow": return preload("res://textures/Сhip_Bonus_Rainbow_Ball.png")
 		_: return null
 
+func get_mort_helmet_level() -> int:
+	return mort_helmet_level
+
+func get_win_streak() -> int:
+	return win_streak
+
+# Функции управления монетами
+func add_coins(amount: int):
+	player_coins += amount
+	_save_progress()
+
+func spend_coins(amount: int) -> bool:
+	if player_coins >= amount:
+		player_coins -= amount
+		_save_progress()
+		return true
+	return false
+
+func get_coins() -> int:
+	return player_coins
+
 func get_level_config(level: int) -> Dictionary:
 	# Пытаемся загрузить JSON-конфиг уровня из res://levels/
 	var candidates := [
@@ -201,6 +225,7 @@ func _save_progress():
 	cfg.set_value("progress", "current_level", current_level)
 	cfg.set_value("progress", "max_unlocked_level", max_unlocked_level)
 	cfg.set_value("progress", "is_campaign_started", is_campaign_started)
+	cfg.set_value("progress", "player_coins", player_coins)
 	
 	# Сохранение win streak и шлема Морта
 	cfg.set_value("mort_helmet", "level", mort_helmet_level)
@@ -220,6 +245,7 @@ func _load_progress():
 		current_level = int(cfg.get_value("progress", "current_level", 1))
 		max_unlocked_level = int(cfg.get_value("progress", "max_unlocked_level", 1))
 		is_campaign_started = bool(cfg.get_value("progress", "is_campaign_started", false))
+		player_coins = int(cfg.get_value("progress", "player_coins", 500))
 		
 		# Загрузка win streak и шлема Морта
 		mort_helmet_level = int(cfg.get_value("mort_helmet", "level", 0))
