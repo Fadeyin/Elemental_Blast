@@ -94,10 +94,6 @@ var _active_booster: BoosterType = BoosterType.NONE
 var _is_executing_combo: bool = false
 var _freeze_turns: int = 0
 
-# Флаги для предотвращения множественного срабатывания диалогов
-var _level_completed_triggered: bool = false
-var _level_failed_triggered: bool = false
-
 # Выбранные предуровневые усиления игрока
 var _selected_prelevel_boosts := {
 	"bomb": false,
@@ -2035,6 +2031,7 @@ func _check_level_completed() -> bool:
 
 
 func _on_level_completed():
+	_victory_dialog_shown = true
 	# Награда за победу
 	var base_reward = 50
 	var moves_bonus = _moves_left * 10
@@ -2065,6 +2062,7 @@ func _show_victory_dialog(total: int, base: int, bonus: int):
 	dialog.close_requested.connect(_return_to_menu)
 
 func _on_level_failed():
+	_defeat_dialog_shown = true
 	# Если закончились ходы (но не жизни), предлагаем купить ходы
 	if _moves_left == 0 and _player_lives > 0:
 		_show_buy_moves_dialog()
@@ -2095,6 +2093,7 @@ func _show_buy_moves_dialog():
 		if not dialog.is_queued_for_deletion():
 			dialog.queue_free()
 			if LevelManager.spend_coins(cost):
+				_defeat_dialog_shown = false
 				_moves_left += MOVES_PER_PURCHASE
 				_moves_purchase_count += 1
 				_update_ui()
