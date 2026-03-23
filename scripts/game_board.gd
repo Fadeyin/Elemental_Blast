@@ -48,6 +48,17 @@ const BG_COLOR := Color(0.52, 0.58, 0.68, 1) # Пастельный светло
 const GAME_BG_TEXTURE := preload("res://textures/Game_Backgound.png")
 const ENEMY_TILE_TEXTURE := preload("res://textures/Floor_Enemy_Tile_.png")
 
+# Константы полоски здоровья монстров
+const HEALTH_BAR_HEIGHT := 4.0
+const HEALTH_BAR_MARGIN := 2.0
+const HEALTH_BAR_BG_COLOR := Color(0.2, 0.2, 0.2, 0.6)
+const HEALTH_BAR_HEALTH_COLOR := Color(0.2, 0.8, 0.2, 0.9)
+const HEALTH_BAR_DAMAGE_COLOR := Color(0.9, 0.2, 0.2, 0.7)
+
+# Константы препятствий
+const OBSTACLE_COLOR := Color(0.4, 0.35, 0.3, 1.0) # Коричневый (стена)
+const OBSTACLE_EDGE_COLOR := Color(0.25, 0.2, 0.15, 1.0) # Тёмно-коричневый (края)
+
 # Отступы под UI-панели
 const UI_TOP_MARGIN := 72
 const UI_BOTTOM_MARGIN := 128
@@ -57,6 +68,8 @@ var enemies := [] # 2D массив здоровья врагов (y: 0..ENEMY_R
 var enemies_initial_hp := [] # Исходный HP врагов для целей
 var _enemies_hit_this_turn := [] # 2D массив флагов попадания в этом ходу
 var _monster_spawn_queue := [] # Очередь монстров для появления на поле
+var obstacles := [] # 2D массив здоровья препятствий (y: 0..ENEMY_ROWS-1)
+var obstacles_initial_hp := [] # Исходный HP препятствий
 var _projectiles := [] # [{x:int, start_y:float, end_y:float, t:float, d:float, delay:float, color:Color, hit_applied:bool, has_target:bool}]
 var _active_anims := [] # [{x:int, start_y:int, end_y:int, color:int, t:float, d:float}]
 var _enemy_death_anims := [] # [{x:int, y:int, t:float, d:float, hp:int, init:int, id:int}]
@@ -71,15 +84,13 @@ var _moves_total: int = 15
 var _moves_left: int = 15
 var _player_lives: int = 5
 var _needs_ui_update: bool = false
+var _moves_purchase_count: int = 0
+const MOVES_PURCHASE_BASE_COST := 100
+const MOVES_PURCHASE_INCREMENT := 150
+const MOVES_PER_PURCHASE := 5
 
 enum BoosterType { NONE, HAMMER, ROW_BLAST, SHUFFLE, FREEZE }
 var _active_booster: BoosterType = BoosterType.NONE
-var _booster_counts := {
-	BoosterType.HAMMER: 4,
-	BoosterType.ROW_BLAST: 4,
-	BoosterType.SHUFFLE: 4,
-	BoosterType.FREEZE: 4
-}
 var _is_executing_combo: bool = false
 var _freeze_turns: int = 0
 
@@ -97,6 +108,7 @@ func _ready():
 	randomize()
 	var cfg = LevelManager.get_level_config(LevelManager.current_level)
 	_init_chips()
+	_init_obstacles_from_config(cfg)
 	_init_enemies_from_config(cfg)
 	_init_moves_from_config(cfg)
 	_init_ui()
