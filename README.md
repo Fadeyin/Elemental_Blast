@@ -3,6 +3,7 @@
 [![Godot Web Export](https://github.com/Fadeyin/Elemental_Blast/actions/workflows/godot-web-export.yml/badge.svg)](https://github.com/Fadeyin/Elemental_Blast/actions/workflows/godot-web-export.yml)
 [![GitHub Pages](https://img.shields.io/badge/play-online-success)](https://fadeyin.github.io/Elemental_Blast/)
 [![Godot Engine](https://img.shields.io/badge/Godot-4.6-blue.svg)](https://godotengine.org/)
+[![Version](https://img.shields.io/badge/version-0.1-blue.svg)](docs/versioning.md)
 
 Match-3 головоломка на Godot Engine 4.6
 
@@ -119,6 +120,7 @@ git push origin feature/my-feature
 
 | Документ | Описание |
 |----------|----------|
+| **[versioning.md](docs/versioning.md)** | 🔢 Система версионирования проекта |
 | **[BRANCH_BUILD_QUICKSTART.md](.github/BRANCH_BUILD_QUICKSTART.md)** | ⚡ **НОВОЕ:** Билд из других веток (быстрый старт) |
 | **[MULTI_BRANCH_BUILD.md](.github/MULTI_BRANCH_BUILD.md)** | 🔀 **НОВОЕ:** Полное руководство по сборке из веток |
 | **[NETLIFY_SETUP.md](.github/NETLIFY_SETUP.md)** | ⭐ Настройка Netlify (рекомендуется) |
