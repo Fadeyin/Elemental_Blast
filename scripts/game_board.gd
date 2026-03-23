@@ -94,6 +94,10 @@ var _active_booster: BoosterType = BoosterType.NONE
 var _is_executing_combo: bool = false
 var _freeze_turns: int = 0
 
+# Флаги для предотвращения множественного срабатывания диалогов
+var _level_completed_triggered: bool = false
+var _level_failed_triggered: bool = false
+
 # Выбранные предуровневые усиления игрока
 var _selected_prelevel_boosts := {
 	"bomb": false,
