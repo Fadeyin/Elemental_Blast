@@ -1,10 +1,23 @@
 extends Node
 
 const SAVE_PATH := "user://progress.cfg"
+const INITIAL_COINS := 500
+const INITIAL_BOOSTERS := 4
+const BOOSTER_PURCHASE_COST := 350
+
+enum BoosterType { HAMMER = 1, ROW_BLAST = 2, SHUFFLE = 3, FREEZE = 4 }
 
 var current_level: int = 1
 var max_unlocked_level: int = 1
 var is_campaign_started: bool = false
+var player_coins: int = INITIAL_COINS
+var booster_counts := {
+	BoosterType.HAMMER: INITIAL_BOOSTERS,
+	BoosterType.ROW_BLAST: INITIAL_BOOSTERS,
+	BoosterType.SHUFFLE: INITIAL_BOOSTERS,
+	BoosterType.FREEZE: INITIAL_BOOSTERS
+}
+var starter_pack_purchased: bool = false
 
 # Монеты игрока
 var player_coins: int = 500
@@ -32,6 +45,8 @@ const PRELEVEL_BOOST_PURCHASE_COUNT := 3
 
 signal level_started(level: int)
 signal level_completed(level: int)
+signal coins_changed(new_amount: int)
+signal boosters_changed()
 
 func _ready():
 	_load_progress()
@@ -220,12 +235,77 @@ func get_available_level_numbers() -> Array:
 	out.sort()
 	return out
 
+func add_coins(amount: int):
+	player_coins += amount
+	_save_progress()
+	emit_signal("coins_changed", player_coins)
+
+func spend_coins(amount: int) -> bool:
+	if player_coins >= amount:
+		player_coins -= amount
+		_save_progress()
+		emit_signal("coins_changed", player_coins)
+		return true
+	return false
+
+func get_coins() -> int:
+	return player_coins
+
+func use_booster(type: BoosterType) -> bool:
+	if booster_counts.get(type, 0) > 0:
+		booster_counts[type] -= 1
+		_save_progress()
+		emit_signal("boosters_changed")
+		return true
+	return false
+
+func buy_booster(type: BoosterType) -> bool:
+	if spend_coins(BOOSTER_PURCHASE_COST):
+		booster_counts[type] = booster_counts.get(type, 0) + 1
+		_save_progress()
+		emit_signal("boosters_changed")
+		return true
+	return false
+
+func get_booster_count(type: BoosterType) -> int:
+	return booster_counts.get(type, 0)
+
+func purchase_starter_pack():
+	if not starter_pack_purchased:
+		player_coins += 1000
+		for type in [BoosterType.HAMMER, BoosterType.ROW_BLAST, BoosterType.SHUFFLE, BoosterType.FREEZE]:
+			booster_counts[type] = booster_counts.get(type, 0) + 4
+		starter_pack_purchased = true
+		_save_progress()
+		emit_signal("coins_changed", player_coins)
+		emit_signal("boosters_changed")
+
+func purchase_medium_pack():
+	player_coins += 2500
+	for type in [BoosterType.HAMMER, BoosterType.ROW_BLAST, BoosterType.SHUFFLE, BoosterType.FREEZE]:
+		booster_counts[type] = booster_counts.get(type, 0) + 5
+	_save_progress()
+	emit_signal("coins_changed", player_coins)
+	emit_signal("boosters_changed")
+
+func purchase_best_pack():
+	player_coins += 5000
+	for type in [BoosterType.HAMMER, BoosterType.ROW_BLAST, BoosterType.SHUFFLE, BoosterType.FREEZE]:
+		booster_counts[type] = booster_counts.get(type, 0) + 10
+	_save_progress()
+	emit_signal("coins_changed", player_coins)
+	emit_signal("boosters_changed")
+
+func is_starter_pack_purchased() -> bool:
+	return starter_pack_purchased
+
 func _save_progress():
 	var cfg := ConfigFile.new()
 	cfg.set_value("progress", "current_level", current_level)
 	cfg.set_value("progress", "max_unlocked_level", max_unlocked_level)
 	cfg.set_value("progress", "is_campaign_started", is_campaign_started)
 	cfg.set_value("progress", "player_coins", player_coins)
+	cfg.set_value("progress", "starter_pack_purchased", starter_pack_purchased)
 	
 	# Сохранение win streak и шлема Морта
 	cfg.set_value("mort_helmet", "level", mort_helmet_level)
@@ -236,6 +316,12 @@ func _save_progress():
 	cfg.set_value("prelevel_boosts", "arrow", prelevel_boosts.arrow)
 	cfg.set_value("prelevel_boosts", "rainbow", prelevel_boosts.rainbow)
 	
+	# Сохранение бустеров
+	cfg.set_value("boosters", "hammer", booster_counts.get(BoosterType.HAMMER, INITIAL_BOOSTERS))
+	cfg.set_value("boosters", "row_blast", booster_counts.get(BoosterType.ROW_BLAST, INITIAL_BOOSTERS))
+	cfg.set_value("boosters", "shuffle", booster_counts.get(BoosterType.SHUFFLE, INITIAL_BOOSTERS))
+	cfg.set_value("boosters", "freeze", booster_counts.get(BoosterType.FREEZE, INITIAL_BOOSTERS))
+	
 	cfg.save(SAVE_PATH)
 
 func _load_progress():
@@ -245,7 +331,8 @@ func _load_progress():
 		current_level = int(cfg.get_value("progress", "current_level", 1))
 		max_unlocked_level = int(cfg.get_value("progress", "max_unlocked_level", 1))
 		is_campaign_started = bool(cfg.get_value("progress", "is_campaign_started", false))
-		player_coins = int(cfg.get_value("progress", "player_coins", 500))
+		player_coins = int(cfg.get_value("progress", "player_coins", INITIAL_COINS))
+		starter_pack_purchased = bool(cfg.get_value("progress", "starter_pack_purchased", false))
 		
 		# Загрузка win streak и шлема Морта
 		mort_helmet_level = int(cfg.get_value("mort_helmet", "level", 0))
@@ -255,4 +342,10 @@ func _load_progress():
 		prelevel_boosts.bomb = int(cfg.get_value("prelevel_boosts", "bomb", 3))
 		prelevel_boosts.arrow = int(cfg.get_value("prelevel_boosts", "arrow", 3))
 		prelevel_boosts.rainbow = int(cfg.get_value("prelevel_boosts", "rainbow", 3))
+		
+		# Загрузка бустеров
+		booster_counts[BoosterType.HAMMER] = int(cfg.get_value("boosters", "hammer", INITIAL_BOOSTERS))
+		booster_counts[BoosterType.ROW_BLAST] = int(cfg.get_value("boosters", "row_blast", INITIAL_BOOSTERS))
+		booster_counts[BoosterType.SHUFFLE] = int(cfg.get_value("boosters", "shuffle", INITIAL_BOOSTERS))
+		booster_counts[BoosterType.FREEZE] = int(cfg.get_value("boosters", "freeze", INITIAL_BOOSTERS))
 
