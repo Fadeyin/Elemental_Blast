@@ -284,11 +284,8 @@ func _style_nav_button(btn: Button):
 	btn.add_theme_constant_override("outline_size", 4)
 
 func _on_play_pressed():
-	# Не сбрасываем выбранный пользователем уровень (подтверждаем выбор)
 	LevelManager.set_current_level(LevelManager.current_level)
-	var err = get_tree().change_scene_to_file(GAME_BOARD_SCENE_PATH)
-	if err != OK:
-		printerr("Не удалось загрузить сцену игрового поля: ", err)
+	_show_level_start_dialog(LevelManager.current_level)
 
 func _style_play_button():
 	if not is_instance_valid(play_button):
@@ -371,7 +368,8 @@ func _build_levels_grid():
 	var levels = LevelManager.get_available_level_numbers()
 	for n in levels:
 		var b = Button.new()
-		b.text = str(n)
+		b.set_meta("level_number", n)
+		b.text = "Уровень " + str(n)
 		b.custom_minimum_size = Vector2(160, 100)
 		b.add_theme_font_size_override("font_size", 40)
 		
@@ -407,9 +405,10 @@ func _build_levels_grid():
 		
 		b.toggle_mode = false
 		b.pressed.connect(func():
-			LevelManager.set_current_level(int(b.text))
+			var lvl_num = int(b.get_meta("level_number"))
+			LevelManager.set_current_level(lvl_num)
 			_update_level_label()
-			_show_level_start_dialog(int(b.text))
+			_show_level_start_dialog(lvl_num)
 		)
 		levels_grid.add_child(b)
 
@@ -417,8 +416,8 @@ func _highlight_selected_in_grid():
 	if not is_instance_valid(levels_grid):
 		return
 	for b in levels_grid.get_children():
-		if b is Button:
-			b.button_pressed = (int(b.text) == LevelManager.current_level)
+		if b is Button and b.has_meta("level_number"):
+			b.button_pressed = (int(b.get_meta("level_number")) == LevelManager.current_level)
 
 func _show_level_start_dialog(level: int):
 	# Предотвращаем множественное открытие диалога
