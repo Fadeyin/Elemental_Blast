@@ -4,6 +4,7 @@ const SAVE_PATH := "user://progress.cfg"
 const INITIAL_COINS := 500
 const INITIAL_BOOSTERS := 4
 const INGAME_BOOSTER_PACK_COST := 150
+const UI_GOLD_COIN_TEXTURE := preload("res://textures/ui_gold_coin.png")
 
 enum BoosterType { HAMMER = 1, ROW_BLAST = 2, SHUFFLE = 3, FREEZE = 4 }
 

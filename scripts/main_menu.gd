@@ -197,12 +197,15 @@ func _create_avatar() -> Control:
 func _create_coins_display() -> Control:
 	var container = HBoxContainer.new()
 	container.add_theme_constant_override("separation", 8)
-	
-	var coin_icon = Label.new()
-	coin_icon.text = "🪙"
-	coin_icon.add_theme_font_size_override("font_size", 36)
-	coin_icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	container.add_child(coin_icon)
+	var coin_slot := CenterContainer.new()
+	coin_slot.custom_minimum_size = Vector2(44, 44)
+	var coin_icon := TextureRect.new()
+	coin_icon.texture = LevelManager.UI_GOLD_COIN_TEXTURE
+	coin_icon.custom_minimum_size = Vector2(40, 40)
+	coin_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	coin_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	coin_slot.add_child(coin_icon)
+	container.add_child(coin_slot)
 	
 	var coins_label = Label.new()
 	coins_label.name = "TopBarCoinsCount"
