@@ -89,10 +89,12 @@ func setup() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	scroll.scroll_deadzone = 24
 	scroll.follow_focus = false
 	root_v.add_child(scroll)
 	_scroll_content = VBoxContainer.new()
+	_scroll_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_scroll_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll_content.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_scroll_content.add_theme_constant_override("separation", 10)
@@ -148,6 +150,7 @@ func _rebuild_all() -> void:
 			_buy_pass_btn.text = "Купить золотой пропуск за %d монет" % p
 			_buy_pass_btn.disabled = LevelManager.get_coins() < p
 	var header := HBoxContainer.new()
+	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header.add_theme_constant_override("separation", 6)
 	header.add_child(_header_cell("№", 36, true))
 	header.add_child(_header_cell("Бесплатно", 120, false))
@@ -159,6 +162,7 @@ func _rebuild_all() -> void:
 
 func _header_cell(txt: String, w: float, narrow: bool) -> Control:
 	var l := Label.new()
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.text = txt
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.add_theme_font_size_override("font_size", 17)
@@ -171,8 +175,10 @@ func _header_cell(txt: String, w: float, narrow: bool) -> Control:
 
 func _build_tier_row(tier_index: int) -> Control:
 	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 6)
 	var num := Label.new()
+	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	num.text = str(tier_index + 1)
 	num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	num.custom_minimum_size = Vector2(36, 0)
@@ -185,8 +191,10 @@ func _build_tier_row(tier_index: int) -> Control:
 
 func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 	var wrap := MarginContainer.new()
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var inner := PanelContainer.new()
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var st := StyleBoxFlat.new()
 	st.set_corner_radius_all(12)
@@ -218,6 +226,7 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 	inner.add_theme_stylebox_override("panel", st)
 	wrap.add_child(inner)
 	var vb := VBoxContainer.new()
+	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vb.add_theme_constant_override("separation", 4)
 	inner.add_child(vb)
 	var rw: Dictionary = LevelManager.get_golden_pass_tier_reward(tier_index)
@@ -226,11 +235,13 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 		entry = rw["premium"] if is_premium else rw["free"]
 	if entry.is_empty():
 		var empty_l := Label.new()
+		empty_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		empty_l.text = "—"
 		empty_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vb.add_child(empty_l)
 		return wrap
 	var title_l := Label.new()
+	title_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_l.text = _reward_title(entry)
 	title_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -239,6 +250,7 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 	vb.add_child(title_l)
 	var tex := _reward_texture(entry)
 	var icon_bg := PanelContainer.new()
+	icon_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon_bg.custom_minimum_size = Vector2(REWARD_ICON_BOX, REWARD_ICON_BOX)
 	icon_bg.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var icon_panel := StyleBoxFlat.new()
@@ -251,16 +263,19 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 	icon_panel.border_color = Color(0.32, 0.35, 0.42, 1.0)
 	icon_bg.add_theme_stylebox_override("panel", icon_panel)
 	var inner_icon := MarginContainer.new()
+	inner_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner_icon.add_theme_constant_override("margin_left", 6)
 	inner_icon.add_theme_constant_override("margin_top", 6)
 	inner_icon.add_theme_constant_override("margin_right", 6)
 	inner_icon.add_theme_constant_override("margin_bottom", 6)
 	icon_bg.add_child(inner_icon)
 	var icon_center := CenterContainer.new()
+	icon_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	inner_icon.add_child(icon_center)
 	if tex:
 		var tr := TextureRect.new()
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tr.texture = tex
 		tr.custom_minimum_size = Vector2(REWARD_ICON_BOX - 12, REWARD_ICON_BOX - 12)
 		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -268,6 +283,7 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 		icon_center.add_child(tr)
 	vb.add_child(icon_bg)
 	var amt_l := Label.new()
+	amt_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	amt_l.text = _reward_amount_line(entry)
 	amt_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	amt_l.add_theme_font_size_override("font_size", 14)
@@ -275,6 +291,7 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 	vb.add_child(amt_l)
 	if is_premium and not LevelManager.is_golden_pass_purchased():
 		var lock_l := Label.new()
+		lock_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		lock_l.text = "Нужен пропуск"
 		lock_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		lock_l.add_theme_font_size_override("font_size", 14)
@@ -282,6 +299,7 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 		vb.add_child(lock_l)
 	elif not unlocked:
 		var wait_l := Label.new()
+		wait_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		wait_l.text = "Скоро"
 		wait_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		wait_l.add_theme_font_size_override("font_size", 14)
@@ -289,6 +307,7 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 		vb.add_child(wait_l)
 	elif claimed:
 		var got := Label.new()
+		got.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		got.text = "Получено"
 		got.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		got.add_theme_font_size_override("font_size", 14)
@@ -296,6 +315,7 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 		vb.add_child(got)
 	elif can_claim:
 		var claim := Button.new()
+		claim.mouse_filter = Control.MOUSE_FILTER_STOP
 		claim.text = "ЗАБРАТЬ"
 		claim.custom_minimum_size = Vector2(0, 40)
 		claim.add_theme_font_size_override("font_size", 16)
