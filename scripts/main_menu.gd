@@ -18,9 +18,15 @@ const GAME_BOARD_SCENE_PATH = "res://scenes/game_board.tscn"
 
 # Флаг для предотвращения множественного открытия диалога
 var _level_start_dialog_shown: bool = false
+var _golden_pass_dialog_open: bool = false
+
+const GOLDEN_PASS_DIALOG_SCRIPT := preload("res://scripts/golden_pass_dialog.gd")
 
 func _ready():
 	_create_top_bar()
+	if LevelManager:
+		LevelManager.tick_golden_pass_daily_login()
+	_create_golden_pass_fab()
 	
 	if is_instance_valid(play_button):
 		play_button.pressed.connect(_on_play_pressed)
@@ -35,6 +41,7 @@ func _ready():
 	
 	LevelManager.coins_changed.connect(_on_coins_changed)
 	LevelManager.boosters_changed.connect(_on_boosters_changed)
+	LevelManager.golden_pass_state_changed.connect(_on_golden_pass_state_changed)
 
 func _on_boosters_changed():
 	_build_shop_tab()
@@ -43,6 +50,78 @@ func _on_coins_changed(new_amount: int):
 	var coins_label = find_child("TopBarCoinsCount", true, false)
 	if coins_label:
 		coins_label.text = str(new_amount)
+	_refresh_golden_pass_buy_button_if_visible()
+
+func _on_golden_pass_state_changed():
+	_refresh_golden_pass_buy_button_if_visible()
+
+func _refresh_golden_pass_buy_button_if_visible():
+	if _golden_pass_dialog_open:
+		var dlg = find_child("GoldenPassOverlay", true, false)
+		if dlg and dlg.has_method("setup"):
+			dlg.setup()
+
+func _create_golden_pass_fab() -> void:
+	var fab := Button.new()
+	fab.name = "GoldenPassFab"
+	fab.focus_mode = Control.FOCUS_NONE
+	fab.custom_minimum_size = Vector2(64, 64)
+	fab.anchor_left = 1.0
+	fab.anchor_top = 0.0
+	fab.anchor_right = 1.0
+	fab.anchor_bottom = 0.0
+	fab.offset_left = -84.0
+	fab.offset_top = 88.0
+	fab.offset_right = -20.0
+	fab.offset_bottom = 152.0
+	fab.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	fab.grow_vertical = Control.GROW_DIRECTION_END
+	fab.text = "★"
+	fab.add_theme_font_size_override("font_size", 32)
+	var r := 32
+	var n := StyleBoxFlat.new()
+	n.bg_color = Color(0.78, 0.55, 0.12, 1.0)
+	n.set_corner_radius_all(r)
+	n.border_width_left = 3
+	n.border_width_top = 3
+	n.border_width_right = 3
+	n.border_width_bottom = 3
+	n.border_color = Color(1.0, 0.92, 0.45, 1.0)
+	n.shadow_color = Color(0, 0, 0, 0.35)
+	n.shadow_size = 6
+	n.shadow_offset = Vector2(0, 3)
+	var h := n.duplicate()
+	h.bg_color = Color(0.9, 0.68, 0.18, 1.0)
+	var p := n.duplicate()
+	p.bg_color = Color(0.62, 0.42, 0.08, 1.0)
+	fab.add_theme_stylebox_override("normal", n)
+	fab.add_theme_stylebox_override("hover", h)
+	fab.add_theme_stylebox_override("pressed", p)
+	fab.add_theme_color_override("font_color", Color(1.0, 0.98, 0.75))
+	fab.add_theme_color_override("font_outline_color", Color(0.2, 0.1, 0.0, 0.9))
+	fab.add_theme_constant_override("outline_size", 4)
+	fab.z_index = 5
+	fab.tooltip_text = "Золотой пропуск"
+	fab.pressed.connect(_show_golden_pass_dialog)
+	add_child(fab)
+
+func _show_golden_pass_dialog() -> void:
+	if _golden_pass_dialog_open:
+		return
+	if LevelManager:
+		LevelManager.tick_golden_pass_daily_login()
+	_golden_pass_dialog_open = true
+	var dlg := Control.new()
+	dlg.name = "GoldenPassOverlay"
+	dlg.set_script(GOLDEN_PASS_DIALOG_SCRIPT)
+	dlg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dlg.mouse_filter = Control.MOUSE_FILTER_STOP
+	dlg.z_index = 150
+	dlg.tree_exiting.connect(func():
+		_golden_pass_dialog_open = false
+	)
+	add_child(dlg)
+	dlg.setup()
 
 func _create_top_bar():
 	var top_bar = ColorRect.new()
