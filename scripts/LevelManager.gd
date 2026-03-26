@@ -37,8 +37,14 @@ var selected_prelevel_boosts := {
 	"rainbow": false
 }
 
-const PRELEVEL_BOOST_PURCHASE_COST := 200
-const PRELEVEL_BOOST_PURCHASE_COUNT := 3
+const PRELEVEL_BOOST_PACK_COUNT := 3
+
+func get_prelevel_boost_pack_cost(boost_type: String) -> int:
+	match boost_type:
+		"rainbow": return 200
+		"bomb": return 100
+		"arrow": return 150
+		_: return 999999
 
 signal level_started(level: int)
 signal level_completed(level: int)
@@ -114,19 +120,17 @@ func get_mort_helmet_bonus_chips() -> Dictionary:
 		_: return {}
 
 func can_purchase_prelevel_boosts(boost_type: String) -> bool:
-	# Проверка возможности покупки (у игрока достаточно монет)
-	# TODO: интеграция с монетами будет через CoinsManager
-	return true
+	if not prelevel_boosts.has(boost_type):
+		return false
+	return player_coins >= get_prelevel_boost_pack_cost(boost_type)
 
 func purchase_prelevel_boosts(boost_type: String) -> bool:
 	if not prelevel_boosts.has(boost_type):
 		return false
-	
-	# TODO: списать монеты через CoinsManager
-	# if not CoinsManager.spend_coins(PRELEVEL_BOOST_PURCHASE_COST):
-	#     return false
-	
-	prelevel_boosts[boost_type] += PRELEVEL_BOOST_PURCHASE_COUNT
+	var cost := get_prelevel_boost_pack_cost(boost_type)
+	if not spend_coins(cost):
+		return false
+	prelevel_boosts[boost_type] += PRELEVEL_BOOST_PACK_COUNT
 	_save_progress()
 	return true
 
