@@ -3,7 +3,7 @@ extends Node
 const SAVE_PATH := "user://progress.cfg"
 const INITIAL_COINS := 500
 const INITIAL_BOOSTERS := 4
-const BOOSTER_PURCHASE_COST := 350
+const INGAME_BOOSTER_PACK_COST := 150
 
 enum BoosterType { HAMMER = 1, ROW_BLAST = 2, SHUFFLE = 3, FREEZE = 4 }
 
@@ -243,13 +243,19 @@ func use_booster(type: BoosterType) -> bool:
 		return true
 	return false
 
+func get_ingame_booster_pack_quantity(type: BoosterType) -> int:
+	if type == BoosterType.HAMMER:
+		return 3
+	return 1
+
 func buy_booster(type: BoosterType) -> bool:
-	if spend_coins(BOOSTER_PURCHASE_COST):
-		booster_counts[type] = booster_counts.get(type, 0) + 1
-		_save_progress()
-		emit_signal("boosters_changed")
-		return true
-	return false
+	var qty := get_ingame_booster_pack_quantity(type)
+	if not spend_coins(INGAME_BOOSTER_PACK_COST):
+		return false
+	booster_counts[type] = booster_counts.get(type, 0) + qty
+	_save_progress()
+	emit_signal("boosters_changed")
+	return true
 
 func get_booster_count(type: BoosterType) -> int:
 	return booster_counts.get(type, 0)

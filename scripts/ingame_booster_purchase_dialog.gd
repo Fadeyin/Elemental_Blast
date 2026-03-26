@@ -7,7 +7,7 @@ signal closed_pressed
 
 var _closing: bool = false
 
-func setup(display_name: String, icon, cost: int, player_coins: int, can_afford: bool) -> void:
+func setup(display_name: String, icon, cost: int, quantity: int, player_coins: int, can_afford: bool) -> void:
 	_closing = false
 	while get_child_count() > 0:
 		var ch = get_child(0)
@@ -78,9 +78,15 @@ func setup(display_name: String, icon, cost: int, player_coins: int, can_afford:
 	vbox.add_child(name_lbl)
 	var body = Label.new()
 	if can_afford:
-		body.text = "Купить +1 за %d монет?\n\nУ вас: %d монет" % [cost, player_coins]
+		if quantity > 1:
+			body.text = "Купить %d шт. за %d монет?\n\nУ вас: %d монет" % [quantity, cost, player_coins]
+		else:
+			body.text = "Купить 1 шт. за %d монет?\n\nУ вас: %d монет" % [cost, player_coins]
 	else:
-		body.text = "Недостаточно монет.\nЦена: %d монет\nУ вас: %d монет" % [cost, player_coins]
+		if quantity > 1:
+			body.text = "Недостаточно монет.\nПакет: %d шт. за %d монет\nУ вас: %d монет" % [quantity, cost, player_coins]
+		else:
+			body.text = "Недостаточно монет.\nЦена: %d монет\nУ вас: %d монет" % [cost, player_coins]
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_theme_font_size_override("font_size", 30)

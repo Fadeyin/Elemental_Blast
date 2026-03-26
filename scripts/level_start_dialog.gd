@@ -18,10 +18,13 @@ func setup():
 	_build_dialog()
 
 func _build_dialog():
-	# Полупрозрачный фон
+	# Полупрозрачный фон (клик вне панели — закрыть без старта)
 	var bg = ColorRect.new()
+	bg.name = "LevelStartDimmer"
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.color = Color(0, 0, 0, 0.7)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	bg.gui_input.connect(_on_dimmer_gui_input)
 	add_child(bg)
 	
 	# Центральная панель диалога
@@ -44,6 +47,7 @@ func _build_dialog():
 	panel_style.shadow_color = Color(0, 0, 0, 0.6)
 	panel_style.shadow_size = 20
 	panel.add_theme_stylebox_override("panel", panel_style)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(panel)
 	
 	# VBoxContainer для вертикального расположения элементов
@@ -56,12 +60,15 @@ func _build_dialog():
 	vbox.offset_bottom = -30
 	panel.add_child(vbox)
 	
-	# Кнопка закрытия (крестик) в правом верхнем углу
+	var header_row = HBoxContainer.new()
+	header_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header_row.add_theme_constant_override("separation", 8)
+	var header_spacer = Control.new()
+	header_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header_row.add_child(header_spacer)
 	var close_btn = Button.new()
 	close_btn.text = "✕"
 	close_btn.custom_minimum_size = Vector2(50, 50)
-	close_btn.position = Vector2(panel.custom_minimum_size.x - 70, 10)
-	
 	var close_style = StyleBoxFlat.new()
 	close_style.bg_color = Color(0.8, 0.2, 0.2, 0.8)
 	close_style.set_corner_radius_all(25)
@@ -69,13 +76,14 @@ func _build_dialog():
 	close_btn.add_theme_font_size_override("font_size", 32)
 	close_btn.add_theme_color_override("font_color", Color.WHITE)
 	close_btn.focus_mode = Control.FOCUS_NONE
-	
+	close_btn.mouse_filter = Control.MOUSE_FILTER_STOP
 	close_btn.pressed.connect(func():
 		if not _dialog_closing and not is_queued_for_deletion():
 			_dialog_closing = true
 			_on_close_pressed()
 	)
-	panel.add_child(close_btn)
+	header_row.add_child(close_btn)
+	vbox.add_child(header_row)
 	
 	# Заголовок
 	var title = Label.new()
@@ -337,6 +345,16 @@ func _return_selected_prelevel_boosts_to_inventory() -> void:
 		if _selected_prelevel_boosts[boost_type]:
 			LevelManager.prelevel_boosts[boost_type] += 1
 			_selected_prelevel_boosts[boost_type] = false
+
+func _on_dimmer_gui_input(event: InputEvent) -> void:
+	if _dialog_closing:
+		return
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+			_dialog_closing = true
+			_on_close_pressed()
+			get_viewport().set_input_as_handled()
 
 func _on_close_pressed() -> void:
 	_return_selected_prelevel_boosts_to_inventory()
