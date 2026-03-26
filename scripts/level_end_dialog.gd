@@ -9,9 +9,9 @@ signal refill_lives_pressed
 
 var _closing: bool = false
 
-func setup_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_count: int, coins_per_bonus_chip: int) -> void:
+func setup_victory(total: int, base_reward: int, bag_bonus: int) -> void:
 	_build_base()
-	_fill_victory(total, base_reward, chips_bonus, bonus_chips_count, coins_per_bonus_chip)
+	_fill_victory(total, base_reward, bag_bonus)
 
 func setup_defeat_no_lives(refill_cost: int, player_coins: int, max_lives: int, can_refill: bool) -> void:
 	_build_base()
@@ -68,7 +68,7 @@ func _build_base() -> void:
 func _main_vbox() -> VBoxContainer:
 	return get_node("LevelEndPanel/LevelEndMargin/ContentVBox") as VBoxContainer
 
-func _fill_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_count: int, coins_per_bonus_chip: int) -> void:
+func _fill_victory(total: int, base_reward: int, bag_bonus: int) -> void:
 	var vbox = _main_vbox()
 	var title = Label.new()
 	title.text = "ПОБЕДА!"
@@ -79,7 +79,7 @@ func _fill_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_c
 	title.add_theme_constant_override("outline_size", 8)
 	vbox.add_child(title)
 	var body = Label.new()
-	body.text = "Уровень пройден.\n\nНаграда:\n  Базовая: %d монет\n  За бонусные фишки на поле: %d × %d = %d монет\n\nВсего: %d монет" % [base_reward, bonus_chips_count, coins_per_bonus_chip, chips_bonus, total]
+	body.text = "Уровень пройден.\n\nНаграда:\n  Базовая: %d монет\n  Бонус за попадания по мешку золота: %d монет\n\nВсего: %d монет" % [base_reward, bag_bonus, total]
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_theme_font_size_override("font_size", 32)
