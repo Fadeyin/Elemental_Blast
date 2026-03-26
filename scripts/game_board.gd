@@ -108,7 +108,9 @@ var _mort_helmet_bonus_chips := {}
 var _victory_dialog_shown: bool = false
 var _defeat_dialog_shown: bool = false
 const LEVEL_END_DIALOG_SCRIPT := preload("res://scripts/level_end_dialog.gd")
+const INGAME_BOOSTER_PURCHASE_SCRIPT := preload("res://scripts/ingame_booster_purchase_dialog.gd")
 var _level_end_overlay: Control = null
+var _booster_purchase_overlay: Control = null
 
 func _ready():
 	randomize()
@@ -392,46 +394,64 @@ func _convert_to_lm_booster_type(type: BoosterType) -> int:
 		BoosterType.FREEZE: return LevelManager.BoosterType.FREEZE
 	return LevelManager.BoosterType.HAMMER
 
-func _show_buy_booster_dialog(lm_type: int):
+func _lm_booster_type_to_shop_icon_index(lm_type: int) -> int:
+	match lm_type:
+		LevelManager.BoosterType.HAMMER: return 0
+		LevelManager.BoosterType.ROW_BLAST: return 1
+		LevelManager.BoosterType.SHUFFLE: return 2
+		LevelManager.BoosterType.FREEZE: return 3
+	return -1
+
+func _dismiss_booster_purchase_overlay() -> void:
+	if _booster_purchase_overlay != null and is_instance_valid(_booster_purchase_overlay):
+		_booster_purchase_overlay.queue_free()
+	_booster_purchase_overlay = null
+
+func _show_buy_booster_dialog(lm_type: int) -> void:
 	var booster_names = {
 		LevelManager.BoosterType.HAMMER: "Молоток",
 		LevelManager.BoosterType.ROW_BLAST: "Ракета",
 		LevelManager.BoosterType.SHUFFLE: "Перемешивание",
 		LevelManager.BoosterType.FREEZE: "Заморозка"
 	}
-	
+	var shop_icon_paths = [
+		"res://textures/Booster_Hummer.png",
+		"res://textures/Booster_Arrows.png",
+		"res://textures/Booster_Refresh.png",
+		"res://textures/Booster_Snow.png"
+	]
 	var booster_name = booster_names.get(lm_type, "Бустер")
 	var cost = LevelManager.BOOSTER_PURCHASE_COST
 	var player_coins = LevelManager.get_coins()
-	
-	var dialog = AcceptDialog.new()
-	dialog.title = "Купить бустер?"
-	dialog.dialog_text = "Бустер: %s\nЦена: %d монет\n\nУ вас: %d монет" % [booster_name, cost, player_coins]
-	dialog.ok_button_text = "Купить (%d)" % cost
-	dialog.cancel_button_text = "Отмена"
-	
-	if player_coins < cost:
-		dialog.dialog_text = "Недостаточно монет!\n\nБустер: %s\nЦена: %d монет\nУ вас: %d монет" % [booster_name, cost, player_coins]
-		dialog.ok_button_text = "Понятно"
-		dialog.get_ok_button().disabled = true
-	
-	add_child(dialog)
-	dialog.popup_centered(Vector2(400, 200))
-	
-	var _on_confirmed = func():
-		if not dialog.is_queued_for_deletion():
-			dialog.queue_free()
-			if LevelManager.buy_booster(lm_type):
-				_update_ui()
-				queue_redraw()
-	
-	var _on_canceled = func():
-		if not dialog.is_queued_for_deletion():
-			dialog.queue_free()
-	
-	dialog.confirmed.connect(_on_confirmed)
-	dialog.canceled.connect(_on_canceled)
-	dialog.close_requested.connect(_on_canceled)
+	var can_afford = player_coins >= cost
+	_dismiss_booster_purchase_overlay()
+	var icon_idx = _lm_booster_type_to_shop_icon_index(lm_type)
+	var icon_tex: Texture2D = null
+	if icon_idx >= 0 and icon_idx < shop_icon_paths.size():
+		var loaded = load(shop_icon_paths[icon_idx])
+		if loaded is Texture2D:
+			icon_tex = loaded
+	var ui = find_child("UIRoot", true, false)
+	var parent: Node = self if ui == null else ui
+	var overlay = Control.new()
+	overlay.set_script(INGAME_BOOSTER_PURCHASE_SCRIPT)
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.z_index = 190
+	parent.add_child(overlay)
+	_booster_purchase_overlay = overlay
+	overlay.setup(booster_name, icon_tex, cost, player_coins, can_afford)
+	overlay.purchase_pressed.connect(func(): _on_ingame_booster_purchase_confirm(lm_type))
+	overlay.closed_pressed.connect(_on_ingame_booster_purchase_closed)
+
+func _on_ingame_booster_purchase_confirm(lm_type: int) -> void:
+	_dismiss_booster_purchase_overlay()
+	if LevelManager.buy_booster(lm_type):
+		_update_ui()
+		queue_redraw()
+
+func _on_ingame_booster_purchase_closed() -> void:
+	_dismiss_booster_purchase_overlay()
 
 func _update_booster_buttons_visual():
 	for i in range(1, 5): # Все 4 бустера

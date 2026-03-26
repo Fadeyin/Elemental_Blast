@@ -73,7 +73,7 @@ func _build_dialog():
 	close_btn.pressed.connect(func():
 		if not _dialog_closing and not is_queued_for_deletion():
 			_dialog_closing = true
-			_on_start_pressed()
+			_on_close_pressed()
 	)
 	panel.add_child(close_btn)
 	
@@ -329,6 +329,18 @@ func _add_prelevel_boosts_section(vbox: VBoxContainer):
 func _show_buy_prelevel_boost_dialog(boost_type: String):
 	# TODO: Интеграция с монетами
 	pass
+
+func _return_selected_prelevel_boosts_to_inventory() -> void:
+	if not LevelManager:
+		return
+	for boost_type in _selected_prelevel_boosts.keys():
+		if _selected_prelevel_boosts[boost_type]:
+			LevelManager.prelevel_boosts[boost_type] += 1
+			_selected_prelevel_boosts[boost_type] = false
+
+func _on_close_pressed() -> void:
+	_return_selected_prelevel_boosts_to_inventory()
+	queue_free()
 
 func _on_start_pressed():
 	var mort_bonuses = LevelManager.get_mort_helmet_bonus_chips() if LevelManager else {}
