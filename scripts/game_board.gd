@@ -88,7 +88,8 @@ var _moves_purchase_count: int = 0
 const MOVES_PURCHASE_BASE_COST := 100
 const MOVES_PURCHASE_INCREMENT := 150
 const MOVES_PER_PURCHASE := 5
-const COINS_PER_REMAINING_BONUS_CHIP := 10
+const COINS_PER_VICTORY_GOLD_BAG_HIT := 1
+const VICTORY_GOLD_BAG_SIZE := 4
 const REFILL_ALL_LIVES_COST := 100
 const MAX_PLAYER_LIVES := 5
 
@@ -110,6 +111,11 @@ var _mort_helmet_bonus_chips := {}
 # Флаги защиты от повторного показа диалогов
 var _victory_dialog_shown: bool = false
 var _defeat_dialog_shown: bool = false
+var _victory_bonus_phase_active: bool = false
+var _skip_chip_spawn_for_bonus_phase: bool = false
+var _count_projectile_hits_on_victory_gold_bag: bool = false
+var _victory_gold_bag_origin: Vector2i = Vector2i(-1, -1)
+var _victory_bonus_gold_from_bag: int = 0
 const LEVEL_END_DIALOG_SCRIPT := preload("res://scripts/level_end_dialog.gd")
 const INGAME_BOOSTER_PURCHASE_SCRIPT := preload("res://scripts/ingame_booster_purchase_dialog.gd")
 var _level_end_overlay: Control = null
@@ -880,6 +886,9 @@ func _draw():
 		) + shake_off
 		_draw_enemy_monster(e_top_left, e_chip_size, m.hp, m.init_hp, m.id, m.alpha)
 
+	if _victory_gold_bag_origin.x >= 0:
+		_draw_victory_gold_bag(origin)
+
 	for y in range(ENEMY_ROWS, ROWS):
 		for x in range(COLS):
 			if chips.size() > y and chips[y].size() > x:
@@ -1073,7 +1082,80 @@ func _draw():
 
 	
 
-func _activate_bomb(bx: int, by: int, trigger_move: bool = true):
+func _draw_victory_gold_bag(grid_origin: Vector2) -> void:
+	var ox = _victory_gold_bag_origin.x
+	var oy = _victory_gold_bag_origin.y
+	var w = float(VICTORY_GOLD_BAG_SIZE) * CELL_SIZE
+	var h = float(VICTORY_GOLD_BAG_SIZE) * ENEMY_CELL_HEIGHT
+	var top_left = grid_origin + Vector2(float(ox) * CELL_SIZE, float(oy) * ENEMY_CELL_HEIGHT)
+	var gold_body = Color(0.78, 0.58, 0.14, 0.96)
+	var gold_dark = Color(0.38, 0.26, 0.06, 1.0)
+	var gold_light = Color(1.0, 0.9, 0.4, 1.0)
+	draw_rect(Rect2(top_left, Vector2(w, h)), gold_dark)
+	draw_rect(Rect2(top_left + Vector2(5, 5), Vector2(w - 10, h - 10)), gold_body)
+	var tie_top = Vector2(top_left.x + w * 0.5, top_left.y)
+	draw_line(tie_top, tie_top + Vector2(0, -14), Color(0.32, 0.22, 0.12), 6.0)
+	draw_arc(tie_top + Vector2(0, -14), 8.0, PI, TAU, 12, Color(0.4, 0.28, 0.15), 4.0)
+	draw_line(top_left + Vector2(10, 12), top_left + Vector2(w * 0.4, 12), gold_light, 3.5)
+	draw_line(top_left + Vector2(10, 12), top_left + Vector2(10, h * 0.35), gold_light, 3.5)
+
+func _start_victory_bonus_sequence() -> void:
+	if _victory_bonus_phase_active:
+		return
+	_victory_bonus_phase_active = true
+	_skip_chip_spawn_for_bonus_phase = true
+	_victory_bonus_gold_from_bag = 0
+	_run_victory_bonus_sequence_async()
+
+func _run_victory_bonus_sequence_async() -> void:
+	await get_tree().process_frame
+	while _moves_left > 0:
+		_moves_left -= 1
+		_update_ui()
+		queue_redraw()
+		await get_tree().create_timer(0.12).timeout
+	var bonus_types = [RAINBOW_CHIP_IDX, ROW_BONUS_CHIP_IDX, BOMB_CHIP_IDX]
+	for y in range(ENEMY_ROWS, ROWS):
+		for x in range(COLS):
+			chips[y][x] = bonus_types[randi() % bonus_types.size()]
+	queue_redraw()
+	await get_tree().create_timer(0.35).timeout
+	var max_x = COLS - VICTORY_GOLD_BAG_SIZE
+	var max_y = ENEMY_ROWS - VICTORY_GOLD_BAG_SIZE
+	var bx = 0
+	var by = 0
+	if max_x >= 0 and max_y >= 0:
+		bx = randi() % (max_x + 1)
+		by = randi() % (max_y + 1)
+	_victory_gold_bag_origin = Vector2i(bx, by)
+	queue_redraw()
+	await get_tree().create_timer(0.45).timeout
+	var bonus_cells: Array = []
+	for y in range(ENEMY_ROWS, ROWS):
+		for x in range(COLS):
+			var t = chips[y][x]
+			if t == RAINBOW_CHIP_IDX or t == ROW_BONUS_CHIP_IDX or t == BOMB_CHIP_IDX:
+				bonus_cells.append(Vector2i(x, y))
+	_count_projectile_hits_on_victory_gold_bag = true
+	for c in bonus_cells:
+		while not _projectiles.is_empty() or not _active_anims.is_empty():
+			await get_tree().process_frame
+		var cx = int(c.x)
+		var cy = int(c.y)
+		if cy >= ENEMY_ROWS and cy < ROWS and cx >= 0 and cx < COLS:
+			var tch = chips[cy][cx]
+			if tch == RAINBOW_CHIP_IDX or tch == ROW_BONUS_CHIP_IDX or tch == BOMB_CHIP_IDX:
+				_trigger_chip_at(cx, cy, false, true)
+		await get_tree().create_timer(0.55).timeout
+	while not _projectiles.is_empty() or not _active_anims.is_empty():
+		await get_tree().process_frame
+	_count_projectile_hits_on_victory_gold_bag = false
+	_victory_gold_bag_origin = Vector2i(-1, -1)
+	_skip_chip_spawn_for_bonus_phase = false
+	_victory_bonus_phase_active = false
+	_on_level_completed()
+
+func _activate_bomb(bx: int, by: int, trigger_move: bool = true, victory_gold_bag: bool = false):
 	# VFX Бомбы
 	var vp_size = get_viewport_rect().size
 	var origin = _grid_origin(vp_size)
@@ -1100,17 +1182,17 @@ func _activate_bomb(bx: int, by: int, trigger_move: bool = true):
 	set_process(true)
 
 	# Взрываем крестом (центр + 4 соседа)
-	_trigger_chip_at(bx, by, trigger_move)
-	_trigger_chip_at(bx + 1, by, trigger_move)
-	_trigger_chip_at(bx - 1, by, trigger_move)
-	_trigger_chip_at(bx, by + 1, trigger_move)
-	_trigger_chip_at(bx, by - 1, trigger_move)
+	_trigger_chip_at(bx, by, trigger_move, victory_gold_bag)
+	_trigger_chip_at(bx + 1, by, trigger_move, victory_gold_bag)
+	_trigger_chip_at(bx - 1, by, trigger_move, victory_gold_bag)
+	_trigger_chip_at(bx, by + 1, trigger_move, victory_gold_bag)
+	_trigger_chip_at(bx, by - 1, trigger_move, victory_gold_bag)
 	
 	if not _is_executing_combo:
 		_apply_gravity_up()
 	queue_redraw()
 
-func _trigger_chip_at(x: int, y: int, trigger_move: bool = true):
+func _trigger_chip_at(x: int, y: int, trigger_move: bool = true, victory_gold_bag: bool = false):
 	if y < ENEMY_ROWS or y >= ROWS or x < 0 or x >= COLS: return
 	var type = chips[y][x]
 	if type == -1: return
@@ -1120,16 +1202,16 @@ func _trigger_chip_at(x: int, y: int, trigger_move: bool = true):
 	
 	# Мгновенно помечаем клетку пустой, чтобы избежать бесконечной рекурсии
 	chips[y][x] = -1
-	_enqueue_projectiles(x, y, 1, 0.0, trigger_move)
+	_enqueue_projectiles(x, y, 1, 0.0, trigger_move, victory_gold_bag)
 	
 	# Если это был бонус — активируем его эффект
 	match type:
 		RAINBOW_CHIP_IDX:
-			_activate_rainbow_chip(x, y, trigger_move)
+			_activate_rainbow_chip(x, y, trigger_move, victory_gold_bag)
 		ROW_BONUS_CHIP_IDX:
-			_apply_row_blast(y, trigger_move)
+			_apply_row_blast(y, trigger_move, victory_gold_bag)
 		BOMB_CHIP_IDX:
-			_activate_bomb(x, y, trigger_move)
+			_activate_bomb(x, y, trigger_move, victory_gold_bag)
 
 func _draw_bomb_chip(top_left: Vector2, size_v: Vector2):
 	var tex = BONUS_TEXTURES[BOMB_CHIP_IDX]
@@ -1445,7 +1527,7 @@ func _draw_monster_cracks(pos: Vector2, size: Vector2, damage_level: int, seed_v
 
 
 func _process(delta: float) -> void:
-	if _active_anims.is_empty():
+	if _active_anims.is_empty() and not _skip_chip_spawn_for_bonus_phase:
 		# Все падения окончены — проверяем нужно ли спавнить новые фишки
 		# Мы не ждем окончания стрельбы или движения монстров, чтобы игра ощущалась динамичнее
 		_spawn_new_chips_with_fall()
@@ -1492,6 +1574,7 @@ func _process(delta: float) -> void:
 			if _projectiles[j].has_target:
 				var tx = _projectiles[j].x
 				var ty = int(_projectiles[j].end_y)
+				_register_victory_gold_bag_hit_if_overlap(tx, ty)
 				if ty >= 0 and ty < ENEMY_ROWS and enemies.size() > ty and enemies[ty].size() > tx:
 					# Проверяем препятствие
 					if obstacles[ty][tx] > 0:
@@ -1553,8 +1636,8 @@ func _process(delta: float) -> void:
 	# Удаляем завершённые после отрисовки
 	# Автопобеда/поражение и шаги врагов после завершения всех эффектов
 	if _projectiles.is_empty() and _active_anims.is_empty() and _enemy_death_anims.is_empty():
-		if _check_level_completed() and not _victory_dialog_shown:
-			_on_level_completed()
+		if _check_level_completed() and not _victory_dialog_shown and not _victory_bonus_phase_active:
+			_start_victory_bonus_sequence()
 		elif not _check_level_completed() and (_moves_left == 0 or _player_lives == 0) and not _defeat_dialog_shown:
 			_on_level_failed()
 		elif _enemy_move_pending:
@@ -1568,6 +1651,8 @@ func _process(delta: float) -> void:
 
 
 func _spawn_new_chips_with_fall():
+	if _skip_chip_spawn_for_bonus_phase:
+		return
 	var new_anims := []
 	var any := false
 	var count := 0
@@ -1599,6 +1684,8 @@ func _unhandled_input(event):
 		queue_redraw()
 		return
 		
+	if _victory_bonus_phase_active:
+		return
 	if not _active_anims.is_empty() or not _projectiles.is_empty() or _is_executing_combo:
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -1662,7 +1749,7 @@ func _apply_hammer(cell: Vector2i):
 	_trigger_chip_at(cell.x, cell.y, false)
 	_apply_gravity_up()
 
-func _apply_row_blast(row_y: int, trigger_move: bool = true):
+func _apply_row_blast(row_y: int, trigger_move: bool = true, victory_gold_bag: bool = false):
 	# VFX Ракеты
 	var vp_size = get_viewport_rect().size
 	var origin = _grid_origin(vp_size)
@@ -1671,7 +1758,7 @@ func _apply_row_blast(row_y: int, trigger_move: bool = true):
 	set_process(true)
 
 	for x in range(COLS):
-		_trigger_chip_at(x, row_y, trigger_move)
+		_trigger_chip_at(x, row_y, trigger_move, victory_gold_bag)
 	
 	if not _is_executing_combo:
 		_apply_gravity_up()
@@ -1998,7 +2085,7 @@ func _get_most_frequent_color_idx() -> int:
 		if counts[c] == max_c: bests.append(c)
 	return bests[randi() % bests.size()]
 
-func _activate_rainbow_chip(rx: int, ry: int, trigger_move: bool = true):
+func _activate_rainbow_chip(rx: int, ry: int, trigger_move: bool = true, victory_gold_bag: bool = false):
 	var target_color = _get_most_frequent_color_idx()
 	if target_color == -1:
 		chips[ry][rx] = -1
@@ -2037,7 +2124,7 @@ func _activate_rainbow_chip(rx: int, ry: int, trigger_move: bool = true):
 	for y in range(ENEMY_ROWS, ROWS):
 		for x in range(COLS):
 			if chips[y][x] == target_color:
-				_trigger_chip_at(x, y, trigger_move)
+				_trigger_chip_at(x, y, trigger_move, victory_gold_bag)
 	
 	_is_executing_combo = old_combo
 	
@@ -2059,30 +2146,17 @@ func _check_level_completed() -> bool:
 				return false
 	return true
 
-func _count_bonus_chips_on_player_field() -> int:
-	var n := 0
-	for y in range(ENEMY_ROWS, ROWS):
-		for x in range(COLS):
-			if chips.size() <= y or chips[y].size() <= x:
-				continue
-			var v = chips[y][x]
-			if v == RAINBOW_CHIP_IDX or v == ROW_BONUS_CHIP_IDX or v == BOMB_CHIP_IDX:
-				n += 1
-	return n
-
-
 func _on_level_completed():
 	_victory_dialog_shown = true
-	# Награда за победу: базовая + бонус за оставшиеся на поле бонусные фишки
+	# Награда за победу: базовая + бонус за попадания по мешку золота в финальной фазе
 	var base_reward = 50
-	var bonus_chips = _count_bonus_chips_on_player_field()
-	var chips_bonus = bonus_chips * COINS_PER_REMAINING_BONUS_CHIP
-	var total_reward = base_reward + chips_bonus
+	var bag_bonus = _victory_bonus_gold_from_bag
+	var total_reward = base_reward + bag_bonus
 	
 	LevelManager.add_coins(total_reward)
 	LevelManager.mark_level_completed()
 	
-	_show_level_end_victory(total_reward, base_reward, chips_bonus, bonus_chips)
+	_show_level_end_victory(total_reward, base_reward, bag_bonus)
 
 func _attach_level_end_overlay() -> Control:
 	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
@@ -2100,9 +2174,9 @@ func _attach_level_end_overlay() -> Control:
 	_level_end_overlay = overlay
 	return overlay
 
-func _show_level_end_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_count: int) -> void:
+func _show_level_end_victory(total: int, base_reward: int, bag_bonus: int) -> void:
 	var overlay = _attach_level_end_overlay()
-	overlay.setup_victory(total, base_reward, chips_bonus, bonus_chips_count, COINS_PER_REMAINING_BONUS_CHIP)
+	overlay.setup_victory(total, base_reward, bag_bonus)
 	if not overlay.to_menu_pressed.is_connected(_on_level_end_to_menu):
 		overlay.to_menu_pressed.connect(_on_level_end_to_menu)
 
@@ -2192,7 +2266,47 @@ func _on_buy_moves_confirmed(cost: int) -> void:
 func _get_moves_purchase_cost() -> int:
 	return MOVES_PURCHASE_BASE_COST + (_moves_purchase_count * MOVES_PURCHASE_INCREMENT)
 
-func _enqueue_projectiles(col_x: int, from_y: int, count: int, base_delay: float = 0.0, trigger_move: bool = true):
+func _register_victory_gold_bag_hit_if_overlap(tx: int, ty: int) -> void:
+	if not _count_projectile_hits_on_victory_gold_bag:
+		return
+	if ty < 0 or ty >= ENEMY_ROWS:
+		return
+	var bx = _victory_gold_bag_origin.x
+	var by = _victory_gold_bag_origin.y
+	if bx < 0 or by < 0:
+		return
+	if tx >= bx and tx < bx + VICTORY_GOLD_BAG_SIZE and ty >= by and ty < by + VICTORY_GOLD_BAG_SIZE:
+		_victory_bonus_gold_from_bag += COINS_PER_VICTORY_GOLD_BAG_HIT
+
+func _enqueue_projectiles(col_x: int, from_y: int, count: int, base_delay: float = 0.0, trigger_move: bool = true, victory_gold_bag: bool = false):
+	if victory_gold_bag:
+		var planned_v := []
+		var bx = _victory_gold_bag_origin.x
+		var by = _victory_gold_bag_origin.y
+		for i in range(count):
+			if col_x >= bx and col_x < bx + VICTORY_GOLD_BAG_SIZE:
+				planned_v.append({"has": true, "y": by + VICTORY_GOLD_BAG_SIZE - 1})
+			else:
+				planned_v.append({"has": false, "y": -1})
+		for i in range(planned_v.size()):
+			var has_v = planned_v[i].has
+			var ty_v = planned_v[i].y
+			var proj_v = {
+				"x": col_x,
+				"start_y": float(from_y),
+				"end_y": (float(ty_v) if has_v else -1.0),
+				"t": 0.0,
+				"d": 0.25,
+				"delay": base_delay + float(i) * 0.06,
+				"color": Color(1.0, 0.85, 0.2, 1.0),
+				"hit_applied": false,
+				"has_target": has_v
+			}
+			_projectiles.append(proj_v)
+		set_process(true)
+		if trigger_move:
+			_enemy_move_pending = true
+		return
 	# Планируем цели по ближайшим врагам/препятствиям снизу вверх, без превышения их суммарного HP
 	var hp_left := []
 	for yy in range(ENEMY_ROWS):
