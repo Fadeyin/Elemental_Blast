@@ -5,16 +5,17 @@ extends Control
 
 signal buy_moves_pressed
 signal to_menu_pressed
+signal refill_lives_pressed
 
 var _closing: bool = false
 
-func setup_victory(total: int, base_reward: int, moves_bonus: int, moves_left: int) -> void:
+func setup_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_count: int, coins_per_bonus_chip: int) -> void:
 	_build_base()
-	_fill_victory(total, base_reward, moves_bonus, moves_left)
+	_fill_victory(total, base_reward, chips_bonus, bonus_chips_count, coins_per_bonus_chip)
 
-func setup_defeat_no_lives() -> void:
+func setup_defeat_no_lives(refill_cost: int, player_coins: int, max_lives: int, can_refill: bool) -> void:
 	_build_base()
-	_fill_defeat()
+	_fill_defeat(refill_cost, player_coins, max_lives, can_refill)
 
 func setup_buy_moves(cost: int, player_coins: int, moves_count: int, can_afford: bool) -> void:
 	_build_base()
@@ -67,7 +68,7 @@ func _build_base() -> void:
 func _main_vbox() -> VBoxContainer:
 	return get_node("LevelEndPanel/LevelEndMargin/ContentVBox") as VBoxContainer
 
-func _fill_victory(total: int, base_reward: int, moves_bonus: int, moves_left: int) -> void:
+func _fill_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_count: int, coins_per_bonus_chip: int) -> void:
 	var vbox = _main_vbox()
 	var title = Label.new()
 	title.text = "ПОБЕДА!"
@@ -78,7 +79,7 @@ func _fill_victory(total: int, base_reward: int, moves_bonus: int, moves_left: i
 	title.add_theme_constant_override("outline_size", 8)
 	vbox.add_child(title)
 	var body = Label.new()
-	body.text = "Уровень пройден.\n\nНаграда:\n  Базовая: %d монет\n  За ходы: %d × 10 = %d монет\n\nВсего: %d монет" % [base_reward, moves_left, moves_bonus, total]
+	body.text = "Уровень пройден.\n\nНаграда:\n  Базовая: %d монет\n  За бонусные фишки на поле: %d × %d = %d монет\n\nВсего: %d монет" % [base_reward, bonus_chips_count, coins_per_bonus_chip, chips_bonus, total]
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_theme_font_size_override("font_size", 32)
@@ -89,7 +90,7 @@ func _fill_victory(total: int, base_reward: int, moves_bonus: int, moves_left: i
 	vbox.add_child(_spacer())
 	vbox.add_child(_wrap_big_button("В МЕНЮ", _on_to_menu))
 
-func _fill_defeat() -> void:
+func _fill_defeat(refill_cost: int, player_coins: int, max_lives: int, can_refill: bool) -> void:
 	var vbox = _main_vbox()
 	var title = Label.new()
 	title.text = "ПОРАЖЕНИЕ"
@@ -100,7 +101,10 @@ func _fill_defeat() -> void:
 	title.add_theme_constant_override("outline_size", 8)
 	vbox.add_child(title)
 	var body = Label.new()
-	body.text = "Жизни закончились.\nПопробуйте пройти уровень снова!"
+	if can_refill:
+		body.text = "Жизни закончились.\n\nЗа %d монет можно восстановить все жизни (%d) и продолжить уровень.\n\nУ вас: %d монет" % [refill_cost, max_lives, player_coins]
+	else:
+		body.text = "Жизни закончились.\n\nВосстановление всех жизней стоит %d монет.\nУ вас: %d монет\n\nВернитесь в меню и попробуйте снова." % [refill_cost, player_coins]
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_theme_font_size_override("font_size", 32)
@@ -109,7 +113,17 @@ func _fill_defeat() -> void:
 	body.add_theme_constant_override("outline_size", 5)
 	vbox.add_child(body)
 	vbox.add_child(_spacer())
-	vbox.add_child(_wrap_big_button("В МЕНЮ", _on_to_menu))
+	if can_refill:
+		var row = HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 24)
+		row.add_child(_big_button("ЖИЗНИ ЗА %d" % refill_cost, _on_refill_lives, Color(0.22, 0.48, 0.58), Color(0.35, 0.65, 0.78)))
+		row.add_child(_big_button("В МЕНЮ", _on_to_menu, Color(0.45, 0.22, 0.22), Color(0.65, 0.35, 0.35)))
+		var wrap = CenterContainer.new()
+		wrap.add_child(row)
+		vbox.add_child(wrap)
+	else:
+		vbox.add_child(_wrap_big_button("В МЕНЮ", _on_to_menu))
 
 func _fill_buy_moves(cost: int, player_coins: int, moves_count: int, can_afford: bool) -> void:
 	var vbox = _main_vbox()
@@ -196,3 +210,9 @@ func _on_buy_moves() -> void:
 		return
 	_closing = true
 	emit_signal("buy_moves_pressed")
+
+func _on_refill_lives() -> void:
+	if _closing:
+		return
+	_closing = true
+	emit_signal("refill_lives_pressed")
