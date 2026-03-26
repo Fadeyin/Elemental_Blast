@@ -112,7 +112,6 @@ var _mort_helmet_bonus_chips := {}
 var _victory_dialog_shown: bool = false
 var _defeat_dialog_shown: bool = false
 var _victory_bonus_phase_active: bool = false
-var _skip_chip_spawn_for_bonus_phase: bool = false
 var _count_projectile_hits_on_victory_gold_bag: bool = false
 var _victory_gold_bag_origin: Vector2i = Vector2i(-1, -1)
 var _victory_bonus_gold_from_bag: int = 0
@@ -1098,35 +1097,62 @@ func _draw_victory_gold_bag(grid_origin: Vector2) -> void:
 	draw_arc(tie_top + Vector2(0, -14), 8.0, PI, TAU, 12, Color(0.4, 0.28, 0.15), 4.0)
 	draw_line(top_left + Vector2(10, 12), top_left + Vector2(w * 0.4, 12), gold_light, 3.5)
 	draw_line(top_left + Vector2(10, 12), top_left + Vector2(10, h * 0.35), gold_light, 3.5)
+	var dmg_text := str(_victory_bonus_gold_from_bag)
+	var font := ThemeDB.fallback_font
+	var fs := int(clamp(h * 0.28, 18.0, 44.0))
+	var text_col := Color(0.12, 0.08, 0.04, 1.0)
+	var ts := font.get_string_size(dmg_text, HORIZONTAL_ALIGNMENT_CENTER, -1, fs)
+	var text_pos := top_left + Vector2((w - ts.x) * 0.5, (h - ts.y) * 0.5)
+	draw_string(font, text_pos, dmg_text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, text_col)
+
+func _is_player_zone_fully_filled() -> bool:
+	for y in range(ENEMY_ROWS, ROWS):
+		for x in range(COLS):
+			if chips[y][x] == -1:
+				return false
+	return true
+
+func _await_victory_board_filled_stable() -> void:
+	while true:
+		if _projectiles.is_empty() and _active_anims.is_empty() and _is_player_zone_fully_filled():
+			return
+		await get_tree().process_frame
 
 func _start_victory_bonus_sequence() -> void:
 	if _victory_bonus_phase_active:
 		return
 	_victory_bonus_phase_active = true
-	_skip_chip_spawn_for_bonus_phase = true
 	_victory_bonus_gold_from_bag = 0
 	_run_victory_bonus_sequence_async()
 
 func _run_victory_bonus_sequence_async() -> void:
 	await get_tree().process_frame
+	var bonus_chip_budget := max(0, _moves_left)
 	while _moves_left > 0:
 		_moves_left -= 1
 		_update_ui()
 		queue_redraw()
 		await get_tree().create_timer(0.12).timeout
 	var bonus_types = [RAINBOW_CHIP_IDX, ROW_BONUS_CHIP_IDX, BOMB_CHIP_IDX]
+	var filled_cells: Array[Vector2i] = []
 	for y in range(ENEMY_ROWS, ROWS):
 		for x in range(COLS):
-			chips[y][x] = bonus_types[randi() % bonus_types.size()]
+			if chips[y][x] != -1:
+				filled_cells.append(Vector2i(x, y))
+	filled_cells.shuffle()
+	var to_convert := mini(bonus_chip_budget, filled_cells.size())
+	for i in range(to_convert):
+		var c := filled_cells[i]
+		chips[c.y][c.x] = bonus_types[randi() % bonus_types.size()]
 	queue_redraw()
 	await get_tree().create_timer(0.35).timeout
-	var max_x = COLS - VICTORY_GOLD_BAG_SIZE
-	var max_y = ENEMY_ROWS - VICTORY_GOLD_BAG_SIZE
-	var bx = 0
-	var by = 0
+	var max_x := COLS - VICTORY_GOLD_BAG_SIZE
+	var max_y := ENEMY_ROWS - VICTORY_GOLD_BAG_SIZE
+	var bx := 0
+	var by := 0
 	if max_x >= 0 and max_y >= 0:
-		bx = randi() % (max_x + 1)
-		by = randi() % (max_y + 1)
+		bx = max_x / 2
+		by = max_y / 2
 	_victory_gold_bag_origin = Vector2i(bx, by)
 	queue_redraw()
 	await get_tree().create_timer(0.45).timeout
@@ -1136,6 +1162,11 @@ func _run_victory_bonus_sequence_async() -> void:
 			var t = chips[y][x]
 			if t == RAINBOW_CHIP_IDX or t == ROW_BONUS_CHIP_IDX or t == BOMB_CHIP_IDX:
 				bonus_cells.append(Vector2i(x, y))
+	bonus_cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		if a.y != b.y:
+			return a.y < b.y
+		return a.x < b.x
+	)
 	_count_projectile_hits_on_victory_gold_bag = true
 	for c in bonus_cells:
 		while not _projectiles.is_empty() or not _active_anims.is_empty():
@@ -1149,9 +1180,9 @@ func _run_victory_bonus_sequence_async() -> void:
 		await get_tree().create_timer(0.55).timeout
 	while not _projectiles.is_empty() or not _active_anims.is_empty():
 		await get_tree().process_frame
+	await _await_victory_board_filled_stable()
 	_count_projectile_hits_on_victory_gold_bag = false
 	_victory_gold_bag_origin = Vector2i(-1, -1)
-	_skip_chip_spawn_for_bonus_phase = false
 	_victory_bonus_phase_active = false
 	_on_level_completed()
 
@@ -1527,7 +1558,7 @@ func _draw_monster_cracks(pos: Vector2, size: Vector2, damage_level: int, seed_v
 
 
 func _process(delta: float) -> void:
-	if _active_anims.is_empty() and not _skip_chip_spawn_for_bonus_phase:
+	if _active_anims.is_empty():
 		# Все падения окончены — проверяем нужно ли спавнить новые фишки
 		# Мы не ждем окончания стрельбы или движения монстров, чтобы игра ощущалась динамичнее
 		_spawn_new_chips_with_fall()
@@ -1651,8 +1682,6 @@ func _process(delta: float) -> void:
 
 
 func _spawn_new_chips_with_fall():
-	if _skip_chip_spawn_for_bonus_phase:
-		return
 	var new_anims := []
 	var any := false
 	var count := 0
