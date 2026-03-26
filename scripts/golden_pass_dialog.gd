@@ -8,6 +8,7 @@ const TEX_HAMMER := preload("res://textures/Booster_Hummer.png")
 const TEX_ROW := preload("res://textures/Booster_Arrows.png")
 const TEX_SHUFFLE := preload("res://textures/Booster_Refresh.png")
 const TEX_FREEZE := preload("res://textures/Booster_Snow.png")
+const REWARD_ICON_BOX := 88
 
 var _scroll_content: VBoxContainer
 var _buy_pass_btn: Button
@@ -88,10 +89,13 @@ func setup() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.scroll_deadzone = 24
+	scroll.follow_focus = false
 	root_v.add_child(scroll)
 	_scroll_content = VBoxContainer.new()
 	_scroll_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_scroll_content.add_theme_constant_override("separation", 8)
+	_scroll_content.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_scroll_content.add_theme_constant_override("separation", 10)
 	scroll.add_child(_scroll_content)
 	if LevelManager and not LevelManager.golden_pass_state_changed.is_connected(_rebuild_rows):
 		LevelManager.golden_pass_state_changed.connect(_rebuild_rows)
@@ -141,7 +145,7 @@ func _rebuild_all() -> void:
 		else:
 			_buy_pass_btn.visible = true
 			var p := LevelManager.GOLDEN_PASS_PREMIUM_PRICE_COINS
-			_buy_pass_btn.text = "Купить золотой пропуск за %d 🪙" % p
+			_buy_pass_btn.text = "Купить золотой пропуск за %d монет" % p
 			_buy_pass_btn.disabled = LevelManager.get_coins() < p
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 6)
@@ -226,26 +230,49 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 		empty_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vb.add_child(empty_l)
 		return wrap
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", 8)
-	hb.alignment = BoxContainer.ALIGNMENT_CENTER
+	var title_l := Label.new()
+	title_l.text = _reward_title(entry)
+	title_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title_l.add_theme_font_size_override("font_size", 16)
+	title_l.add_theme_color_override("font_color", Color(0.96, 0.97, 1.0))
+	vb.add_child(title_l)
 	var tex := _reward_texture(entry)
+	var icon_bg := PanelContainer.new()
+	icon_bg.custom_minimum_size = Vector2(REWARD_ICON_BOX, REWARD_ICON_BOX)
+	icon_bg.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var icon_panel := StyleBoxFlat.new()
+	icon_panel.bg_color = Color(0.1, 0.11, 0.14, 0.95)
+	icon_panel.set_corner_radius_all(10)
+	icon_panel.border_width_left = 2
+	icon_panel.border_width_top = 2
+	icon_panel.border_width_right = 2
+	icon_panel.border_width_bottom = 2
+	icon_panel.border_color = Color(0.32, 0.35, 0.42, 1.0)
+	icon_bg.add_theme_stylebox_override("panel", icon_panel)
+	var inner_icon := MarginContainer.new()
+	inner_icon.add_theme_constant_override("margin_left", 6)
+	inner_icon.add_theme_constant_override("margin_top", 6)
+	inner_icon.add_theme_constant_override("margin_right", 6)
+	inner_icon.add_theme_constant_override("margin_bottom", 6)
+	icon_bg.add_child(inner_icon)
+	var icon_center := CenterContainer.new()
+	icon_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	inner_icon.add_child(icon_center)
 	if tex:
 		var tr := TextureRect.new()
 		tr.texture = tex
-		tr.custom_minimum_size = Vector2(40, 40)
+		tr.custom_minimum_size = Vector2(REWARD_ICON_BOX - 12, REWARD_ICON_BOX - 12)
 		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		hb.add_child(tr)
-	var desc := Label.new()
-	desc.text = _reward_description(entry)
-	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	desc.add_theme_font_size_override("font_size", 15)
-	desc.add_theme_color_override("font_color", Color(0.94, 0.95, 0.98))
-	hb.add_child(desc)
-	vb.add_child(hb)
+		icon_center.add_child(tr)
+	vb.add_child(icon_bg)
+	var amt_l := Label.new()
+	amt_l.text = _reward_amount_line(entry)
+	amt_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	amt_l.add_theme_font_size_override("font_size", 14)
+	amt_l.add_theme_color_override("font_color", Color(0.88, 0.9, 0.94))
+	vb.add_child(amt_l)
 	if is_premium and not LevelManager.is_golden_pass_purchased():
 		var lock_l := Label.new()
 		lock_l.text = "Нужен пропуск"
@@ -284,11 +311,11 @@ func _on_claim_pressed(tier_index: int, is_premium: bool) -> void:
 	else:
 		LevelManager.claim_golden_pass_free(tier_index)
 
-func _reward_description(entry: Dictionary) -> String:
+func _reward_title(entry: Dictionary) -> String:
 	var kind: String = str(entry.get("kind", ""))
 	match kind:
 		"coins":
-			return "%d золота" % int(entry.get("amount", 0))
+			return "Золото"
 		"booster":
 			var bid: String = str(entry.get("id", "hammer"))
 			var names := {
@@ -297,19 +324,29 @@ func _reward_description(entry: Dictionary) -> String:
 				"shuffle": "Перемешивание",
 				"freeze": "Заморозка"
 			}
-			return "%s ×%d" % [names.get(bid, bid), int(entry.get("amount", 1))]
+			return str(names.get(bid, bid))
 		"bonus_chip":
 			var cid: String = str(entry.get("id", "bomb"))
 			var cnames := {"bomb": "Бомба", "arrow": "Стрела", "rainbow": "Шар"}
-			return "%s ×%d" % [cnames.get(cid, cid), int(entry.get("amount", 1))]
+			return str(cnames.get(cid, cid))
 		_:
-			return "?"
+			return "Награда"
+
+func _reward_amount_line(entry: Dictionary) -> String:
+	var kind: String = str(entry.get("kind", ""))
+	match kind:
+		"coins":
+			return "%d монет" % int(entry.get("amount", 0))
+		"booster", "bonus_chip":
+			return "× %d" % int(entry.get("amount", 1))
+		_:
+			return ""
 
 func _reward_texture(entry: Dictionary) -> Texture2D:
 	var kind: String = str(entry.get("kind", ""))
 	match kind:
 		"coins":
-			return null
+			return LevelManager.UI_GOLD_COIN_TEXTURE if LevelManager else null
 		"booster":
 			var bid: String = str(entry.get("id", "hammer"))
 			match bid:
