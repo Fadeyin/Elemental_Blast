@@ -1105,19 +1105,16 @@ func _draw_victory_gold_bag(grid_origin: Vector2) -> void:
 	var text_pos := top_left + Vector2((w - ts.x) * 0.5, (h - ts.y) * 0.5)
 	draw_string(font, text_pos, dmg_text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, text_col)
 
-func _is_player_zone_fully_filled_normal_chips_only() -> bool:
+func _is_player_zone_fully_filled() -> bool:
 	for y in range(ENEMY_ROWS, ROWS):
 		for x in range(COLS):
-			var v = chips[y][x]
-			if v == -1:
-				return false
-			if v == RAINBOW_CHIP_IDX or v == ROW_BONUS_CHIP_IDX or v == BOMB_CHIP_IDX:
+			if chips[y][x] == -1:
 				return false
 	return true
 
 func _await_victory_board_filled_stable() -> void:
 	while true:
-		if _projectiles.is_empty() and _active_anims.is_empty() and _is_player_zone_fully_filled_normal_chips_only():
+		if _projectiles.is_empty() and _active_anims.is_empty() and _is_player_zone_fully_filled():
 			return
 		await get_tree().process_frame
 
@@ -1131,9 +1128,11 @@ func _start_victory_bonus_sequence() -> void:
 func _run_victory_bonus_sequence_async() -> void:
 	await get_tree().process_frame
 	var bonus_chip_budget := max(0, _moves_left)
-	_moves_left = 0
-	_update_ui()
-	queue_redraw()
+	while _moves_left > 0:
+		_moves_left -= 1
+		_update_ui()
+		queue_redraw()
+		await get_tree().create_timer(0.12).timeout
 	var bonus_types = [RAINBOW_CHIP_IDX, ROW_BONUS_CHIP_IDX, BOMB_CHIP_IDX]
 	var filled_cells: Array[Vector2i] = []
 	for y in range(ENEMY_ROWS, ROWS):
