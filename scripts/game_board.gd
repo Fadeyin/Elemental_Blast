@@ -82,12 +82,15 @@ var _enemy_move_anims := [] # [{fx:int,fy:int,tx:int,ty:int,hp:int,init:int,t:fl
 # Ходы уровня
 var _moves_total: int = 15
 var _moves_left: int = 15
-var _player_lives: int = 5
+var _player_lives: int = MAX_PLAYER_LIVES
 var _needs_ui_update: bool = false
 var _moves_purchase_count: int = 0
 const MOVES_PURCHASE_BASE_COST := 100
 const MOVES_PURCHASE_INCREMENT := 150
 const MOVES_PER_PURCHASE := 5
+const COINS_PER_REMAINING_BONUS_CHIP := 10
+const REFILL_ALL_LIVES_COST := 100
+const MAX_PLAYER_LIVES := 5
 
 enum BoosterType { NONE, HAMMER, ROW_BLAST, SHUFFLE, FREEZE }
 var _active_booster: BoosterType = BoosterType.NONE
@@ -1552,7 +1555,7 @@ func _process(delta: float) -> void:
 	if _projectiles.is_empty() and _active_anims.is_empty() and _enemy_death_anims.is_empty():
 		if _check_level_completed() and not _victory_dialog_shown:
 			_on_level_completed()
-		elif (_moves_left == 0 or _player_lives == 0) and not _defeat_dialog_shown:
+		elif not _check_level_completed() and (_moves_left == 0 or _player_lives == 0) and not _defeat_dialog_shown:
 			_on_level_failed()
 		elif _enemy_move_pending:
 			_enemy_move_step()
@@ -2042,28 +2045,44 @@ func _activate_rainbow_chip(rx: int, ry: int, trigger_move: bool = true):
 		_apply_gravity_up()
 	queue_redraw()
 func _check_level_completed() -> bool:
-	# Победа, если все враги уничтожены (HP == 0) и очередь пуста
+	# Победа: нет монстров в очереди, все цели выполнены, нет живых врагов и препятствий
 	if not _monster_spawn_queue.is_empty():
 		return false
-		
+	for hp in _level_targets:
+		if int(_level_targets[hp]) > 0:
+			return false
 	for y in range(ENEMY_ROWS):
 		for x in range(COLS):
 			if enemies[y][x] > 0:
 				return false
+			if obstacles.size() > y and obstacles[y].size() > x and obstacles[y][x] > 0:
+				return false
 	return true
+
+func _count_bonus_chips_on_player_field() -> int:
+	var n := 0
+	for y in range(ENEMY_ROWS, ROWS):
+		for x in range(COLS):
+			if chips.size() <= y or chips[y].size() <= x:
+				continue
+			var v = chips[y][x]
+			if v == RAINBOW_CHIP_IDX or v == ROW_BONUS_CHIP_IDX or v == BOMB_CHIP_IDX:
+				n += 1
+	return n
 
 
 func _on_level_completed():
 	_victory_dialog_shown = true
-	# Награда за победу
+	# Награда за победу: базовая + бонус за оставшиеся на поле бонусные фишки
 	var base_reward = 50
-	var moves_bonus = _moves_left * 10
-	var total_reward = base_reward + moves_bonus
+	var bonus_chips = _count_bonus_chips_on_player_field()
+	var chips_bonus = bonus_chips * COINS_PER_REMAINING_BONUS_CHIP
+	var total_reward = base_reward + chips_bonus
 	
 	LevelManager.add_coins(total_reward)
 	LevelManager.mark_level_completed()
 	
-	_show_level_end_victory(total_reward, base_reward, moves_bonus)
+	_show_level_end_victory(total_reward, base_reward, chips_bonus, bonus_chips)
 
 func _attach_level_end_overlay() -> Control:
 	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
@@ -2081,9 +2100,9 @@ func _attach_level_end_overlay() -> Control:
 	_level_end_overlay = overlay
 	return overlay
 
-func _show_level_end_victory(total: int, base_reward: int, bonus: int) -> void:
+func _show_level_end_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_count: int) -> void:
 	var overlay = _attach_level_end_overlay()
-	overlay.setup_victory(total, base_reward, bonus, _moves_left)
+	overlay.setup_victory(total, base_reward, chips_bonus, bonus_chips_count, COINS_PER_REMAINING_BONUS_CHIP)
 	if not overlay.to_menu_pressed.is_connected(_on_level_end_to_menu):
 		overlay.to_menu_pressed.connect(_on_level_end_to_menu)
 
@@ -2095,9 +2114,39 @@ func _on_level_end_to_menu() -> void:
 
 func _show_level_end_defeat_no_lives() -> void:
 	var overlay = _attach_level_end_overlay()
-	overlay.setup_defeat_no_lives()
-	if not overlay.to_menu_pressed.is_connected(_on_level_end_to_menu):
-		overlay.to_menu_pressed.connect(_on_level_end_to_menu)
+	if overlay.to_menu_pressed.is_connected(_on_level_end_to_menu):
+		overlay.to_menu_pressed.disconnect(_on_level_end_to_menu)
+	if overlay.to_menu_pressed.is_connected(_on_buy_moves_exit_to_menu):
+		overlay.to_menu_pressed.disconnect(_on_buy_moves_exit_to_menu)
+	if overlay.refill_lives_pressed.is_connected(_on_defeat_refill_lives):
+		overlay.refill_lives_pressed.disconnect(_on_defeat_refill_lives)
+	var player_coins = LevelManager.get_coins()
+	var can_refill = player_coins >= REFILL_ALL_LIVES_COST
+	overlay.setup_defeat_no_lives(REFILL_ALL_LIVES_COST, player_coins, MAX_PLAYER_LIVES, can_refill)
+	if not overlay.to_menu_pressed.is_connected(_on_defeat_no_lives_to_menu):
+		overlay.to_menu_pressed.connect(_on_defeat_no_lives_to_menu)
+	if can_refill and not overlay.refill_lives_pressed.is_connected(_on_defeat_refill_lives):
+		overlay.refill_lives_pressed.connect(_on_defeat_refill_lives)
+
+func _on_defeat_no_lives_to_menu() -> void:
+	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
+		_level_end_overlay.queue_free()
+		_level_end_overlay = null
+	LevelManager.mark_level_failed()
+	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+
+func _on_defeat_refill_lives() -> void:
+	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
+		_level_end_overlay.queue_free()
+		_level_end_overlay = null
+	if LevelManager.spend_coins(REFILL_ALL_LIVES_COST):
+		_player_lives = MAX_PLAYER_LIVES
+		_defeat_dialog_shown = false
+		_update_ui()
+		queue_redraw()
+	else:
+		LevelManager.mark_level_failed()
+		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 func _on_level_failed():
 	_defeat_dialog_shown = true
@@ -2105,7 +2154,6 @@ func _on_level_failed():
 	if _moves_left == 0 and _player_lives > 0:
 		_show_buy_moves_dialog()
 	else:
-		LevelManager.mark_level_failed()
 		_show_level_end_defeat_no_lives()
 
 func _show_buy_moves_dialog() -> void:
