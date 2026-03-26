@@ -410,7 +410,7 @@ func _dismiss_booster_purchase_overlay() -> void:
 func _show_buy_booster_dialog(lm_type: int) -> void:
 	var booster_names = {
 		LevelManager.BoosterType.HAMMER: "Молоток",
-		LevelManager.BoosterType.ROW_BLAST: "Ракета",
+		LevelManager.BoosterType.ROW_BLAST: "Стрела",
 		LevelManager.BoosterType.SHUFFLE: "Перемешивание",
 		LevelManager.BoosterType.FREEZE: "Заморозка"
 	}
@@ -421,7 +421,8 @@ func _show_buy_booster_dialog(lm_type: int) -> void:
 		"res://textures/Booster_Snow.png"
 	]
 	var booster_name = booster_names.get(lm_type, "Бустер")
-	var cost = LevelManager.BOOSTER_PURCHASE_COST
+	var cost = LevelManager.INGAME_BOOSTER_PACK_COST
+	var pack_qty = LevelManager.get_ingame_booster_pack_quantity(lm_type)
 	var player_coins = LevelManager.get_coins()
 	var can_afford = player_coins >= cost
 	_dismiss_booster_purchase_overlay()
@@ -440,7 +441,7 @@ func _show_buy_booster_dialog(lm_type: int) -> void:
 	overlay.z_index = 190
 	parent.add_child(overlay)
 	_booster_purchase_overlay = overlay
-	overlay.setup(booster_name, icon_tex, cost, player_coins, can_afford)
+	overlay.setup(booster_name, icon_tex, cost, pack_qty, player_coins, can_afford)
 	overlay.purchase_pressed.connect(func(): _on_ingame_booster_purchase_confirm(lm_type))
 	overlay.closed_pressed.connect(_on_ingame_booster_purchase_closed)
 
@@ -571,7 +572,7 @@ func _update_ui():
 				var lbl: Label = btn.get_node("CountLabel")
 				lbl.text = str(count)
 			
-			btn.disabled = (count <= 0)
+			btn.disabled = false
 			if count <= 0:
 				btn.modulate = Color(0.5, 0.5, 0.5, 0.7)
 			else:
