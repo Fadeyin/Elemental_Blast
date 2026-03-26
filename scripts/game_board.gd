@@ -1137,7 +1137,8 @@ func _run_victory_bonus_sequence_async() -> void:
 	var filled_cells: Array[Vector2i] = []
 	for y in range(ENEMY_ROWS, ROWS):
 		for x in range(COLS):
-			if chips[y][x] != -1:
+			var cell_val = chips[y][x]
+			if cell_val >= 0 and cell_val < CHIP_COLORS.size():
 				filled_cells.append(Vector2i(x, y))
 	filled_cells.shuffle()
 	var to_convert := mini(bonus_chip_budget, filled_cells.size())
@@ -1151,8 +1152,8 @@ func _run_victory_bonus_sequence_async() -> void:
 	var bx := 0
 	var by := 0
 	if max_x >= 0 and max_y >= 0:
-		bx = max_x / 2
-		by = max_y / 2
+		bx = int(floor(float(max_x + 1) * 0.5))
+		by = int(floor(float(max_y + 1) * 0.5))
 	_victory_gold_bag_origin = Vector2i(bx, by)
 	queue_redraw()
 	await get_tree().create_timer(0.45).timeout
