@@ -639,6 +639,21 @@ func _init_enemies_from_config(cfg: Dictionary):
 			all_monsters.append(1)
 			_level_targets[1] = int(_level_targets.get(1, 0)) + 1
 	
+	# Пустой список монстров (пустой/нулевой monster_tiers в JSON) даёт мгновенную «победу» и
+	# блокирует ввод — используем ту же процедурную генерацию, что и без monster_tiers.
+	if all_monsters.is_empty():
+		_level_targets.clear()
+		var total_capacity_fb = ENEMY_ROWS * COLS
+		var strong_count_fb = int(cfg.get("strong_monsters", 0))
+		var strong_hp_fb = int(cfg.get("strong_hp", 3))
+		var normal_count_fb = total_capacity_fb - strong_count_fb
+		for i in range(strong_count_fb):
+			all_monsters.append(strong_hp_fb)
+			_level_targets[strong_hp_fb] = int(_level_targets.get(strong_hp_fb, 0)) + 1
+		for i in range(normal_count_fb):
+			all_monsters.append(1)
+			_level_targets[1] = int(_level_targets.get(1, 0)) + 1
+	
 	all_monsters.shuffle()
 	_monster_spawn_queue = all_monsters
 
