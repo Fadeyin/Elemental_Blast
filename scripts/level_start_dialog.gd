@@ -14,6 +14,11 @@ var _selected_prelevel_boosts := {
 # Флаг для предотвращения множественного закрытия диалога
 var _dialog_closing: bool = false
 
+const PRELEVEL_PURCHASE_OVERLAY_SCRIPT := preload("res://scripts/ingame_booster_purchase_dialog.gd")
+
+var _prelevel_boosts_row: HBoxContainer = null
+var _prelevel_purchase_overlay: Control = null
+
 func setup():
 	_build_dialog()
 
@@ -220,8 +225,6 @@ func _add_mort_helmet_section(vbox: VBoxContainer):
 func _add_prelevel_boosts_section(vbox: VBoxContainer):
 	if not LevelManager:
 		return
-	
-	# Заголовок секции
 	var boosts_title = Label.new()
 	boosts_title.text = "ПРЕДУРОВНЕВЫЕ УСИЛЕНИЯ"
 	boosts_title.add_theme_font_size_override("font_size", 28)
@@ -230,35 +233,41 @@ func _add_prelevel_boosts_section(vbox: VBoxContainer):
 	boosts_title.add_theme_constant_override("outline_size", 4)
 	boosts_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(boosts_title)
-	
-	# HBox для трех типов усилений
-	var boosts_hbox = HBoxContainer.new()
-	boosts_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	boosts_hbox.add_theme_constant_override("separation", 30)
-	
-	var boost_types = ["bomb", "arrow", "rainbow"]
-	var boost_names = {"bomb": "Бомба", "arrow": "Стрела", "rainbow": "Шар"}
-	
+	_prelevel_boosts_row = HBoxContainer.new()
+	_prelevel_boosts_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_prelevel_boosts_row.add_theme_constant_override("separation", 30)
+	vbox.add_child(_prelevel_boosts_row)
+	_populate_prelevel_boosts_row()
+
+func _clear_container_children_immediate(container: Node) -> void:
+	var n := container.get_child_count()
+	for i in range(n - 1, -1, -1):
+		var ch = container.get_child(i)
+		container.remove_child(ch)
+		ch.free()
+
+func _populate_prelevel_boosts_row() -> void:
+	if not LevelManager or _prelevel_boosts_row == null or not is_instance_valid(_prelevel_boosts_row):
+		return
+	_clear_container_children_immediate(_prelevel_boosts_row)
+	var boost_types: Array[String] = ["bomb", "arrow", "rainbow"]
+	var boost_names := {"bomb": "Бомба", "arrow": "Стрела", "rainbow": "Шар"}
+	var slot_size := Vector2(100, 100)
 	for boost_type in boost_types:
-		var boost_count = LevelManager.get_prelevel_boost_count(boost_type)
-		
-		# Контейнер одного усиления
+		var boost_count: int = LevelManager.get_prelevel_boost_count(boost_type)
 		var boost_vbox = VBoxContainer.new()
 		boost_vbox.add_theme_constant_override("separation", 8)
 		boost_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-		
-		# Кнопка с иконкой
+		var slot = Control.new()
+		slot.custom_minimum_size = slot_size
 		var boost_btn = Button.new()
-		boost_btn.custom_minimum_size = Vector2(100, 100)
+		boost_btn.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		boost_btn.toggle_mode = true
 		boost_btn.disabled = (boost_count <= 0)
-		
-		# Иконка усиления
 		var texture = LevelManager.get_prelevel_boost_texture(boost_type)
 		if texture:
 			boost_btn.icon = texture
 			boost_btn.expand_icon = true
-		
 		var btn_style = StyleBoxFlat.new()
 		btn_style.bg_color = Color(0.2, 0.25, 0.3, 0.8) if boost_count > 0 else Color(0.15, 0.15, 0.15, 0.5)
 		btn_style.set_corner_radius_all(15)
@@ -267,40 +276,62 @@ func _add_prelevel_boosts_section(vbox: VBoxContainer):
 		btn_style.border_width_right = 3
 		btn_style.border_width_bottom = 3
 		btn_style.border_color = Color(0.6, 0.6, 0.7, 1.0) if boost_count > 0 else Color(0.3, 0.3, 0.3, 0.5)
-		
 		var btn_pressed = btn_style.duplicate()
 		btn_pressed.bg_color = Color(0.3, 0.6, 0.9, 1.0)
 		btn_pressed.border_color = Color(0.5, 0.8, 1.0, 1.0)
-		
 		boost_btn.add_theme_stylebox_override("normal", btn_style)
 		boost_btn.add_theme_stylebox_override("pressed", btn_pressed)
 		boost_btn.focus_mode = Control.FOCUS_NONE
-		
-		# Обработчик выбора усиления
+		var captured_type: String = boost_type
 		boost_btn.toggled.connect(func(pressed: bool):
 			if pressed:
-				if LevelManager.use_prelevel_boost(boost_type):
-					_selected_prelevel_boosts[boost_type] = true
+				if LevelManager.use_prelevel_boost(captured_type):
+					_selected_prelevel_boosts[captured_type] = true
 				else:
 					boost_btn.button_pressed = false
 			else:
-				# Возврат усиления обратно (отмена выбора)
-				if _selected_prelevel_boosts[boost_type]:
-					LevelManager.prelevel_boosts[boost_type] += 1
-					_selected_prelevel_boosts[boost_type] = false
+				if _selected_prelevel_boosts[captured_type]:
+					LevelManager.prelevel_boosts[captured_type] += 1
+					_selected_prelevel_boosts[captured_type] = false
 		)
-		
-		boost_vbox.add_child(boost_btn)
-		
-		# Название
+		slot.add_child(boost_btn)
+		var buy_btn = Button.new()
+		buy_btn.text = "+"
+		buy_btn.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		buy_btn.focus_mode = Control.FOCUS_NONE
+		buy_btn.flat = true
+		var plus_r := int(floor(min(slot_size.x, slot_size.y) * 0.5))
+		var buy_normal = StyleBoxFlat.new()
+		buy_normal.bg_color = Color(0.18, 0.62, 0.22, 0.92)
+		buy_normal.set_corner_radius_all(plus_r)
+		buy_normal.border_width_left = 3
+		buy_normal.border_width_top = 3
+		buy_normal.border_width_right = 3
+		buy_normal.border_width_bottom = 3
+		buy_normal.border_color = Color(0.35, 0.85, 0.42, 1.0)
+		var buy_hover = buy_normal.duplicate()
+		buy_hover.bg_color = Color(0.25, 0.72, 0.3, 0.95)
+		buy_btn.add_theme_stylebox_override("normal", buy_normal)
+		buy_btn.add_theme_stylebox_override("hover", buy_hover)
+		buy_btn.add_theme_stylebox_override("pressed", buy_normal)
+		buy_btn.add_theme_font_size_override("font_size", 36)
+		buy_btn.add_theme_color_override("font_color", Color.WHITE)
+		buy_btn.add_theme_color_override("font_outline_color", Color.BLACK)
+		buy_btn.add_theme_constant_override("outline_size", 4)
+		var is_empty := boost_count <= 0
+		buy_btn.visible = is_empty
+		buy_btn.mouse_filter = Control.MOUSE_FILTER_STOP if is_empty else Control.MOUSE_FILTER_IGNORE
+		buy_btn.pressed.connect(func():
+			_show_buy_prelevel_boost_dialog(captured_type)
+		)
+		slot.add_child(buy_btn)
+		boost_vbox.add_child(slot)
 		var name_label = Label.new()
 		name_label.text = boost_names[boost_type]
 		name_label.add_theme_font_size_override("font_size", 20)
 		name_label.add_theme_color_override("font_color", Color.WHITE)
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		boost_vbox.add_child(name_label)
-		
-		# Счетчик
 		var count_label = Label.new()
 		count_label.text = "x" + str(boost_count)
 		count_label.add_theme_font_size_override("font_size", 24)
@@ -309,34 +340,45 @@ func _add_prelevel_boosts_section(vbox: VBoxContainer):
 		count_label.add_theme_constant_override("outline_size", 3)
 		count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		boost_vbox.add_child(count_label)
-		
-		# Кнопка покупки (если закончились)
-		if boost_count <= 0:
-			var buy_btn = Button.new()
-			buy_btn.text = "+"
-			buy_btn.custom_minimum_size = Vector2(40, 40)
-			buy_btn.add_theme_font_size_override("font_size", 28)
-			buy_btn.add_theme_color_override("font_color", Color.WHITE)
-			
-			var buy_style = StyleBoxFlat.new()
-			buy_style.bg_color = Color(0.2, 0.6, 0.2, 0.9)
-			buy_style.set_corner_radius_all(20)
-			buy_btn.add_theme_stylebox_override("normal", buy_style)
-			buy_btn.focus_mode = Control.FOCUS_NONE
-			
-			buy_btn.pressed.connect(func():
-				_show_buy_prelevel_boost_dialog(boost_type)
-			)
-			
-			boost_vbox.add_child(buy_btn)
-		
-		boosts_hbox.add_child(boost_vbox)
-	
-	vbox.add_child(boosts_hbox)
+		_prelevel_boosts_row.add_child(boost_vbox)
 
-func _show_buy_prelevel_boost_dialog(boost_type: String):
-	# TODO: Интеграция с монетами
-	pass
+func _refresh_prelevel_boosts_row() -> void:
+	_populate_prelevel_boosts_row()
+
+func _dismiss_prelevel_purchase_overlay() -> void:
+	if _prelevel_purchase_overlay != null and is_instance_valid(_prelevel_purchase_overlay):
+		_prelevel_purchase_overlay.queue_free()
+	_prelevel_purchase_overlay = null
+
+func _show_buy_prelevel_boost_dialog(boost_type: String) -> void:
+	if not LevelManager:
+		return
+	var display_names := {"bomb": "Бомба", "arrow": "Стрела", "rainbow": "Шар"}
+	var cost: int = LevelManager.get_prelevel_boost_pack_cost(boost_type)
+	var qty: int = LevelManager.PRELEVEL_BOOST_PACK_COUNT
+	var player_coins: int = LevelManager.get_coins()
+	var can_afford: bool = player_coins >= cost
+	var icon_tex: Texture2D = LevelManager.get_prelevel_boost_texture(boost_type)
+	_dismiss_prelevel_purchase_overlay()
+	var overlay = Control.new()
+	overlay.set_script(PRELEVEL_PURCHASE_OVERLAY_SCRIPT)
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.z_index = 150
+	add_child(overlay)
+	overlay.move_to_front()
+	_prelevel_purchase_overlay = overlay
+	var title_name: String = display_names.get(boost_type, "Усиление")
+	overlay.setup(title_name, icon_tex, cost, qty, player_coins, can_afford, "ПОКУПКА УСИЛЕНИЯ")
+	var captured_boost: String = boost_type
+	overlay.purchase_pressed.connect(func():
+		if LevelManager.purchase_prelevel_boosts(captured_boost):
+			_dismiss_prelevel_purchase_overlay()
+			_refresh_prelevel_boosts_row()
+		else:
+			_dismiss_prelevel_purchase_overlay()
+	)
+	overlay.closed_pressed.connect(_dismiss_prelevel_purchase_overlay)
 
 func _return_selected_prelevel_boosts_to_inventory() -> void:
 	if not LevelManager:

@@ -7,7 +7,7 @@ signal closed_pressed
 
 var _closing: bool = false
 
-func setup(display_name: String, icon, cost: int, quantity: int, player_coins: int, can_afford: bool) -> void:
+func setup(display_name: String, icon, cost: int, quantity: int, player_coins: int, can_afford: bool, header_title: String = "БУСТЕР ЗАКОНЧИЛСЯ") -> void:
 	_closing = false
 	while get_child_count() > 0:
 		var ch = get_child(0)
@@ -52,7 +52,7 @@ func setup(display_name: String, icon, cost: int, quantity: int, player_coins: i
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	margin.add_child(vbox)
 	var title = Label.new()
-	title.text = "БУСТЕР ЗАКОНЧИЛСЯ"
+	title.text = header_title
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 44)
 	title.add_theme_color_override("font_color", Color(1.0, 0.88, 0.38))
