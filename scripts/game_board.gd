@@ -2230,22 +2230,19 @@ func _enemy_move_step():
 					var moved = false
 					
 					if y + 1 < ENEMY_ROWS:
-						var has_obstacle = obstacles[y+1][x] > 0
-						if not occupied_next[y+1][x] and not has_obstacle:
-							moves.append({"fx": x, "fy": y, "tx": x, "ty": y+1, "hp": hp, "init": init, "outcome": "normal"})
-							occupied_next[y][x] = false
-							occupied_next[y+1][x] = true
-							moved = true
-					elif y == ENEMY_ROWS - 2:
-						var tx = x
-						var ty = HEART_ROW_Y
-						var has_obstacle = obstacles[ty][tx] > 0
-						if not occupied_next[ty][tx] and not has_obstacle:
-							if x < _column_hearts.size() and _column_hearts[x]:
-								moves.append({"fx": x, "fy": y, "tx": tx, "ty": ty, "hp": hp, "init": init, "outcome": "heart_kill"})
+						var ty = y + 1
+						var has_obstacle = obstacles[ty][x] > 0
+						if not occupied_next[ty][x] and not has_obstacle:
+							if ty == HEART_ROW_Y:
+								if x < _column_hearts.size() and _column_hearts[x]:
+									moves.append({"fx": x, "fy": y, "tx": x, "ty": ty, "hp": hp, "init": init, "outcome": "heart_kill"})
+								else:
+									moves.append({"fx": x, "fy": y, "tx": x, "ty": ty, "hp": hp, "init": init, "outcome": "breach"})
+								occupied_next[y][x] = false
 							else:
-								moves.append({"fx": x, "fy": y, "tx": tx, "ty": ty, "hp": hp, "init": init, "outcome": "breach"})
-							occupied_next[y][x] = false
+								moves.append({"fx": x, "fy": y, "tx": x, "ty": ty, "hp": hp, "init": init, "outcome": "normal"})
+								occupied_next[y][x] = false
+								occupied_next[ty][x] = true
 							moved = true
 					else:
 						moves.append({"fx": x, "fy": y, "tx": x, "ty": y+1, "hp": hp, "init": init, "outcome": "breach"})
