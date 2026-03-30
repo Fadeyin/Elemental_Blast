@@ -79,18 +79,11 @@ var _level_targets := {} # hp -> required count
 var _enemy_move_pending: bool = false
 var _enemy_move_anims := [] # [{fx:int,fy:int,tx:int,ty:int,hp:int,init:int,t:float,d:float}]
 
-# Ходы уровня
-var _moves_total: int = 15
-var _moves_left: int = 15
 var _player_lives: int = MAX_PLAYER_LIVES
 var _needs_ui_update: bool = false
-var _moves_purchase_count: int = 0
-const MOVES_PURCHASE_BASE_COST := 100
-const MOVES_PURCHASE_INCREMENT := 150
-const MOVES_PER_PURCHASE := 5
 const COINS_PER_REMAINING_BONUS_CHIP := 10
 const REFILL_ALL_LIVES_COST := 100
-const MAX_PLAYER_LIVES := 5
+const MAX_PLAYER_LIVES := 8
 
 enum BoosterType { NONE, HAMMER, ROW_BLAST, SHUFFLE, FREEZE }
 var _active_booster: BoosterType = BoosterType.NONE
@@ -121,7 +114,6 @@ func _ready():
 	_init_chips()
 	_init_obstacles_from_config(cfg)
 	_init_enemies_from_config(cfg)
-	_init_moves_from_config(cfg)
 	_init_ui()
 	_update_ui()
 	queue_redraw()
@@ -184,7 +176,7 @@ func _init_ui():
 		border.add_theme_stylebox_override("panel", sb)
 		bg.add_child(border)
 	
-	# Полная пересборка TopBar для надежности отображения Жизней и Ходов
+	# Полная пересборка TopBar для надежности отображения жизней и монет
 	var tb = find_child("TopBar", true, false)
 	if tb:
 		tb.custom_minimum_size.y = UI_TOP_MARGIN
@@ -194,7 +186,7 @@ func _init_ui():
 		
 		# Удаляем старые контейнеры, чтобы создать их заново в нужном порядке
 		for child in tb.get_children():
-			if child.name.begins_with("Lives") or child.name.begins_with("Moves"):
+			if child.name.begins_with("Lives") or child.name.begins_with("Moves") or child.name.begins_with("Coins"):
 				child.name = "deleted_" + child.name
 				child.queue_free()
 		
@@ -224,41 +216,14 @@ func _init_ui():
 		l_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		lc.add_child(l_count)
 		
-		# 2. Ходы (сразу после жизней)
-		var mc = VBoxContainer.new()
-		mc.name = "MovesContainerNew"
-		mc.custom_minimum_size = Vector2(90, 0)
-		mc.add_theme_constant_override("separation", -8)
-		mc.alignment = BoxContainer.ALIGNMENT_CENTER
-		tb.add_child(mc)
-		tb.move_child(mc, 1)
-		
-		var m_title = Label.new()
-		m_title.name = "MovesTitle"
-		m_title.text = "ХОДЫ"
-		m_title.add_theme_font_size_override("font_size", 14)
-		m_title.add_theme_color_override("font_color", Color(0.7, 0.75, 0.8))
-		m_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		mc.add_child(m_title)
-		
-		var m_count = Label.new()
-		m_count.name = "MovesCount"
-		m_count.text = str(_moves_left)
-		m_count.add_theme_font_size_override("font_size", 42)
-		m_count.add_theme_color_override("font_color", Color.WHITE)
-		m_count.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-		m_count.add_theme_constant_override("outline_size", 5)
-		m_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		mc.add_child(m_count)
-		
-		# 3. Монеты (после ходов)
+		# 2. Монеты (после жизней)
 		var cc = VBoxContainer.new()
 		cc.name = "CoinsContainerNew"
 		cc.custom_minimum_size = Vector2(110, 0)
 		cc.add_theme_constant_override("separation", -8)
 		cc.alignment = BoxContainer.ALIGNMENT_CENTER
 		tb.add_child(cc)
-		tb.move_child(cc, 2)
+		tb.move_child(cc, 1)
 		
 		var c_title = Label.new()
 		c_title.text = "МОНЕТЫ"
@@ -479,29 +444,6 @@ func _update_ui():
 		else:
 			lc_lbl.modulate = Color(1, 1, 1)
 
-	# Обновление числа ходов (только число)
-	var mc = find_child("MovesCount", true, false)
-	if mc:
-		mc.text = str(_moves_left)
-		mc.add_theme_font_size_override("font_size", 42)
-		mc.add_theme_color_override("font_color", Color.WHITE)
-		mc.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-		mc.add_theme_constant_override("outline_size", 5)
-		# Если ходов мало — подсветим красным
-		if _moves_left <= 5:
-			mc.modulate = Color(1.0, 0.3, 0.3)
-		else:
-			mc.modulate = Color(1, 1, 1)
-	
-	# Обновление заголовка ходов
-	var mt = find_child("MovesTitle", true, false)
-	if mt:
-		mt.text = "ХОДЫ"
-		mt.add_theme_font_size_override("font_size", 14)
-		mt.add_theme_color_override("font_color", Color(0.85, 0.9, 0.95))
-		mt.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
-		mt.add_theme_constant_override("outline_size", 3)
-	
 	# Обновление монет
 	var coins_lbl = find_child("CoinsCount", true, false)
 	if coins_lbl:
@@ -735,7 +677,7 @@ func _draw():
 	# var divider_y = origin.y + float(ENEMY_ROWS) * CELL_SIZE
 	# draw_line(Vector2(origin.x, divider_y), Vector2(origin.x + grid_size.x, divider_y), Color(0.8, 0.8, 0.9, 0.6), 2.0)
 
-	# Текст ходов/целей перенесён в верхнюю панель UI
+	# Текст целей перенесён в верхнюю панель UI
 
 	# Линии сетки (отключены по просьбе пользователя)
 	# for x in range(COLS + 1):
@@ -1555,7 +1497,7 @@ func _process(delta: float) -> void:
 	if _projectiles.is_empty() and _active_anims.is_empty() and _enemy_death_anims.is_empty():
 		if _check_level_completed() and not _victory_dialog_shown:
 			_on_level_completed()
-		elif not _check_level_completed() and (_moves_left == 0 or _player_lives == 0) and not _defeat_dialog_shown:
+		elif not _check_level_completed() and _player_lives == 0 and not _defeat_dialog_shown:
 			_on_level_failed()
 		elif _enemy_move_pending:
 			_enemy_move_step()
@@ -1610,7 +1552,6 @@ func _unhandled_input(event):
 			
 			var popped = await _pop_cluster(cell.x, cell.y)
 			if popped > 0:
-				_moves_left = max(0, _moves_left - 1)
 				_update_ui()
 		# Проверку победы/поражения делаем после завершения анимаций в _process
 
@@ -2116,8 +2057,6 @@ func _show_level_end_defeat_no_lives() -> void:
 	var overlay = _attach_level_end_overlay()
 	if overlay.to_menu_pressed.is_connected(_on_level_end_to_menu):
 		overlay.to_menu_pressed.disconnect(_on_level_end_to_menu)
-	if overlay.to_menu_pressed.is_connected(_on_buy_moves_exit_to_menu):
-		overlay.to_menu_pressed.disconnect(_on_buy_moves_exit_to_menu)
 	if overlay.refill_lives_pressed.is_connected(_on_defeat_refill_lives):
 		overlay.refill_lives_pressed.disconnect(_on_defeat_refill_lives)
 	var player_coins = LevelManager.get_coins()
@@ -2150,47 +2089,7 @@ func _on_defeat_refill_lives() -> void:
 
 func _on_level_failed():
 	_defeat_dialog_shown = true
-	# Если закончились ходы (но не жизни), предлагаем купить ходы
-	if _moves_left == 0 and _player_lives > 0:
-		_show_buy_moves_dialog()
-	else:
-		_show_level_end_defeat_no_lives()
-
-func _show_buy_moves_dialog() -> void:
-	var cost = _get_moves_purchase_cost()
-	var player_coins = LevelManager.get_coins()
-	var can_afford = player_coins >= cost
-	var overlay = _attach_level_end_overlay()
-	overlay.setup_buy_moves(cost, player_coins, MOVES_PER_PURCHASE, can_afford)
-	if not overlay.to_menu_pressed.is_connected(_on_buy_moves_exit_to_menu):
-		overlay.to_menu_pressed.connect(_on_buy_moves_exit_to_menu)
-	if can_afford:
-		if not overlay.buy_moves_pressed.is_connected(_on_buy_moves_confirmed.bind(cost)):
-			overlay.buy_moves_pressed.connect(_on_buy_moves_confirmed.bind(cost))
-
-func _on_buy_moves_exit_to_menu() -> void:
-	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
-		_level_end_overlay.queue_free()
-		_level_end_overlay = null
-	LevelManager.mark_level_failed()
-	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
-
-func _on_buy_moves_confirmed(cost: int) -> void:
-	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
-		_level_end_overlay.queue_free()
-		_level_end_overlay = null
-	if LevelManager.spend_coins(cost):
-		_defeat_dialog_shown = false
-		_moves_left += MOVES_PER_PURCHASE
-		_moves_purchase_count += 1
-		_update_ui()
-		queue_redraw()
-	else:
-		LevelManager.mark_level_failed()
-		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
-
-func _get_moves_purchase_cost() -> int:
-	return MOVES_PURCHASE_BASE_COST + (_moves_purchase_count * MOVES_PURCHASE_INCREMENT)
+	_show_level_end_defeat_no_lives()
 
 func _enqueue_projectiles(col_x: int, from_y: int, count: int, base_delay: float = 0.0, trigger_move: bool = true):
 	# Планируем цели по ближайшим врагам/препятствиям снизу вверх, без превышения их суммарного HP
@@ -2400,16 +2299,6 @@ func _apply_gravity_up():
 	
 	# Заполняем образовавшиеся пустоты (они всегда снизу при гравитации вверх)
 	_spawn_new_chips_with_fall()
-
-func _init_moves_from_config(cfg: Dictionary):
-	var lvl = _get_current_level()
-	var def_moves = 15
-	if lvl == 1:
-		def_moves = 15
-	else:
-		def_moves = 20
-	_moves_total = int(cfg.get("moves", def_moves))
-	_moves_left = _moves_total
 
 func _add_chip_pop_vfx(x: int, y: int, color_idx: int):
 	var vp_size = get_viewport_rect().size

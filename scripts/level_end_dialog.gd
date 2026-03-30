@@ -1,9 +1,8 @@
-# Полноэкранное окно итога уровня: победа, поражение или покупка ходов.
+# Полноэкранное окно итога уровня: победа или поражение.
 # Показывается один раз за вызов; повторное открытие блокируется в game_board.gd.
 
 extends Control
 
-signal buy_moves_pressed
 signal to_menu_pressed
 signal refill_lives_pressed
 
@@ -16,10 +15,6 @@ func setup_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_c
 func setup_defeat_no_lives(refill_cost: int, player_coins: int, max_lives: int, can_refill: bool) -> void:
 	_build_base()
 	_fill_defeat(refill_cost, player_coins, max_lives, can_refill)
-
-func setup_buy_moves(cost: int, player_coins: int, moves_count: int, can_afford: bool) -> void:
-	_build_base()
-	_fill_buy_moves(cost, player_coins, moves_count, can_afford)
 
 func _build_base() -> void:
 	while get_child_count() > 0:
@@ -125,41 +120,6 @@ func _fill_defeat(refill_cost: int, player_coins: int, max_lives: int, can_refil
 	else:
 		vbox.add_child(_wrap_big_button("В МЕНЮ", _on_to_menu))
 
-func _fill_buy_moves(cost: int, player_coins: int, moves_count: int, can_afford: bool) -> void:
-	var vbox = _main_vbox()
-	var title = Label.new()
-	title.text = "ХОДЫ ЗАКОНЧИЛИСЬ"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 48)
-	title.add_theme_color_override("font_color", Color(1.0, 0.88, 0.4))
-	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	title.add_theme_constant_override("outline_size", 7)
-	vbox.add_child(title)
-	var body = Label.new()
-	if can_afford:
-		body.text = "Купить ещё %d ходов за %d монет?\n\nУ вас: %d монет" % [moves_count, cost, player_coins]
-	else:
-		body.text = "Недостаточно монет.\nНужно: %d монет\nУ вас: %d монет" % [cost, player_coins]
-	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.add_theme_font_size_override("font_size", 32)
-	body.add_theme_color_override("font_color", Color(0.95, 0.95, 1.0))
-	body.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	body.add_theme_constant_override("outline_size", 5)
-	vbox.add_child(body)
-	vbox.add_child(_spacer())
-	if can_afford:
-		var row = HBoxContainer.new()
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 24)
-		row.add_child(_big_button("КУПИТЬ (%d)" % cost, _on_buy_moves, Color(0.22, 0.58, 0.32), Color(0.35, 0.75, 0.42)))
-		row.add_child(_big_button("ВЫЙТИ", _on_to_menu, Color(0.45, 0.22, 0.22), Color(0.65, 0.35, 0.35)))
-		var wrap = CenterContainer.new()
-		wrap.add_child(row)
-		vbox.add_child(wrap)
-	else:
-		vbox.add_child(_wrap_big_button("В МЕНЮ", _on_to_menu))
-
 func _spacer() -> Control:
 	var c = Control.new()
 	c.custom_minimum_size = Vector2(0, 12)
@@ -204,12 +164,6 @@ func _on_to_menu() -> void:
 		return
 	_closing = true
 	emit_signal("to_menu_pressed")
-
-func _on_buy_moves() -> void:
-	if _closing:
-		return
-	_closing = true
-	emit_signal("buy_moves_pressed")
 
 func _on_refill_lives() -> void:
 	if _closing:
