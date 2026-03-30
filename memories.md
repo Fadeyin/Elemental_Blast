@@ -1,4 +1,5 @@
 # Agent context
+- Git: по завершении работы мержить назначенную ветку в `main` и пушить `origin/main` (предпочтение пользователя).
 - Branch: cursor/-bc-acc2393e-c381-5f3d-be0a-1a91209495b1-57ff
 - Prelevel boost purchase: rainbow 200 / bomb 100 / arrow 150 for +3 each; overlay uses ingame_booster_purchase_dialog with header «ПОКУПКА УСИЛЕНИЯ»; + button circular over icon slot.
 - Level end: victory requires cleared targets/obstacles/queue/enemies; defeat only if not completed. Victory coin bonus from remaining bonus chips on player field (10 coins each). No move limit; 8 lives at level start; defeat at 0 lives: optional refill all lives for 100 coins.
