@@ -84,8 +84,7 @@ var _breach_occurred: bool = false
 const COINS_PER_REMAINING_BONUS_CHIP := 10
 const REFILL_ALL_LIVES_COST := 100
 const MAX_PLAYER_LIVES := 8
-# Нижний ряд зоны врагов: по одному сердцу в столбце (8 шт.), монстр при входе в клетку теряет сердце и гибнет
-const HEART_ROW_Y := ENEMY_ROWS - 1
+# Ряд сердец = последний ряд зоны врагов по конфигу (enemy_rows), не константа ENEMY_ROWS
 
 enum BoosterType { NONE, HAMMER, ROW_BLAST, SHUFFLE, FREEZE }
 var _active_booster: BoosterType = BoosterType.NONE
@@ -109,13 +108,18 @@ const LEVEL_END_DIALOG_SCRIPT := preload("res://scripts/level_end_dialog.gd")
 const INGAME_BOOSTER_PURCHASE_SCRIPT := preload("res://scripts/ingame_booster_purchase_dialog.gd")
 var _level_end_overlay: Control = null
 var _booster_purchase_overlay: Control = null
-# Сердца в столбцах на HEART_ROW_Y: защита уровня; при старте true, если в клетке нет препятствия
+# Сердца в столбцах на _heart_row_y: защита уровня; при старте true, если в клетке нет препятствия
 var _column_hearts: Array = []
 var _column_hearts_initial: Array = []
+# Фактическая высота зоны врагов из level JSON (поле enemy_rows); сетка массивов по-прежнему ENEMY_ROWS
+var _enemy_rows_effective: int = ENEMY_ROWS
+var _heart_row_y: int = ENEMY_ROWS - 1
 
 func _ready():
 	randomize()
 	var cfg = LevelManager.get_level_config(LevelManager.current_level)
+	_enemy_rows_effective = clampi(int(cfg.get("enemy_rows", ENEMY_ROWS)), 1, ENEMY_ROWS)
+	_heart_row_y = _enemy_rows_effective - 1
 	_init_chips()
 	_init_obstacles_from_config(cfg)
 	_init_enemies_from_config(cfg)
@@ -609,7 +613,7 @@ func _init_column_hearts() -> void:
 	_column_hearts.clear()
 	_column_hearts_initial.clear()
 	for x in range(COLS):
-		var has_obstacle = obstacles.size() > HEART_ROW_Y and obstacles[HEART_ROW_Y].size() > x and obstacles[HEART_ROW_Y][x] > 0
+		var has_obstacle = obstacles.size() > _heart_row_y and obstacles[_heart_row_y].size() > x and obstacles[_heart_row_y][x] > 0
 		var has_heart = not has_obstacle
 		_column_hearts.append(has_heart)
 		_column_hearts_initial.append(has_heart)
@@ -840,7 +844,7 @@ func _draw():
 		if _column_hearts[hx]:
 			var heart_tl = Vector2(
 				origin.x + float(hx) * CELL_SIZE,
-				origin.y + float(HEART_ROW_Y) * ENEMY_CELL_HEIGHT
+				origin.y + float(_heart_row_y) * ENEMY_CELL_HEIGHT
 			)
 			var heart_center = heart_tl + Vector2(CELL_SIZE * 0.5, ENEMY_CELL_HEIGHT * 0.5)
 			_draw_column_heart(heart_center, min(CELL_SIZE, ENEMY_CELL_HEIGHT) * 0.42)
@@ -2217,6 +2221,7 @@ func _enemy_move_step():
 		occupied_next.append(row)
 
 	# 1. Планируем перемещения существующих врагов (снизу вверх)
+	# Используем _enemy_rows_effective из JSON: сердца на последнем ряду зоны (не на фиксированном ENEMY_ROWS-1)
 	for y in range(ENEMY_ROWS - 1, -1, -1):
 		for x in range(COLS):
 			if enemies[y][x] > 0:
@@ -2229,11 +2234,11 @@ func _enemy_move_step():
 				else:
 					var moved = false
 					
-					if y + 1 < ENEMY_ROWS:
+					if y + 1 < _enemy_rows_effective:
 						var ty = y + 1
 						var has_obstacle = obstacles[ty][x] > 0
 						if not occupied_next[ty][x] and not has_obstacle:
-							if ty == HEART_ROW_Y:
+							if ty == _heart_row_y:
 								if x < _column_hearts.size() and _column_hearts[x]:
 									moves.append({"fx": x, "fy": y, "tx": x, "ty": ty, "hp": hp, "init": init, "outcome": "heart_kill"})
 								else:
@@ -2243,6 +2248,18 @@ func _enemy_move_step():
 								moves.append({"fx": x, "fy": y, "tx": x, "ty": ty, "hp": hp, "init": init, "outcome": "normal"})
 								occupied_next[y][x] = false
 								occupied_next[ty][x] = true
+							moved = true
+					elif y == _heart_row_y:
+						moves.append({"fx": x, "fy": y, "tx": x, "ty": y+1, "hp": hp, "init": init, "outcome": "breach"})
+						occupied_next[y][x] = false
+						moved = true
+					elif y + 1 < ENEMY_ROWS:
+						var tyb = y + 1
+						var has_obstacle_b = obstacles[tyb][x] > 0
+						if not occupied_next[tyb][x] and not has_obstacle_b:
+							moves.append({"fx": x, "fy": y, "tx": x, "ty": tyb, "hp": hp, "init": init, "outcome": "normal"})
+							occupied_next[y][x] = false
+							occupied_next[tyb][x] = true
 							moved = true
 					else:
 						moves.append({"fx": x, "fy": y, "tx": x, "ty": y+1, "hp": hp, "init": init, "outcome": "breach"})
@@ -2260,7 +2277,7 @@ func _enemy_move_step():
 								var has_obstacle_side = obstacles[y][nx] > 0
 								if not occupied_next[y][nx] and not has_obstacle_side:
 									var side_outcome = "normal"
-									if y == HEART_ROW_Y:
+									if y == _heart_row_y:
 										if nx < _column_hearts.size() and _column_hearts[nx]:
 											side_outcome = "heart_kill"
 										else:
