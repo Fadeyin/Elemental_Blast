@@ -2332,6 +2332,9 @@ func _enemy_move_step():
 		elif outcome == "heart_kill":
 			if m.tx < _column_hearts.size() and _column_hearts[m.tx]:
 				_column_hearts[m.tx] = false
+			var init_hp_h = int(m.init)
+			if _level_targets.has(init_hp_h):
+				_level_targets[init_hp_h] = max(0, int(_level_targets[init_hp_h]) - 1)
 			_needs_ui_update = true
 			var mid_h = m.tx + m.ty * 10
 			_enemy_death_anims.append({
