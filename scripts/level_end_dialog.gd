@@ -12,9 +12,9 @@ func setup_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_c
 	_build_base()
 	_fill_victory(total, base_reward, chips_bonus, bonus_chips_count, coins_per_bonus_chip)
 
-func setup_defeat_no_lives(refill_cost: int, player_coins: int, max_lives: int, can_refill: bool) -> void:
+func setup_defeat_no_lives(refill_cost: int, player_coins: int, hearts_to_restore: int, can_refill: bool) -> void:
 	_build_base()
-	_fill_defeat(refill_cost, player_coins, max_lives, can_refill)
+	_fill_defeat(refill_cost, player_coins, hearts_to_restore, can_refill)
 
 func _build_base() -> void:
 	while get_child_count() > 0:
@@ -85,7 +85,7 @@ func _fill_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_c
 	vbox.add_child(_spacer())
 	vbox.add_child(_wrap_big_button("В МЕНЮ", _on_to_menu))
 
-func _fill_defeat(refill_cost: int, player_coins: int, max_lives: int, can_refill: bool) -> void:
+func _fill_defeat(refill_cost: int, player_coins: int, hearts_to_restore: int, can_refill: bool) -> void:
 	var vbox = _main_vbox()
 	var title = Label.new()
 	title.text = "ПОРАЖЕНИЕ"
@@ -97,9 +97,9 @@ func _fill_defeat(refill_cost: int, player_coins: int, max_lives: int, can_refil
 	vbox.add_child(title)
 	var body = Label.new()
 	if can_refill:
-		body.text = "Жизни закончились.\n\nЗа %d монет можно восстановить все жизни (%d) и продолжить уровень.\n\nУ вас: %d монет" % [refill_cost, max_lives, player_coins]
+		body.text = "Сердца в атакованных столбцах закончились.\n\nЗа %d монет восстановить %d сердец в этих столбцах; остальные монстры на один ход заморожены на каждое сердце.\n\nУ вас: %d монет" % [refill_cost, hearts_to_restore, player_coins]
 	else:
-		body.text = "Жизни закончились.\n\nВосстановление всех жизней стоит %d монет.\nУ вас: %d монет\n\nВернитесь в меню и попробуйте снова." % [refill_cost, player_coins]
+		body.text = "Сердца закончились.\n\nНужно %d монет за восстановление %d сердец.\nУ вас: %d монет\n\nВернитесь в меню или попробуйте снова." % [refill_cost, hearts_to_restore, player_coins]
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_theme_font_size_override("font_size", 32)
@@ -112,7 +112,7 @@ func _fill_defeat(refill_cost: int, player_coins: int, max_lives: int, can_refil
 		var row = HBoxContainer.new()
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
 		row.add_theme_constant_override("separation", 24)
-		row.add_child(_big_button("ЖИЗНИ ЗА %d" % refill_cost, _on_refill_lives, Color(0.22, 0.48, 0.58), Color(0.35, 0.65, 0.78)))
+		row.add_child(_big_button("ВОССТАНОВИТЬ (%d)" % refill_cost, _on_refill_lives, Color(0.22, 0.48, 0.58), Color(0.35, 0.65, 0.78)))
 		row.add_child(_big_button("В МЕНЮ", _on_to_menu, Color(0.45, 0.22, 0.22), Color(0.65, 0.35, 0.35)))
 		var wrap = CenterContainer.new()
 		wrap.add_child(row)
