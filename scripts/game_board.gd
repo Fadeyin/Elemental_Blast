@@ -112,7 +112,7 @@ var _booster_purchase_overlay: Control = null
 # Сердца в столбцах на _heart_row_y: защита уровня; при старте true, если в клетке нет препятствия
 var _column_hearts: Array = []
 var _column_hearts_initial: Array = []
-# Фактическая высота зоны врагов из level JSON (поле enemy_rows); сетка массивов по-прежнему ENEMY_ROWS
+# Высота зоны врагов совпадает с размером сетки ENEMY_ROWS (10 рядов); поле enemy_rows в JSON не укорачивает поле
 var _enemy_rows_effective: int = ENEMY_ROWS
 var _heart_row_y: int = ENEMY_ROWS - 1
 var _field_gap_total: float = FIELD_GAP_BASE + HEART_STRIP_HEIGHT
@@ -120,8 +120,8 @@ var _field_gap_total: float = FIELD_GAP_BASE + HEART_STRIP_HEIGHT
 func _ready():
 	randomize()
 	var cfg = LevelManager.get_level_config(LevelManager.current_level)
-	_enemy_rows_effective = clampi(int(cfg.get("enemy_rows", ENEMY_ROWS)), 1, ENEMY_ROWS)
-	_heart_row_y = _enemy_rows_effective - 1
+	_enemy_rows_effective = ENEMY_ROWS
+	_heart_row_y = ENEMY_ROWS - 1
 	_field_gap_total = FIELD_GAP_BASE + HEART_STRIP_HEIGHT
 	_init_chips()
 	_init_obstacles_from_config(cfg)

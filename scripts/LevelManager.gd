@@ -196,7 +196,7 @@ func get_level_config(level: int) -> Dictionary:
 	return {
 		"cols": 7,
 		"rows": 12,
-		"enemy_rows": 6,
+		"enemy_rows": 10,
 		"strong_monsters": max(0, (level - 1) * 5),
 		"strong_hp": 3
 	}
