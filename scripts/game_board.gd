@@ -1617,12 +1617,11 @@ func _process(delta: float) -> void:
 	# Удаляем завершённые после отрисовки
 	# Автопобеда/поражение и шаги врагов после завершения всех эффектов
 	if _projectiles.is_empty() and _active_anims.is_empty() and _enemy_death_anims.is_empty():
-		if _check_level_completed() and not _victory_dialog_shown:
+		if not _defeat_dialog_shown and (_count_column_hearts_remaining() == 0 or _defeat_pending_breach):
+			_defeat_pending_breach = false
+			_on_level_failed()
+		elif _check_level_completed() and not _victory_dialog_shown:
 			_on_level_completed()
-		elif not _check_level_completed() and not _defeat_dialog_shown:
-			if _count_column_hearts_remaining() == 0 or _defeat_pending_breach:
-				_defeat_pending_breach = false
-				_on_level_failed()
 		elif _enemy_move_pending:
 			_enemy_move_step()
 			_enemy_move_pending = false
@@ -2110,6 +2109,9 @@ func _activate_rainbow_chip(rx: int, ry: int, trigger_move: bool = true):
 		_apply_gravity_up()
 	queue_redraw()
 func _check_level_completed() -> bool:
+	# Нельзя засчитать победу, пока ожидается проигрыш по прорыву или открыт диалог поражения
+	if _defeat_pending_breach or _defeat_dialog_shown:
+		return false
 	# Победа: нет монстров в очереди, все цели выполнены, нет живых врагов и препятствий
 	if not _monster_spawn_queue.is_empty():
 		return false
