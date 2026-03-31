@@ -38,7 +38,8 @@ const CHIP_SIZE_FACTOR := 1.02
 const CHIP_EDGE_WIDTH := 3.0
 const CHIP_SHADOW_OFFSET := Vector2(0, 6)
 const CHIP_SHADOW_COLOR := Color(0, 0, 0, 0.25)
-const FIELD_GAP := 8.0 # Почти вплотную
+const FIELD_GAP_BASE := 8.0 # Минимальный зазор между полосой сердец и зоной фишек
+const HEART_STRIP_HEIGHT := 52.0 # Полоса между врагами и фишками — здесь рисуются сердца
 const CHIP_HIGHLIGHT_ALPHA := 0.08
 const FALL_DURATION := 0.2
 const RAINBOW_CHIP_IDX := -2
@@ -114,12 +115,14 @@ var _column_hearts_initial: Array = []
 # Фактическая высота зоны врагов из level JSON (поле enemy_rows); сетка массивов по-прежнему ENEMY_ROWS
 var _enemy_rows_effective: int = ENEMY_ROWS
 var _heart_row_y: int = ENEMY_ROWS - 1
+var _field_gap_total: float = FIELD_GAP_BASE + HEART_STRIP_HEIGHT
 
 func _ready():
 	randomize()
 	var cfg = LevelManager.get_level_config(LevelManager.current_level)
 	_enemy_rows_effective = clampi(int(cfg.get("enemy_rows", ENEMY_ROWS)), 1, ENEMY_ROWS)
 	_heart_row_y = _enemy_rows_effective - 1
+	_field_gap_total = FIELD_GAP_BASE + HEART_STRIP_HEIGHT
 	_init_chips()
 	_init_obstacles_from_config(cfg)
 	_init_enemies_from_config(cfg)
@@ -648,7 +651,7 @@ func _init_obstacles_from_config(cfg: Dictionary):
 					obstacles_initial_hp[oy][ox] = hp
 
 func _grid_origin(vp_size: Vector2) -> Vector2:
-	var grid_size = Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT + PLAYER_ROWS * CELL_SIZE + FIELD_GAP)
+	var grid_size = Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT + PLAYER_ROWS * CELL_SIZE + _field_gap_total)
 	var ox = (vp_size.x - grid_size.x) * 0.5
 	var usable_h = vp_size.y - UI_TOP_MARGIN - UI_BOTTOM_MARGIN
 	var oy = ((usable_h - grid_size.y) * 0.95) + UI_TOP_MARGIN
@@ -668,7 +671,7 @@ func _draw():
 			var k_shake = 1.0 - (vfx.t / vfx.d)
 			origin += Vector2(randf_range(-1, 1), randf_range(-1, 1)) * vfx.intensity * k_shake
 	
-	var grid_size = Vector2(COLS * CELL_SIZE, ROWS * CELL_SIZE + FIELD_GAP)
+	var grid_size = Vector2(COLS * CELL_SIZE, ROWS * CELL_SIZE + _field_gap_total)
 
 	# Рисуем текстурный фон самым первым слоем
 	if GAME_BG_TEXTURE:
@@ -676,7 +679,7 @@ func _draw():
 
 	# Заливка зон
 	var enemy_rect = Rect2(origin, Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT))
-	var player_rect = Rect2(Vector2(origin.x, origin.y + ENEMY_ROWS * ENEMY_CELL_HEIGHT + FIELD_GAP), Vector2(COLS * CELL_SIZE, PLAYER_ROWS * CELL_SIZE))
+	var player_rect = Rect2(Vector2(origin.x, origin.y + ENEMY_ROWS * ENEMY_CELL_HEIGHT + _field_gap_total), Vector2(COLS * CELL_SIZE, PLAYER_ROWS * CELL_SIZE))
 	
 	# Рисуем зону врагов (тайлы пола с объемной тенью)
 	var enemy_sb = StyleBoxFlat.new()
@@ -693,6 +696,20 @@ func _draw():
 			for x in range(COLS):
 				var tile_pos = origin + Vector2(float(x) * CELL_SIZE, float(y) * ENEMY_CELL_HEIGHT)
 				draw_texture_rect(ENEMY_TILE_TEXTURE, Rect2(tile_pos, Vector2(CELL_SIZE, tile_h)), false)
+	
+	var heart_strip_top = origin.y + float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT
+	var heart_strip_rect = Rect2(Vector2(origin.x, heart_strip_top), Vector2(float(COLS) * CELL_SIZE, _field_gap_total))
+	var strip_sb = StyleBoxFlat.new()
+	strip_sb.bg_color = Color(0.08, 0.1, 0.14, 0.92)
+	strip_sb.set_corner_radius_all(12.0)
+	strip_sb.border_width_bottom = 2
+	strip_sb.border_color = Color(0.5, 0.42, 0.2, 0.85)
+	draw_style_box(strip_sb, heart_strip_rect)
+	var hearts_center_y = heart_strip_top + HEART_STRIP_HEIGHT * 0.5
+	for hx in range(min(COLS, _column_hearts.size())):
+		if _column_hearts[hx]:
+			var cx = origin.x + float(hx) * CELL_SIZE + CELL_SIZE * 0.5
+			_draw_column_heart(Vector2(cx, hearts_center_y), min(CELL_SIZE, HEART_STRIP_HEIGHT) * 0.38)
 	
 	# Рисуем зону игрока (черная заливка)
 	var player_sb = StyleBoxFlat.new()
@@ -798,7 +815,8 @@ func _draw():
 			"init_hp": int(da.init),
 			"id": da.id,
 			"sort_y": float(da.y),
-			"alpha": alpha
+			"alpha": alpha,
+			"heart_strip_death": bool(da.get("in_heart_strip", false))
 		})
 	
 	# Затем статичные (те, которые не двигаются в данный момент)
@@ -840,15 +858,6 @@ func _draw():
 				var obs_size = Vector2(CELL_SIZE, ENEMY_CELL_HEIGHT)
 				_draw_obstacle(obs_top_left, obs_size, obstacles[y][x], obstacles_initial_hp[y][x])
 	
-	for hx in range(min(COLS, _column_hearts.size())):
-		if _column_hearts[hx]:
-			var heart_tl = Vector2(
-				origin.x + float(hx) * CELL_SIZE,
-				origin.y + float(_heart_row_y) * ENEMY_CELL_HEIGHT
-			)
-			var heart_center = heart_tl + Vector2(CELL_SIZE * 0.5, ENEMY_CELL_HEIGHT * 0.5)
-			_draw_column_heart(heart_center, min(CELL_SIZE, ENEMY_CELL_HEIGHT) * 0.42)
-	
 	# Отрисовываем всех монстров в правильном порядке
 	var e_chip_size = Vector2(CELL_SIZE * CHIP_SIZE_FACTOR, CELL_SIZE * CHIP_SIZE_FACTOR)
 	var e_pad_x = (CELL_SIZE - e_chip_size.x) * 0.5
@@ -859,10 +868,18 @@ func _draw():
 			var k_s = 1.0 - (s.t / s.d)
 			shake_off = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * s.intensity * k_s
 			
-		var e_top_left = Vector2(
-			origin.x + m.x * CELL_SIZE + e_pad_x, 
-			origin.y + m.y * ENEMY_CELL_HEIGHT + (ENEMY_CELL_HEIGHT - e_chip_size.y) - 6
-		) + shake_off
+		var e_top_left: Vector2
+		if m.get("heart_strip_death", false):
+			var strip_mid_y = float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + HEART_STRIP_HEIGHT * 0.5
+			e_top_left = Vector2(
+				origin.x + m.x * CELL_SIZE + e_pad_x,
+				origin.y + strip_mid_y - e_chip_size.y * 0.5
+			) + shake_off
+		else:
+			e_top_left = Vector2(
+				origin.x + m.x * CELL_SIZE + e_pad_x,
+				origin.y + m.y * ENEMY_CELL_HEIGHT + (ENEMY_CELL_HEIGHT - e_chip_size.y) - 6
+			) + shake_off
 		_draw_enemy_monster(e_top_left, e_chip_size, m.hp, m.init_hp, m.id, m.alpha)
 
 	for y in range(ENEMY_ROWS, ROWS):
@@ -872,8 +889,8 @@ func _draw():
 				if anim_targets.has(Vector2i(x, y)):
 					continue
 				var idx = chips[y][x]
-				# Добавляем FIELD_GAP для зоны игрока и учитываем разную высоту строк
-				var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (y - ENEMY_ROWS) * CELL_SIZE + FIELD_GAP
+				# Зона игрока ниже полосы сердец (_field_gap_total)
+				var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (y - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 				var top_left = Vector2(origin.x + float(x) * CELL_SIZE + pad, origin.y + y_pos + pad)
 				
 				# Дрожание для будущих бонусов
@@ -909,7 +926,7 @@ func _draw():
 				# Анимация появления через скейл
 				k = pow(k, 0.5) # Плавный вход
 				size_v *= k
-				var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (float(a.end_y) - ENEMY_ROWS) * CELL_SIZE + FIELD_GAP
+				var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (float(a.end_y) - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 				var center = origin + Vector2(float(a.x) * CELL_SIZE + CELL_SIZE * 0.5, y_pos + CELL_SIZE * 0.5)
 				top_left = center - size_v * 0.5
 			else:
@@ -920,7 +937,7 @@ func _draw():
 				if y_interp < ENEMY_ROWS:
 					y_pos = y_interp * ENEMY_CELL_HEIGHT
 				else:
-					y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (y_interp - ENEMY_ROWS) * CELL_SIZE + FIELD_GAP
+					y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (y_interp - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 				top_left = Vector2(origin.x + float(a.x) * CELL_SIZE + pad, origin.y + y_pos + pad)
 			
 			if a.color == RAINBOW_CHIP_IDX:
@@ -947,7 +964,7 @@ func _draw():
 		if y_interp2 < ENEMY_ROWS:
 			cy_offset = y_interp2 * ENEMY_CELL_HEIGHT + ENEMY_CELL_HEIGHT * 0.5
 		else:
-			cy_offset = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (y_interp2 - ENEMY_ROWS) * CELL_SIZE + FIELD_GAP + CELL_SIZE * 0.5
+			cy_offset = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (y_interp2 - ENEMY_ROWS) * CELL_SIZE + _field_gap_total + CELL_SIZE * 0.5
 		var cy = origin.y + cy_offset
 		var proj_r = maxf(4.0, float(CELL_SIZE) * 0.1)
 		
@@ -959,7 +976,7 @@ func _draw():
 			if trail_y_interp < ENEMY_ROWS:
 				trail_cy_offset = trail_y_interp * ENEMY_CELL_HEIGHT + ENEMY_CELL_HEIGHT * 0.5
 			else:
-				trail_cy_offset = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (trail_y_interp - ENEMY_ROWS) * CELL_SIZE + FIELD_GAP + CELL_SIZE * 0.5
+				trail_cy_offset = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (trail_y_interp - ENEMY_ROWS) * CELL_SIZE + _field_gap_total + CELL_SIZE * 0.5
 			var tcy = origin.y + trail_cy_offset
 			var t_alpha = (1.0 - float(i) / 4.0) * 0.5
 			draw_circle(Vector2(cx, tcy), proj_r * (1.0 - float(i) * 0.2), Color(p.color.r, p.color.g, p.color.b, t_alpha))
@@ -1062,7 +1079,7 @@ func _activate_bomb(bx: int, by: int, trigger_move: bool = true):
 	# VFX Бомбы
 	var vp_size = get_viewport_rect().size
 	var origin = _grid_origin(vp_size)
-	var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (by - ENEMY_ROWS) * CELL_SIZE + FIELD_GAP
+	var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (by - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 	var center_pos = origin + Vector2(bx * CELL_SIZE + CELL_SIZE * 0.5, y_pos + CELL_SIZE * 0.5)
 	_board_vfx.append({"type": "bomb_explosion", "pos": center_pos, "color": Color(1, 0.6, 0.2), "t": 0.0, "d": 0.3})
 	
@@ -1391,7 +1408,7 @@ func _draw_obstacle(top_left: Vector2, size: Vector2, hp: int, max_hp: int):
 func _draw_player_zone_overlay():
 	var vp_size = get_viewport_rect().size
 	var origin = _grid_origin(vp_size)
-	var player_rect = Rect2(Vector2(origin.x, origin.y + ENEMY_ROWS * ENEMY_CELL_HEIGHT + FIELD_GAP), Vector2(COLS * CELL_SIZE, PLAYER_ROWS * CELL_SIZE))
+	var player_rect = Rect2(Vector2(origin.x, origin.y + ENEMY_ROWS * ENEMY_CELL_HEIGHT + _field_gap_total), Vector2(COLS * CELL_SIZE, PLAYER_ROWS * CELL_SIZE))
 
 	# 1. РИСУЕМ ГРАДИЕНТНУЮ ВНУТРЕННЮЮ ТЕНЬ (сначала, чтобы она была под рамкой)
 	var shadow_steps = 20
@@ -1714,8 +1731,8 @@ func _point_to_cell(screen_pos: Vector2) -> Vector2i:
 	var enemy_zone_h = ENEMY_ROWS * ENEMY_CELL_HEIGHT
 	if y_pixels < enemy_zone_h:
 		y = int(floor(y_pixels / ENEMY_CELL_HEIGHT))
-	elif y_pixels > enemy_zone_h + FIELD_GAP:
-		var y_in_player_zone = y_pixels - enemy_zone_h - FIELD_GAP
+	elif y_pixels > enemy_zone_h + _field_gap_total:
+		var y_in_player_zone = y_pixels - enemy_zone_h - _field_gap_total
 		y = ENEMY_ROWS + int(floor(y_in_player_zone / CELL_SIZE))
 	
 	if x < 0 or x >= COLS or y < 0 or y >= ROWS:
@@ -1935,7 +1952,7 @@ func _combo_bomb_plus_rocket(cx: int, cy: int):
 			# VFX для каждого ряда
 			var vp_size = get_viewport_rect().size
 			var origin = _grid_origin(vp_size)
-			var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (target_y - ENEMY_ROWS) * CELL_SIZE + FIELD_GAP
+			var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (target_y - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 			var center_y = origin.y + y_pos + CELL_SIZE * 0.5
 			_board_vfx.append({"type": "beam", "pos": Vector2(vp_size.x * 0.5, center_y), "color": Color(0.4, 0.6, 1.0), "t": 0.0, "d": 0.3})
 			set_process(true)
@@ -1952,7 +1969,7 @@ func _combo_bomb_plus_rocket(cx: int, cy: int):
 			var vp_size = get_viewport_rect().size
 			var origin = _grid_origin(vp_size)
 			var center_x = origin.x + target_x * CELL_SIZE + CELL_SIZE * 0.5
-			var center_y = origin.y + ENEMY_ROWS * ENEMY_CELL_HEIGHT + (PLAYER_ROWS * 0.5) * CELL_SIZE + FIELD_GAP
+			var center_y = origin.y + ENEMY_ROWS * ENEMY_CELL_HEIGHT + (PLAYER_ROWS * 0.5) * CELL_SIZE + _field_gap_total
 			_board_vfx.append({"type": "beam_vertical", "pos": Vector2(center_x, center_y), "color": Color(1.0, 0.6, 0.2), "t": 0.0, "d": 0.3})
 			set_process(true)
 			
@@ -2014,13 +2031,13 @@ func _activate_rainbow_chip(rx: int, ry: int, trigger_move: bool = true):
 	# VFX Радуги
 	var vp_size = get_viewport_rect().size
 	var origin = _grid_origin(vp_size)
-	var start_y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (ry - ENEMY_ROWS) * CELL_SIZE + FIELD_GAP
+	var start_y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (ry - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 	var start_pos = origin + Vector2(rx * CELL_SIZE + CELL_SIZE * 0.5, start_y_pos + CELL_SIZE * 0.5)
 	
 	for y in range(ENEMY_ROWS, ROWS):
 		for x in range(COLS):
 			if chips[y][x] == target_color:
-				var end_y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (y - ENEMY_ROWS) * CELL_SIZE + FIELD_GAP
+				var end_y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (y - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 				var end_pos = origin + Vector2(x * CELL_SIZE + CELL_SIZE * 0.5, end_y_pos + CELL_SIZE * 0.5)
 				_board_vfx.append({
 					"type": "rainbow_link", 
@@ -2329,11 +2346,12 @@ func _enemy_move_step():
 			var mid_h = m.tx + m.ty * 10
 			_enemy_death_anims.append({
 				"x": m.tx, "y": m.ty, "t": 0.0, "d": 0.35,
-				"hp": 0, "init": m.init, "id": mid_h
+				"hp": 0, "init": m.init, "id": mid_h,
+				"in_heart_strip": true
 			})
 			_monster_shakes[mid_h] = {"t": 0.0, "d": 0.35, "intensity": 15.0}
-			var y_pos_h = float(m.ty) * ENEMY_CELL_HEIGHT
-			var center_h = origin_apply + Vector2(float(m.tx) * CELL_SIZE + CELL_SIZE * 0.5, y_pos_h + ENEMY_CELL_HEIGHT * 0.5)
+			var strip_mid_apply = float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + HEART_STRIP_HEIGHT * 0.5
+			var center_h = origin_apply + Vector2(float(m.tx) * CELL_SIZE + CELL_SIZE * 0.5, strip_mid_apply)
 			_board_vfx.append({
 				"type": "shockwave",
 				"pos": center_h,
@@ -2410,7 +2428,7 @@ func _add_chip_pop_vfx(x: int, y: int, color_idx: int):
 		y_pos = float(y) * ENEMY_CELL_HEIGHT
 		cell_h = ENEMY_CELL_HEIGHT
 	else:
-		y_pos = float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + float(y - ENEMY_ROWS) * CELL_SIZE + FIELD_GAP
+		y_pos = float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + float(y - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 	
 	var center = origin + Vector2(float(x) * CELL_SIZE + CELL_SIZE * 0.5, y_pos + float(cell_h) * 0.5)
 	
