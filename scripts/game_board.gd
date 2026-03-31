@@ -2251,25 +2251,22 @@ func _enemy_move_step():
 				else:
 					var moved = false
 					
-					if y + 1 < _enemy_rows_effective:
+					if y == _heart_row_y:
+						# Уже на переднем ряду: шаг к игроку (полоса сердец) — только со следующего хода после входа на ряд
+						if x < _column_hearts.size() and _column_hearts[x]:
+							moves.append({"fx": x, "fy": y, "tx": x, "ty": y, "hp": hp, "init": init, "outcome": "heart_kill"})
+						else:
+							moves.append({"fx": x, "fy": y, "tx": x, "ty": y, "hp": hp, "init": init, "outcome": "breach"})
+						occupied_next[y][x] = false
+						moved = true
+					elif y + 1 < _enemy_rows_effective:
 						var ty = y + 1
 						var has_obstacle = obstacles[ty][x] > 0
 						if not occupied_next[ty][x] and not has_obstacle:
-							if ty == _heart_row_y:
-								if x < _column_hearts.size() and _column_hearts[x]:
-									moves.append({"fx": x, "fy": y, "tx": x, "ty": ty, "hp": hp, "init": init, "outcome": "heart_kill"})
-								else:
-									moves.append({"fx": x, "fy": y, "tx": x, "ty": ty, "hp": hp, "init": init, "outcome": "breach"})
-								occupied_next[y][x] = false
-							else:
-								moves.append({"fx": x, "fy": y, "tx": x, "ty": ty, "hp": hp, "init": init, "outcome": "normal"})
-								occupied_next[y][x] = false
-								occupied_next[ty][x] = true
+							moves.append({"fx": x, "fy": y, "tx": x, "ty": ty, "hp": hp, "init": init, "outcome": "normal"})
+							occupied_next[y][x] = false
+							occupied_next[ty][x] = true
 							moved = true
-					elif y == _heart_row_y:
-						moves.append({"fx": x, "fy": y, "tx": x, "ty": y+1, "hp": hp, "init": init, "outcome": "breach"})
-						occupied_next[y][x] = false
-						moved = true
 					elif y + 1 < ENEMY_ROWS:
 						var tyb = y + 1
 						var has_obstacle_b = obstacles[tyb][x] > 0
@@ -2293,16 +2290,9 @@ func _enemy_move_step():
 							if nx >= 0 and nx < COLS:
 								var has_obstacle_side = obstacles[y][nx] > 0
 								if not occupied_next[y][nx] and not has_obstacle_side:
-									var side_outcome = "normal"
-									if y == _heart_row_y:
-										if nx < _column_hearts.size() and _column_hearts[nx]:
-											side_outcome = "heart_kill"
-										else:
-											side_outcome = "breach"
-									moves.append({"fx": x, "fy": y, "tx": nx, "ty": y, "hp": hp, "init": init, "outcome": side_outcome})
+									moves.append({"fx": x, "fy": y, "tx": nx, "ty": y, "hp": hp, "init": init, "outcome": "normal"})
 									occupied_next[y][x] = false
-									if side_outcome == "normal":
-										occupied_next[y][nx] = true
+									occupied_next[y][nx] = true
 									moved = true
 									break
 
