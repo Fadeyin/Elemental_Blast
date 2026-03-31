@@ -83,10 +83,13 @@ var _enemy_move_anims := [] # [{fx:int,fy:int,tx:int,ty:int,hp:int,init:int,t:fl
 var _needs_ui_update: bool = false
 const COINS_PER_REMAINING_BONUS_CHIP := 10
 const REFILL_GOLD_PER_HEART := 50
+const REFILL_ENEMY_SHIFT_ROWS := 3
 # Уникальные столбцы атаки при прорыве (нет сердца в столбце) — для частичного восстановления
 var _last_breach_attack_columns: Array = []
 # Прорыв в пустой столбец — уровень проигран, нужно окно поражения (не только при 0 сердец везде)
 var _defeat_pending_breach: bool = false
+# Монстры прорыва по столбцу: после оплаты вернуть на линию сердец (column -> {hp, init})
+var _pending_breach_monsters: Dictionary = {}
 
 enum BoosterType { NONE, HAMMER, ROW_BLAST, SHUFFLE, FREEZE }
 var _active_booster: BoosterType = BoosterType.NONE
@@ -609,6 +612,12 @@ func _decrement_level_target_for_init_hp(init_hp: int) -> void:
 	if _level_targets.has(init_hp):
 		_level_targets[init_hp] = max(0, int(_level_targets[init_hp]) - 1)
 
+func _increment_level_target_for_init_hp(init_hp: int) -> void:
+	if _level_targets.has(init_hp):
+		_level_targets[init_hp] = int(_level_targets[init_hp]) + 1
+	else:
+		_level_targets[init_hp] = 1
+
 func _init_obstacles_from_config(cfg: Dictionary):
 	obstacles.clear()
 	obstacles_initial_hp.clear()
@@ -643,6 +652,7 @@ func _init_column_hearts() -> void:
 	_column_hearts.clear()
 	_column_hearts_initial.clear()
 	_last_breach_attack_columns.clear()
+	_pending_breach_monsters.clear()
 	_defeat_pending_breach = false
 	for x in range(COLS):
 		var blocked = obstacles.size() > _heart_row_y and obstacles[_heart_row_y].size() > x and obstacles[_heart_row_y][x] > 0
@@ -673,16 +683,80 @@ func _compute_refill_cost_after_breach() -> int:
 		return 0
 	return REFILL_GOLD_PER_HEART * k
 
+func _find_free_enemy_cell_in_column_from(x: int, start_y: int) -> int:
+	var y = clampi(start_y, 0, ENEMY_ROWS - 1)
+	while y < ENEMY_ROWS:
+		if enemies.size() > y and enemies[y].size() > x and enemies[y][x] == 0:
+			if obstacles.size() > y and obstacles[y].size() > x and obstacles[y][x] > 0:
+				y += 1
+				continue
+			return y
+		y += 1
+	return -1
+
+func _shift_all_enemies_toward_spawn(rows: int) -> void:
+	if rows <= 0:
+		return
+	var new_hp: Array = []
+	var new_init: Array = []
+	for yy in range(ENEMY_ROWS):
+		var rh := []
+		var ri := []
+		for xx in range(COLS):
+			rh.append(0)
+			ri.append(0)
+		new_hp.append(rh)
+		new_init.append(ri)
+	for x in range(COLS):
+		var stack := []
+		for y in range(ENEMY_ROWS):
+			if enemies.size() > y and enemies[y].size() > x and enemies[y][x] > 0:
+				stack.append({"y": y, "hp": enemies[y][x], "init": enemies_initial_hp[y][x]})
+		stack.sort_custom(func(a, b): return a.y < b.y)
+		for it in stack:
+			var want_y = clampi(int(it.y) - rows, 0, ENEMY_ROWS - 1)
+			var ny = want_y
+			while ny < ENEMY_ROWS and (new_hp[ny][x] > 0 or (obstacles.size() > ny and obstacles[ny].size() > x and obstacles[ny][x] > 0)):
+				ny += 1
+			if ny < ENEMY_ROWS:
+				new_hp[ny][x] = it.hp
+				new_init[ny][x] = it.init
+	for y in range(ENEMY_ROWS):
+		for x in range(COLS):
+			enemies[y][x] = new_hp[y][x]
+			enemies_initial_hp[y][x] = new_init[y][x]
+
 func _apply_partial_refill_after_breach_paid() -> void:
 	_defeat_pending_breach = false
-	var k = _breach_refill_unit_count()
-	if k > 0:
-		_freeze_turns = max(_freeze_turns, k)
 	for cx in _last_breach_attack_columns:
 		var x = int(cx)
 		if x >= 0 and x < _column_hearts.size():
 			_column_hearts[x] = true
 	_last_breach_attack_columns.clear()
+	var pending_copy: Dictionary = {}
+	for k in _pending_breach_monsters.keys():
+		pending_copy[k] = _pending_breach_monsters[k]
+	_pending_breach_monsters.clear()
+	for k in pending_copy.keys():
+		var dat = pending_copy[k]
+		_increment_level_target_for_init_hp(int(dat.get("init", 1)))
+	_shift_all_enemies_toward_spawn(REFILL_ENEMY_SHIFT_ROWS)
+	for k in pending_copy.keys():
+		var cx = int(k)
+		var dat = pending_copy[k]
+		var mhp = int(dat.get("hp", 1))
+		var ihp = int(dat.get("init", mhp))
+		if cx < 0 or cx >= COLS:
+			continue
+		var place_y = _heart_row_y
+		var blocked_here = obstacles.size() > place_y and obstacles[place_y].size() > cx and obstacles[place_y][cx] > 0
+		if enemies[place_y][cx] > 0 or blocked_here:
+			var alt = _find_free_enemy_cell_in_column_from(cx, _heart_row_y)
+			if alt >= 0:
+				place_y = alt
+		if enemies[place_y][cx] == 0:
+			enemies[place_y][cx] = mhp
+			enemies_initial_hp[place_y][cx] = ihp
 	_defeat_dialog_shown = false
 	_needs_ui_update = true
 	queue_redraw()
@@ -2366,6 +2440,7 @@ func _enemy_move_step():
 			_decrement_level_target_for_init_hp(init_hp_i)
 			if not ax in _last_breach_attack_columns:
 				_last_breach_attack_columns.append(ax)
+			_pending_breach_monsters[ax] = {"hp": m.hp, "init": m.init}
 			_needs_ui_update = true
 			var y_pos_b = float(m.fy) * ENEMY_CELL_HEIGHT
 			var center_pos = origin_apply + Vector2(float(ax) * CELL_SIZE + CELL_SIZE * 0.5, y_pos_b + ENEMY_CELL_HEIGHT * 0.5)
