@@ -627,6 +627,27 @@ func _restore_column_hearts_from_initial() -> void:
 			_column_hearts[x] = _column_hearts_initial[x]
 	_breach_occurred = false
 
+func _decrement_level_target_for_init_hp(init_hp: int) -> void:
+	if _level_targets.has(init_hp):
+		_level_targets[init_hp] = max(0, int(_level_targets[init_hp]) - 1)
+
+func _remove_all_enemies_and_spawn_queue_sync_targets() -> void:
+	for y in range(ENEMY_ROWS):
+		for x in range(COLS):
+			if enemies.size() > y and enemies[y].size() > x and enemies[y][x] > 0:
+				var ih = int(enemies_initial_hp[y][x])
+				_decrement_level_target_for_init_hp(ih)
+				enemies[y][x] = 0
+				enemies_initial_hp[y][x] = 0
+	while not _monster_spawn_queue.is_empty():
+		var qhp = _monster_spawn_queue.pop_front()
+		_decrement_level_target_for_init_hp(int(qhp))
+	_enemy_move_anims.clear()
+	_enemy_death_anims.clear()
+	_projectiles.clear()
+	_monster_shakes.clear()
+	_needs_ui_update = true
+
 func _init_obstacles_from_config(cfg: Dictionary):
 	obstacles.clear()
 	obstacles_initial_hp.clear()
@@ -1547,10 +1568,7 @@ func _process(delta: float) -> void:
 							enemies[ty][tx] = 0
 							# Уменьшаем цели по исходному HP этой клетки
 							var init_hp = enemies_initial_hp[ty][tx]
-							if _level_targets.has(init_hp):
-								_level_targets[init_hp] = int(_level_targets[init_hp]) - 1
-								if _level_targets[init_hp] < 0:
-									_level_targets[init_hp] = 0
+							_decrement_level_target_for_init_hp(int(init_hp))
 							_needs_ui_update = true
 							# Запускаем анимацию смерти с сохранением данных монстра для отрисовки
 							_enemy_death_anims.append({
@@ -2160,6 +2178,7 @@ func _on_defeat_refill_lives() -> void:
 		_level_end_overlay.queue_free()
 		_level_end_overlay = null
 	if LevelManager.spend_coins(REFILL_ALL_LIVES_COST):
+		_remove_all_enemies_and_spawn_queue_sync_targets()
 		_restore_column_hearts_from_initial()
 		_defeat_dialog_shown = false
 		_update_ui()
@@ -2313,6 +2332,7 @@ func _enemy_move_step():
 		var outcome = str(m.get("outcome", "normal"))
 		if outcome == "breach":
 			_breach_occurred = true
+			_decrement_level_target_for_init_hp(int(m.init))
 			_needs_ui_update = true
 			var y_pos_b = float(m.fy) * ENEMY_CELL_HEIGHT
 			var center_pos = origin_apply + Vector2(float(m.fx) * CELL_SIZE + CELL_SIZE * 0.5, y_pos_b + ENEMY_CELL_HEIGHT * 0.5)
@@ -2332,9 +2352,7 @@ func _enemy_move_step():
 		elif outcome == "heart_kill":
 			if m.tx < _column_hearts.size() and _column_hearts[m.tx]:
 				_column_hearts[m.tx] = false
-			var init_hp_h = int(m.init)
-			if _level_targets.has(init_hp_h):
-				_level_targets[init_hp_h] = max(0, int(_level_targets[init_hp_h]) - 1)
+			_decrement_level_target_for_init_hp(int(m.init))
 			_needs_ui_update = true
 			var mid_h = m.tx + m.ty * 10
 			_enemy_death_anims.append({
