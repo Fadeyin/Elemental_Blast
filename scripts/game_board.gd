@@ -81,11 +81,10 @@ var _enemy_move_pending: bool = false
 var _enemy_move_anims := [] # [{fx:int,fy:int,tx:int,ty:int,hp:int,init:int,t:float,d:float}]
 
 var _needs_ui_update: bool = false
-var _breach_occurred: bool = false
 const COINS_PER_REMAINING_BONUS_CHIP := 10
-const REFILL_ALL_LIVES_COST := 100
-const MAX_PLAYER_LIVES := 8
-# Ряд сердец = последний ряд зоны врагов по конфигу (enemy_rows), не константа ENEMY_ROWS
+const REFILL_GOLD_PER_HEART := 50
+# Уникальные столбцы атаки при прорыве (нет сердца в столбце) — для частичного восстановления
+var _last_breach_attack_columns: Array = []
 
 enum BoosterType { NONE, HAMMER, ROW_BLAST, SHUFFLE, FREEZE }
 var _active_booster: BoosterType = BoosterType.NONE
@@ -604,49 +603,9 @@ func _init_enemies_from_config(cfg: Dictionary):
 				enemies[y][x] = hp
 				enemies_initial_hp[y][x] = hp
 
-func _count_column_hearts_remaining() -> int:
-	var n = 0
-	for x in range(min(COLS, _column_hearts.size())):
-		if _column_hearts[x]:
-			n += 1
-	return n
-
-func _init_column_hearts() -> void:
-	_breach_occurred = false
-	_column_hearts.clear()
-	_column_hearts_initial.clear()
-	for x in range(COLS):
-		var has_obstacle = obstacles.size() > _heart_row_y and obstacles[_heart_row_y].size() > x and obstacles[_heart_row_y][x] > 0
-		var has_heart = not has_obstacle
-		_column_hearts.append(has_heart)
-		_column_hearts_initial.append(has_heart)
-
-func _restore_column_hearts_from_initial() -> void:
-	for x in range(COLS):
-		if x < _column_hearts_initial.size():
-			_column_hearts[x] = _column_hearts_initial[x]
-	_breach_occurred = false
-
 func _decrement_level_target_for_init_hp(init_hp: int) -> void:
 	if _level_targets.has(init_hp):
 		_level_targets[init_hp] = max(0, int(_level_targets[init_hp]) - 1)
-
-func _remove_all_enemies_and_spawn_queue_sync_targets() -> void:
-	for y in range(ENEMY_ROWS):
-		for x in range(COLS):
-			if enemies.size() > y and enemies[y].size() > x and enemies[y][x] > 0:
-				var ih = int(enemies_initial_hp[y][x])
-				_decrement_level_target_for_init_hp(ih)
-				enemies[y][x] = 0
-				enemies_initial_hp[y][x] = 0
-	while not _monster_spawn_queue.is_empty():
-		var qhp = _monster_spawn_queue.pop_front()
-		_decrement_level_target_for_init_hp(int(qhp))
-	_enemy_move_anims.clear()
-	_enemy_death_anims.clear()
-	_projectiles.clear()
-	_monster_shakes.clear()
-	_needs_ui_update = true
 
 func _init_obstacles_from_config(cfg: Dictionary):
 	obstacles.clear()
@@ -670,6 +629,59 @@ func _init_obstacles_from_config(cfg: Dictionary):
 				if oy >= 0 and oy < ENEMY_ROWS and ox >= 0 and ox < COLS:
 					obstacles[oy][ox] = hp
 					obstacles_initial_hp[oy][ox] = hp
+
+func _count_column_hearts_remaining() -> int:
+	var n = 0
+	for x in range(min(COLS, _column_hearts.size())):
+		if _column_hearts[x]:
+			n += 1
+	return n
+
+func _init_column_hearts() -> void:
+	_column_hearts.clear()
+	_column_hearts_initial.clear()
+	_last_breach_attack_columns.clear()
+	for x in range(COLS):
+		var blocked = obstacles.size() > _heart_row_y and obstacles[_heart_row_y].size() > x and obstacles[_heart_row_y][x] > 0
+		var has_heart = not blocked
+		_column_hearts.append(has_heart)
+		_column_hearts_initial.append(has_heart)
+
+func _hearts_lost_in_attack_columns() -> int:
+	var n = 0
+	for cx in _last_breach_attack_columns:
+		var x = int(cx)
+		if x >= 0 and x < _column_hearts_initial.size() and _column_hearts_initial[x]:
+			if not _column_hearts[x]:
+				n += 1
+	return n
+
+func _compute_refill_cost_after_breach() -> int:
+	var k = _hearts_lost_in_attack_columns()
+	if k <= 0:
+		return 0
+	return REFILL_GOLD_PER_HEART * k
+
+func _apply_partial_refill_after_breach_paid() -> void:
+	var k = _hearts_lost_in_attack_columns()
+	if k > 0:
+		_freeze_turns = max(_freeze_turns, k)
+	for cx in _last_breach_attack_columns:
+		var x = int(cx)
+		if x >= 0 and x < _column_hearts.size() and x < _column_hearts_initial.size():
+			if _column_hearts_initial[x]:
+				_column_hearts[x] = true
+	_last_breach_attack_columns.clear()
+	_defeat_dialog_shown = false
+	_needs_ui_update = true
+	queue_redraw()
+
+func _clear_board_vfx_after_refill() -> void:
+	_enemy_move_anims.clear()
+	_enemy_death_anims.clear()
+	_projectiles.clear()
+	_monster_shakes.clear()
+	_needs_ui_update = true
 
 func _grid_origin(vp_size: Vector2) -> Vector2:
 	var grid_size = Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT + PLAYER_ROWS * CELL_SIZE + _field_gap_total)
@@ -1596,7 +1608,7 @@ func _process(delta: float) -> void:
 	if _projectiles.is_empty() and _active_anims.is_empty() and _enemy_death_anims.is_empty():
 		if _check_level_completed() and not _victory_dialog_shown:
 			_on_level_completed()
-		elif not _check_level_completed() and _breach_occurred and not _defeat_dialog_shown:
+		elif not _check_level_completed() and _count_column_hearts_remaining() == 0 and not _defeat_dialog_shown:
 			_on_level_failed()
 		elif _enemy_move_pending:
 			_enemy_move_step()
@@ -2159,8 +2171,10 @@ func _show_level_end_defeat_no_lives() -> void:
 	if overlay.refill_lives_pressed.is_connected(_on_defeat_refill_lives):
 		overlay.refill_lives_pressed.disconnect(_on_defeat_refill_lives)
 	var player_coins = LevelManager.get_coins()
-	var can_refill = player_coins >= REFILL_ALL_LIVES_COST
-	overlay.setup_defeat_no_lives(REFILL_ALL_LIVES_COST, player_coins, MAX_PLAYER_LIVES, can_refill)
+	var cost = _compute_refill_cost_after_breach()
+	var k_restore = _hearts_lost_in_attack_columns()
+	var can_refill = k_restore > 0 and player_coins >= cost
+	overlay.setup_defeat_no_lives(cost, player_coins, k_restore, can_refill)
 	if not overlay.to_menu_pressed.is_connected(_on_defeat_no_lives_to_menu):
 		overlay.to_menu_pressed.connect(_on_defeat_no_lives_to_menu)
 	if can_refill and not overlay.refill_lives_pressed.is_connected(_on_defeat_refill_lives):
@@ -2177,10 +2191,10 @@ func _on_defeat_refill_lives() -> void:
 	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
 		_level_end_overlay.queue_free()
 		_level_end_overlay = null
-	if LevelManager.spend_coins(REFILL_ALL_LIVES_COST):
-		_remove_all_enemies_and_spawn_queue_sync_targets()
-		_restore_column_hearts_from_initial()
-		_defeat_dialog_shown = false
+	var cost = _compute_refill_cost_after_breach()
+	if cost > 0 and LevelManager.spend_coins(cost):
+		_clear_board_vfx_after_refill()
+		_apply_partial_refill_after_breach_paid()
 		_update_ui()
 		queue_redraw()
 	else:
@@ -2330,12 +2344,15 @@ func _enemy_move_step():
 	
 	for m in moves:
 		var outcome = str(m.get("outcome", "normal"))
+		var ax = int(m.fx)
+		var init_hp_i = int(m.init)
 		if outcome == "breach":
-			_breach_occurred = true
-			_decrement_level_target_for_init_hp(int(m.init))
+			_decrement_level_target_for_init_hp(init_hp_i)
+			if not ax in _last_breach_attack_columns:
+				_last_breach_attack_columns.append(ax)
 			_needs_ui_update = true
 			var y_pos_b = float(m.fy) * ENEMY_CELL_HEIGHT
-			var center_pos = origin_apply + Vector2(float(m.fx) * CELL_SIZE + CELL_SIZE * 0.5, y_pos_b + ENEMY_CELL_HEIGHT * 0.5)
+			var center_pos = origin_apply + Vector2(float(ax) * CELL_SIZE + CELL_SIZE * 0.5, y_pos_b + ENEMY_CELL_HEIGHT * 0.5)
 			_board_vfx.append({
 				"type": "shockwave",
 				"pos": center_pos,
@@ -2352,7 +2369,7 @@ func _enemy_move_step():
 		elif outcome == "heart_kill":
 			if m.tx < _column_hearts.size() and _column_hearts[m.tx]:
 				_column_hearts[m.tx] = false
-			_decrement_level_target_for_init_hp(int(m.init))
+			_decrement_level_target_for_init_hp(init_hp_i)
 			_needs_ui_update = true
 			var mid_h = m.tx + m.ty * 10
 			_enemy_death_anims.append({
