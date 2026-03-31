@@ -85,6 +85,8 @@ const COINS_PER_REMAINING_BONUS_CHIP := 10
 const REFILL_GOLD_PER_HEART := 50
 # Уникальные столбцы атаки при прорыве (нет сердца в столбце) — для частичного восстановления
 var _last_breach_attack_columns: Array = []
+# Прорыв в пустой столбец — уровень проигран, нужно окно поражения (не только при 0 сердец везде)
+var _defeat_pending_breach: bool = false
 
 enum BoosterType { NONE, HAMMER, ROW_BLAST, SHUFFLE, FREEZE }
 var _active_booster: BoosterType = BoosterType.NONE
@@ -641,6 +643,7 @@ func _init_column_hearts() -> void:
 	_column_hearts.clear()
 	_column_hearts_initial.clear()
 	_last_breach_attack_columns.clear()
+	_defeat_pending_breach = false
 	for x in range(COLS):
 		var blocked = obstacles.size() > _heart_row_y and obstacles[_heart_row_y].size() > x and obstacles[_heart_row_y][x] > 0
 		var has_heart = not blocked
@@ -656,21 +659,29 @@ func _hearts_lost_in_attack_columns() -> int:
 				n += 1
 	return n
 
+func _breach_refill_unit_count() -> int:
+	if _last_breach_attack_columns.is_empty():
+		return 0
+	var lost = _hearts_lost_in_attack_columns()
+	if lost > 0:
+		return lost
+	return _last_breach_attack_columns.size()
+
 func _compute_refill_cost_after_breach() -> int:
-	var k = _hearts_lost_in_attack_columns()
+	var k = _breach_refill_unit_count()
 	if k <= 0:
 		return 0
 	return REFILL_GOLD_PER_HEART * k
 
 func _apply_partial_refill_after_breach_paid() -> void:
-	var k = _hearts_lost_in_attack_columns()
+	_defeat_pending_breach = false
+	var k = _breach_refill_unit_count()
 	if k > 0:
 		_freeze_turns = max(_freeze_turns, k)
 	for cx in _last_breach_attack_columns:
 		var x = int(cx)
-		if x >= 0 and x < _column_hearts.size() and x < _column_hearts_initial.size():
-			if _column_hearts_initial[x]:
-				_column_hearts[x] = true
+		if x >= 0 and x < _column_hearts.size():
+			_column_hearts[x] = true
 	_last_breach_attack_columns.clear()
 	_defeat_dialog_shown = false
 	_needs_ui_update = true
@@ -1608,8 +1619,10 @@ func _process(delta: float) -> void:
 	if _projectiles.is_empty() and _active_anims.is_empty() and _enemy_death_anims.is_empty():
 		if _check_level_completed() and not _victory_dialog_shown:
 			_on_level_completed()
-		elif not _check_level_completed() and _count_column_hearts_remaining() == 0 and not _defeat_dialog_shown:
-			_on_level_failed()
+		elif not _check_level_completed() and not _defeat_dialog_shown:
+			if _count_column_hearts_remaining() == 0 or _defeat_pending_breach:
+				_defeat_pending_breach = false
+				_on_level_failed()
 		elif _enemy_move_pending:
 			_enemy_move_step()
 			_enemy_move_pending = false
@@ -2172,7 +2185,7 @@ func _show_level_end_defeat_no_lives() -> void:
 		overlay.refill_lives_pressed.disconnect(_on_defeat_refill_lives)
 	var player_coins = LevelManager.get_coins()
 	var cost = _compute_refill_cost_after_breach()
-	var k_restore = _hearts_lost_in_attack_columns()
+	var k_restore = _breach_refill_unit_count()
 	var can_refill = k_restore > 0 and player_coins >= cost
 	overlay.setup_defeat_no_lives(cost, player_coins, k_restore, can_refill)
 	if not overlay.to_menu_pressed.is_connected(_on_defeat_no_lives_to_menu):
@@ -2347,6 +2360,7 @@ func _enemy_move_step():
 		var ax = int(m.fx)
 		var init_hp_i = int(m.init)
 		if outcome == "breach":
+			_defeat_pending_breach = true
 			_decrement_level_target_for_init_hp(init_hp_i)
 			if not ax in _last_breach_attack_columns:
 				_last_breach_attack_columns.append(ax)
