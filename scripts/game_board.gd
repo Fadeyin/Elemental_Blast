@@ -740,7 +740,6 @@ func _apply_partial_refill_after_breach_paid() -> void:
 	for k in pending_copy.keys():
 		var dat = pending_copy[k]
 		_increment_level_target_for_init_hp(int(dat.get("init", 1)))
-	_shift_all_enemies_toward_spawn(REFILL_ENEMY_SHIFT_ROWS)
 	for k in pending_copy.keys():
 		var cx = int(k)
 		var dat = pending_copy[k]
@@ -757,6 +756,7 @@ func _apply_partial_refill_after_breach_paid() -> void:
 		if enemies[place_y][cx] == 0:
 			enemies[place_y][cx] = mhp
 			enemies_initial_hp[place_y][cx] = ihp
+	_shift_all_enemies_toward_spawn(REFILL_ENEMY_SHIFT_ROWS)
 	_defeat_dialog_shown = false
 	_needs_ui_update = true
 	queue_redraw()
