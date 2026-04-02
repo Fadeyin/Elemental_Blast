@@ -2381,9 +2381,11 @@ func _enemy_move_step():
 				var hp = enemies[y][x]
 				var init = enemies_initial_hp[y][x]
 				var was_hit_this_turn = _enemies_hit_this_turn[y][x]
-				if mixed_breach_priority and x >= 0 and x < _column_hearts.size() and _column_hearts[x]:
+				var col_has_heart = x >= 0 and x < _column_hearts.size() and _column_hearts[x]
+				# В смешанном режиме в столбце с сердцем стоят «в ожидании», пока в других столбцах
+				# идёт атака пустоты; но атака сердца/прорыв с переднего ряда должны срабатывать всегда.
+				if mixed_breach_priority and col_has_heart and y != _heart_row_y:
 					continue
-				
 				if was_hit_this_turn:
 					pass
 				else:
@@ -2507,6 +2509,8 @@ func _enemy_move_step():
 
 	# 4. Появление новых врагов в верхнем ряду (row 0)
 	for x in range(COLS):
+		if mixed_breach_priority and x < _column_hearts.size() and _column_hearts[x]:
+			continue
 		# Проверяем, что нет препятствия в этой клетке
 		if enemies[0][x] == 0 and obstacles[0][x] == 0 and not _monster_spawn_queue.is_empty():
 			var hp = _monster_spawn_queue.pop_front()
