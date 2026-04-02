@@ -83,7 +83,8 @@ var _enemy_move_anims := [] # [{fx:int,fy:int,tx:int,ty:int,hp:int,init:int,t:fl
 var _needs_ui_update: bool = false
 const COINS_PER_REMAINING_BONUS_CHIP := 10
 const REFILL_GOLD_PER_HEART := 50
-const REFILL_ENEMY_SHIFT_ROWS := 3
+# После оплаты восстановления сердец — сдвиг всех монстров к спавну на столько рядов
+const REFILL_ENEMY_SHIFT_ROWS := 1
 # Уникальные столбцы атаки при прорыве (нет сердца в столбце) — для частичного восстановления
 var _last_breach_attack_columns: Array = []
 # Прорыв в пустой столбец — уровень проигран, нужно окно поражения (не только при 0 сердец везде)
@@ -2340,6 +2341,18 @@ func _enqueue_projectiles(col_x: int, from_y: int, count: int, base_delay: float
 	if trigger_move:
 		_enemy_move_pending = true
 
+func _enemy_mixed_columns_mode() -> bool:
+	var has_heart = false
+	var has_no_heart = false
+	for x in range(min(COLS, _column_hearts.size())):
+		if _column_hearts[x]:
+			has_heart = true
+		else:
+			has_no_heart = true
+		if has_heart and has_no_heart:
+			return true
+	return false
+
 func _enemy_move_step():
 	if _freeze_turns > 0:
 		_freeze_turns -= 1
@@ -2350,6 +2363,7 @@ func _enemy_move_step():
 		return
 
 	_enemy_move_anims.clear()
+	var mixed_breach_priority = _enemy_mixed_columns_mode()
 	
 	# outcome: "normal" | "heart_kill" | "breach"
 	var moves = []
@@ -2367,6 +2381,8 @@ func _enemy_move_step():
 				var hp = enemies[y][x]
 				var init = enemies_initial_hp[y][x]
 				var was_hit_this_turn = _enemies_hit_this_turn[y][x]
+				if mixed_breach_priority and x >= 0 and x < _column_hearts.size() and _column_hearts[x]:
+					continue
 				
 				if was_hit_this_turn:
 					pass
