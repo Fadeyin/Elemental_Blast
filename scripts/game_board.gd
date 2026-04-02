@@ -82,6 +82,8 @@ var _enemy_move_anims := [] # [{fx:int,fy:int,tx:int,ty:int,hp:int,init:int,t:fl
 var _needs_ui_update: bool = false
 const COINS_PER_REMAINING_BONUS_CHIP := 10
 const REFILL_GOLD_PER_HEART := 50
+# После оплаты восстановления сердец — сдвиг всех монстров к спавну на столько рядов
+const REFILL_ENEMY_SHIFT_ROWS := 1
 # Сердца по столбцам (по одному на колонку); жизнь = число true
 var _column_hearts: Array = []
 var _column_hearts_initial: Array = []
@@ -650,16 +652,33 @@ func _compute_refill_cost_after_breach() -> int:
 		return 0
 	return REFILL_GOLD_PER_HEART * k
 
+func _shift_all_enemies_toward_spawn(rows: int) -> void:
+	if rows <= 0:
+		return
+	for _r in range(rows):
+		for y in range(1, ENEMY_ROWS):
+			for x in range(COLS):
+				if enemies[y][x] <= 0:
+					continue
+				if obstacles[y - 1][x] > 0:
+					continue
+				if enemies[y - 1][x] > 0:
+					continue
+				var h = enemies[y][x]
+				var ih = enemies_initial_hp[y][x]
+				enemies[y - 1][x] = h
+				enemies_initial_hp[y - 1][x] = ih
+				enemies[y][x] = 0
+				enemies_initial_hp[y][x] = 0
+
 func _apply_partial_refill_after_breach_paid() -> void:
-	var k = _hearts_lost_in_attack_columns()
-	if k > 0:
-		_freeze_turns = max(_freeze_turns, k)
 	for cx in _last_breach_attack_columns:
 		var x = int(cx)
 		if x >= 0 and x < _column_hearts.size() and x < _column_hearts_initial.size():
 			if _column_hearts_initial[x]:
 				_column_hearts[x] = true
 	_last_breach_attack_columns.clear()
+	_shift_all_enemies_toward_spawn(REFILL_ENEMY_SHIFT_ROWS)
 	_defeat_dialog_shown = false
 	_needs_ui_update = true
 	queue_redraw()
@@ -2198,6 +2217,18 @@ func _enqueue_projectiles(col_x: int, from_y: int, count: int, base_delay: float
 	if trigger_move:
 		_enemy_move_pending = true
 
+func _enemy_mixed_columns_mode() -> bool:
+	var has_heart = false
+	var has_no_heart = false
+	for x in range(min(COLS, _column_hearts.size())):
+		if _column_hearts[x]:
+			has_heart = true
+		else:
+			has_no_heart = true
+		if has_heart and has_no_heart:
+			return true
+	return false
+
 func _enemy_move_step():
 	if _freeze_turns > 0:
 		_freeze_turns -= 1
@@ -2208,6 +2239,7 @@ func _enemy_move_step():
 		return
 
 	_enemy_move_anims.clear()
+	var mixed_breach_priority = _enemy_mixed_columns_mode()
 	
 	var moves = [] # {fx, fy, tx, ty, hp, init, is_attack}
 	var occupied_next = []
@@ -2224,6 +2256,8 @@ func _enemy_move_step():
 				var init = enemies_initial_hp[y][x]
 				# Монстр НЕ может двигаться вперед только если он получил урон В ЭТОМ ХОДУ
 				var was_hit_this_turn = _enemies_hit_this_turn[y][x]
+				if mixed_breach_priority and x >= 0 and x < _column_hearts.size() and _column_hearts[x]:
+					continue
 				
 				if was_hit_this_turn:
 					# Просто стоит на месте (но НЕ блокирует колонку для тех, кто сзади, если там есть место)
