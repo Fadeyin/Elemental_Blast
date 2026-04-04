@@ -78,6 +78,10 @@ var _monster_shakes := {} # monster_id -> {t:float, d:float, intensity:float}
 var _board_vfx := [] # [{type:str, pos:Vector2, color:Color, t:float, d:float, scale:float}]
 var _level_targets := {} # hp -> required count
 var _enemy_move_pending: bool = false
+var _enemy_attack_warn_pending: bool = false
+var _enemy_attack_warn_time_left: float = 0.0
+var _cached_enemy_moves: Array = []
+var _cached_mixed_breach_priority: bool = false
 var _enemy_move_anims := [] # [{fx:int,fy:int,tx:int,ty:int,hp:int,init:int,t:float,d:float}]
 
 var _needs_ui_update: bool = false
@@ -85,6 +89,9 @@ const COINS_PER_REMAINING_BONUS_CHIP := 10
 const REFILL_GOLD_PER_HEART := 50
 # После оплаты восстановления сердец — сдвиг всех монстров к спавну на столько рядов
 const REFILL_ENEMY_SHIFT_ROWS := 1
+# Мигание красным перед атакой с переднего ряда (сердце / прорыв)
+const ENEMY_ATTACK_WARN_DURATION := 0.55
+const ENEMY_ATTACK_WARN_FLASH_HZ := 5.0
 # Уникальные столбцы атаки при прорыве (нет сердца в столбце) — для частичного восстановления
 var _last_breach_attack_columns: Array = []
 # Прорыв в пустой столбец — уровень проигран, нужно окно поражения (не только при 0 сердец везде)
@@ -921,7 +928,8 @@ func _draw():
 			"init_hp": int(ma.init),
 			"id": ma.fx + ma.fy * 10,
 			"sort_y": iy,
-			"alpha": 1.0
+			"alpha": 1.0,
+			"attack_warn": 0.0
 		})
 	
 	# Затем умирающие (чтобы они тряслись и исчезали)
@@ -935,7 +943,8 @@ func _draw():
 			"id": da.id,
 			"sort_y": float(da.y),
 			"alpha": alpha,
-			"heart_strip_death": bool(da.get("in_heart_strip", false))
+			"heart_strip_death": bool(da.get("in_heart_strip", false)),
+			"attack_warn": 0.0
 		})
 	
 	# Затем статичные (те, которые не двигаются в данный момент)
@@ -953,6 +962,9 @@ func _draw():
 						break
 				if is_dying: continue
 				
+				var warn_flash = 0.0
+				if _is_last_row_attack_warn_cell(x, y):
+					warn_flash = _get_last_row_attack_warn_flash_strength()
 				monsters_to_draw.append({
 					"x": float(x),
 					"y": float(y),
@@ -960,7 +972,8 @@ func _draw():
 					"init_hp": enemies_initial_hp[y][x],
 					"id": x + y * 10,
 					"sort_y": float(y),
-					"alpha": 1.0
+					"alpha": 1.0,
+					"attack_warn": warn_flash
 				})
 	
 	# Сортируем: монстры с большим Y (ближе к игроку) рисуются ПОЗЖЕ
@@ -999,7 +1012,7 @@ func _draw():
 				origin.x + m.x * CELL_SIZE + e_pad_x,
 				origin.y + m.y * ENEMY_CELL_HEIGHT + (ENEMY_CELL_HEIGHT - e_chip_size.y) - 6
 			) + shake_off
-		_draw_enemy_monster(e_top_left, e_chip_size, m.hp, m.init_hp, m.id, m.alpha)
+		_draw_enemy_monster(e_top_left, e_chip_size, m.hp, m.init_hp, m.id, m.alpha, float(m.get("attack_warn", 0.0)))
 
 	for y in range(ENEMY_ROWS, ROWS):
 		for x in range(COLS):
@@ -1378,7 +1391,7 @@ func _draw_monster_health_bar(top_left: Vector2, width: float, hp: int, max_hp: 
 		red_color.a *= alpha
 		draw_rect(Rect2(bar_x + bar_width * health_ratio, bar_y, damage_width, HEALTH_BAR_HEIGHT), red_color)
 
-func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp: int, monster_id: int, alpha: float = 1.0):
+func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp: int, monster_id: int, alpha: float = 1.0, attack_warn_strength: float = 0.0):
 	# Idle-анимация: "дыхание" и легкое покачивание на месте
 	var time = Time.get_ticks_msec() * 0.001
 	var phase = monster_id * 0.5
@@ -1400,10 +1413,13 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 		# Отрисовка текстуры монстра
 		var rect = Rect2(anim_top_left, anim_size)
 		
-		# Эффект заморозки через модуляцию цвета
+		# Эффект заморозки через модуляцию цвета; перед атакой с переднего ряда — мигание красным
 		var mod_color = Color.WHITE
 		if _freeze_turns > 0:
 			mod_color = Color(0.5, 0.8, 1.0)
+		if attack_warn_strength > 0.0:
+			var warn_col = Color(1.0, 0.22, 0.2)
+			mod_color = mod_color.lerp(warn_col, clamp(attack_warn_strength, 0.0, 1.0) * 0.88)
 		
 		mod_color.a *= alpha
 		
@@ -1434,6 +1450,9 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 		var final_body_color = body_color
 		if _freeze_turns > 0:
 			final_body_color = body_color.lerp(Color(0.5, 0.8, 1.0), 0.6)
+		if attack_warn_strength > 0.0:
+			var warn_col = Color(1.0, 0.22, 0.2)
+			final_body_color = final_body_color.lerp(warn_col, clamp(attack_warn_strength, 0.0, 1.0) * 0.88)
 		
 		final_body_color.a *= alpha
 		draw_circle(draw_center, r, final_body_color)
@@ -1587,6 +1606,13 @@ func _draw_monster_cracks(pos: Vector2, size: Vector2, damage_level: int, seed_v
 
 
 func _process(delta: float) -> void:
+	if _enemy_attack_warn_pending:
+		_enemy_attack_warn_time_left -= delta
+		if _enemy_attack_warn_time_left <= 0.0:
+			_enemy_attack_warn_pending = false
+			var planned = _cached_enemy_moves
+			_cached_enemy_moves = []
+			_apply_enemy_moves_from_plan(planned)
 	if _active_anims.is_empty():
 		# Все падения окончены — проверяем нужно ли спавнить новые фишки
 		# Мы не ждем окончания стрельбы или движения монстров, чтобы игра ощущалась динамичнее
@@ -2353,28 +2379,16 @@ func _enemy_mixed_columns_mode() -> bool:
 			return true
 	return false
 
-func _enemy_move_step():
-	if _freeze_turns > 0:
-		_freeze_turns -= 1
-		# Даже при заморозке сбрасываем флаги хитов, так как ход прошел
-		for y in range(ENEMY_ROWS):
-			for x in range(COLS):
-				_enemies_hit_this_turn[y][x] = false
-		return
-
+func _plan_enemy_moves() -> Array:
 	_enemy_move_anims.clear()
-	var mixed_breach_priority = _enemy_mixed_columns_mode()
-	
-	# outcome: "normal" | "heart_kill" | "breach"
-	var moves = []
+	_cached_mixed_breach_priority = _enemy_mixed_columns_mode()
+	var mixed_breach_priority = _cached_mixed_breach_priority
+	var moves: Array = []
 	var occupied_next = []
 	for yy in range(ENEMY_ROWS):
 		var row = []
 		for xx in range(COLS): row.append(enemies[yy][xx] > 0)
 		occupied_next.append(row)
-
-	# 1. Планируем перемещения существующих врагов (снизу вверх)
-	# Используем _enemy_rows_effective из JSON: сердца на последнем ряду зоны (не на фиксированном ENEMY_ROWS-1)
 	for y in range(ENEMY_ROWS - 1, -1, -1):
 		for x in range(COLS):
 			if enemies[y][x] > 0:
@@ -2382,17 +2396,13 @@ func _enemy_move_step():
 				var init = enemies_initial_hp[y][x]
 				var was_hit_this_turn = _enemies_hit_this_turn[y][x]
 				var col_has_heart = x >= 0 and x < _column_hearts.size() and _column_hearts[x]
-				# В смешанном режиме в столбце с сердцем стоят «в ожидании», пока в других столбцах
-				# идёт атака пустоты; но атака сердца/прорыв с переднего ряда должны срабатывать всегда.
 				if mixed_breach_priority and col_has_heart and y != _heart_row_y:
 					continue
 				if was_hit_this_turn:
 					pass
 				else:
 					var moved = false
-					
 					if y == _heart_row_y:
-						# Уже на переднем ряду: шаг к игроку (полоса сердец) — только со следующего хода после входа на ряд
 						if x < _column_hearts.size() and _column_hearts[x]:
 							moves.append({"fx": x, "fy": y, "tx": x, "ty": y, "hp": hp, "init": init, "outcome": "heart_kill"})
 						else:
@@ -2419,12 +2429,10 @@ func _enemy_move_step():
 						moves.append({"fx": x, "fy": y, "tx": x, "ty": y+1, "hp": hp, "init": init, "outcome": "breach"})
 						occupied_next[y][x] = false
 						moved = true
-					
 					if not moved:
 						var dirs = [-1, 1]
 						if (x + y + int(Time.get_ticks_msec() * 0.001)) % 2 == 0:
 							dirs.reverse()
-						
 						for dx in dirs:
 							var nx = x + dx
 							if nx >= 0 and nx < COLS:
@@ -2435,13 +2443,40 @@ func _enemy_move_step():
 									occupied_next[y][nx] = true
 									moved = true
 									break
+	return moves
 
-	# 2. Сбрасываем флаги попаданий для следующего хода
+func _enemy_moves_include_last_row_attack(moves: Array) -> bool:
+	for m in moves:
+		if int(m.fy) != _heart_row_y:
+			continue
+		var outcome = str(m.get("outcome", "normal"))
+		if outcome == "heart_kill" or outcome == "breach":
+			return true
+	return false
+
+func _get_last_row_attack_warn_flash_strength() -> float:
+	if not _enemy_attack_warn_pending or _cached_enemy_moves.is_empty():
+		return 0.0
+	var t = Time.get_ticks_msec() * 0.001
+	return 0.5 + 0.5 * sin(t * TAU * ENEMY_ATTACK_WARN_FLASH_HZ * 2.0)
+
+func _is_last_row_attack_warn_cell(x: int, y: int) -> bool:
+	if not _enemy_attack_warn_pending:
+		return false
+	if y != _heart_row_y:
+		return false
+	for m in _cached_enemy_moves:
+		if int(m.fx) != x or int(m.fy) != y:
+			continue
+		var outcome = str(m.get("outcome", "normal"))
+		return outcome == "heart_kill" or outcome == "breach"
+	return false
+
+func _apply_enemy_moves_from_plan(moves: Array) -> void:
+	var mixed_breach_priority = _cached_mixed_breach_priority
 	for yy in range(ENEMY_ROWS):
 		for xx in range(COLS):
 			_enemies_hit_this_turn[yy][xx] = false
-
-	# 3. Применяем все запланированные перемещения
 	for m in moves:
 		enemies[m.fy][m.fx] = 0
 		enemies_initial_hp[m.fy][m.fx] = 0
@@ -2526,6 +2561,25 @@ func _enemy_move_step():
 
 	if _enemy_move_anims.size() > 0:
 		set_process(true)
+
+func _enemy_move_step() -> void:
+	if _enemy_attack_warn_pending:
+		return
+	if _freeze_turns > 0:
+		_freeze_turns -= 1
+		for y in range(ENEMY_ROWS):
+			for x in range(COLS):
+				_enemies_hit_this_turn[y][x] = false
+		return
+	var planned = _plan_enemy_moves()
+	if _enemy_moves_include_last_row_attack(planned):
+		_cached_enemy_moves = planned
+		_enemy_attack_warn_pending = true
+		_enemy_attack_warn_time_left = ENEMY_ATTACK_WARN_DURATION
+		set_process(true)
+		queue_redraw()
+		return
+	_apply_enemy_moves_from_plan(planned)
 
 func _apply_gravity_up():
 	# Смещаем фишки вверх только внутри зоны игрока (ENEMY_ROWS .. ROWS)
