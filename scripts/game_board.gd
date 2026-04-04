@@ -45,6 +45,8 @@ const FALL_DURATION := 0.2
 const RAINBOW_CHIP_IDX := -2
 const ROW_BONUS_CHIP_IDX := -3
 const BOMB_CHIP_IDX := -4
+# Минимальный размер связной группы обычных фишек для лопания по клику
+const MIN_NORMAL_CLUSTER_POP := 2
 const BG_COLOR := Color(0.52, 0.58, 0.68, 1) # Пастельный светло-синий фон
 const GAME_BG_TEXTURE := preload("res://textures/Game_Backgound.png")
 const ENEMY_TILE_TEXTURE := preload("res://textures/Floor_Enemy_Tile_.png")
@@ -1962,6 +1964,9 @@ func _pop_cluster(x: int, y: int):
 		stack.append(Vector2i(c.x - 1, c.y))
 		stack.append(Vector2i(c.x, c.y + 1))
 		stack.append(Vector2i(c.x, c.y - 1))
+	
+	if cluster.size() < MIN_NORMAL_CLUSTER_POP:
+		return 0
 	
 	for cell in cluster:
 		chips[cell.y][cell.x] = -1
