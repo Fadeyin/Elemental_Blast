@@ -121,8 +121,13 @@ var _victory_dialog_shown: bool = false
 var _defeat_dialog_shown: bool = false
 const LEVEL_END_DIALOG_SCRIPT := preload("res://scripts/level_end_dialog.gd")
 const INGAME_BOOSTER_PURCHASE_SCRIPT := preload("res://scripts/ingame_booster_purchase_dialog.gd")
+const LEVEL1_TUTORIAL_OVERLAY_SCRIPT := preload("res://scripts/level1_tutorial_overlay.gd")
 var _level_end_overlay: Control = null
 var _booster_purchase_overlay: Control = null
+var _level1_tutorial_overlay: Control = null
+# 0 — выкл; 1 — враги; 2 — фишки; 3 — полное затемнение, ожидание снарядов; 4 — цели (показ)
+var _level1_tutorial_phase: int = 0
+var _level1_tutorial_advancing_to_goals: bool = false
 # Сердца в столбцах на _heart_row_y: защита уровня; при старте true, если в клетке нет препятствия
 var _column_hearts: Array = []
 var _column_hearts_initial: Array = []
@@ -180,6 +185,124 @@ func _ready():
 		back_btn.add_theme_stylebox_override("hover", back_style)
 		back_btn.add_theme_stylebox_override("pressed", back_style)
 		back_btn.focus_mode = Control.FOCUS_NONE
+	
+	call_deferred("_start_level1_tutorial_if_needed")
+
+func _rect_global_to_overlay_local(overlay: Control, global_rect: Rect2) -> Rect2:
+	var inv: Transform2D = overlay.get_global_transform_with_canvas().affine_inverse()
+	var p0: Vector2 = inv * global_rect.position
+	var p1: Vector2 = inv * (global_rect.position + global_rect.size)
+	return Rect2(p0, p1 - p0)
+
+func _start_level1_tutorial_if_needed() -> void:
+	if LevelManager.is_level1_tutorial_completed():
+		return
+	if LevelManager.current_level != 1:
+		return
+	_level1_tutorial_phase = 1
+	var overlay = _attach_level1_tutorial_overlay()
+	var enemy_r = _rect_global_to_overlay_local(overlay, _get_enemy_field_rect_viewport())
+	await overlay.begin_enemy_step(enemy_r, "На вас нападают монстры, не дайте им забрать ваши жизни.")
+
+func _attach_level1_tutorial_overlay() -> Control:
+	if _level1_tutorial_overlay != null and is_instance_valid(_level1_tutorial_overlay):
+		return _level1_tutorial_overlay
+	var ui = find_child("UIRoot", true, false)
+	var parent: Node = self if ui == null else ui
+	var overlay = Control.new()
+	overlay.set_script(LEVEL1_TUTORIAL_OVERLAY_SCRIPT)
+	overlay.z_index = 180
+	parent.add_child(overlay)
+	overlay.set_board(self)
+	if not overlay.step_advanced.is_connected(_on_level1_tutorial_after_enemy_intro):
+		overlay.step_advanced.connect(_on_level1_tutorial_after_enemy_intro)
+	if not overlay.tutorial_finished.is_connected(_on_level1_tutorial_finished):
+		overlay.tutorial_finished.connect(_on_level1_tutorial_finished)
+	_level1_tutorial_overlay = overlay
+	return overlay
+
+func _get_enemy_field_rect_viewport() -> Rect2:
+	var vp_size = get_viewport_rect().size
+	var origin = _grid_origin(vp_size)
+	var sz = Vector2(float(COLS) * CELL_SIZE, float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT)
+	var tl = to_global(origin)
+	var br = to_global(origin + sz)
+	return Rect2(tl, br - tl)
+
+func _get_player_field_rect_viewport() -> Rect2:
+	var vp_size = get_viewport_rect().size
+	var origin = _grid_origin(vp_size)
+	var top_y = origin.y + float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + _field_gap_total
+	var sz = Vector2(float(COLS) * CELL_SIZE, float(PLAYER_ROWS) * CELL_SIZE)
+	var tl = to_global(Vector2(origin.x, top_y))
+	var br = to_global(Vector2(origin.x, top_y) + sz)
+	return Rect2(tl, br - tl)
+
+func _get_goals_container_rect_viewport() -> Rect2:
+	var gc = find_child("GoalsContainer", true, false)
+	if gc == null:
+		return Rect2()
+	return gc.get_global_rect()
+
+func _on_level1_tutorial_after_enemy_intro() -> void:
+	if _level1_tutorial_phase != 1:
+		return
+	_level1_tutorial_phase = 2
+	var overlay = _attach_level1_tutorial_overlay()
+	var player_r = _rect_global_to_overlay_local(overlay, _get_player_field_rect_viewport())
+	await overlay.begin_chips_step(player_r, "Нажми на фишки одного цвета, чтобы выпустить снаряды во врагов.")
+
+func _on_level1_tutorial_finished() -> void:
+	LevelManager.mark_level1_tutorial_completed()
+	_level1_tutorial_phase = 0
+	_level1_tutorial_advancing_to_goals = false
+	if _level1_tutorial_overlay != null and is_instance_valid(_level1_tutorial_overlay):
+		_level1_tutorial_overlay.queue_free()
+	_level1_tutorial_overlay = null
+	queue_redraw()
+
+func tutorial_forward_chip_click(screen_pos: Vector2) -> void:
+	if _level1_tutorial_phase != 2:
+		return
+	if not _active_anims.is_empty() or not _projectiles.is_empty() or _is_executing_combo:
+		return
+	if _active_booster != BoosterType.NONE:
+		return
+	var cell = _point_to_cell(screen_pos)
+	if cell.x < 0 or cell.y < ENEMY_ROWS:
+		return
+	var popped = await _pop_cluster(cell.x, cell.y)
+	if popped > 0:
+		_update_ui()
+		_level1_tutorial_phase = 3
+		if _level1_tutorial_overlay != null and is_instance_valid(_level1_tutorial_overlay):
+			_level1_tutorial_overlay.show_full_screen_dim()
+
+func _try_advance_level1_tutorial_to_goals_step() -> void:
+	if _level1_tutorial_phase != 3:
+		return
+	if _level1_tutorial_advancing_to_goals:
+		return
+	if not _projectiles.is_empty():
+		return
+	if not _active_anims.is_empty():
+		return
+	if not _enemy_death_anims.is_empty():
+		return
+	if _level1_tutorial_overlay == null or not is_instance_valid(_level1_tutorial_overlay):
+		return
+	_level1_tutorial_advancing_to_goals = true
+	_level1_tutorial_phase = 4
+	call_deferred("_run_level1_goals_tutorial_step")
+
+func _run_level1_goals_tutorial_step() -> void:
+	var overlay = _level1_tutorial_overlay
+	if overlay == null or not is_instance_valid(overlay):
+		_level1_tutorial_advancing_to_goals = false
+		return
+	var goals_r = _rect_global_to_overlay_local(overlay, _get_goals_container_rect_viewport())
+	await overlay.begin_goals_step(goals_r, "Уничтожь все цели, чтобы пройти уровень.")
+	_level1_tutorial_advancing_to_goals = false
 
 func _init_ui():
 	# Настройка верхней панели
@@ -1732,6 +1855,7 @@ func _process(delta: float) -> void:
 	if _needs_ui_update:
 		_needs_ui_update = false
 		_update_ui()
+	_try_advance_level1_tutorial_to_goals_step()
 	queue_redraw()
 
 
@@ -1765,6 +1889,8 @@ func _spawn_new_chips_with_fall():
 func _unhandled_input(event):
 	if event is InputEventMouseMotion:
 		queue_redraw()
+		return
+	if _level1_tutorial_phase == 2:
 		return
 		
 	if not _active_anims.is_empty() or not _projectiles.is_empty() or _is_executing_combo:

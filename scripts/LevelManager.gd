@@ -50,6 +50,9 @@ var golden_pass_unlocked_tiers: int = 1
 var golden_pass_free_claimed: Array = []
 var golden_pass_premium_claimed: Array = []
 
+# Одноразовый туториал первого уровня (затемнение и подсказки)
+var level1_tutorial_completed: bool = false
+
 func get_prelevel_boost_pack_cost(boost_type: String) -> int:
 	match boost_type:
 		"rainbow": return 200
@@ -123,6 +126,15 @@ func _update_mort_helmet_level():
 		mort_helmet_level = 1
 	else:
 		mort_helmet_level = 0
+
+func is_level1_tutorial_completed() -> bool:
+	return level1_tutorial_completed
+
+func mark_level1_tutorial_completed() -> void:
+	if level1_tutorial_completed:
+		return
+	level1_tutorial_completed = true
+	_save_progress()
 
 func get_mort_helmet_bonus_chips() -> Dictionary:
 	# Возвращает количество бонусных фишек от Шлема Морта
@@ -495,6 +507,8 @@ func _save_progress():
 	cfg.set_value("golden_pass", "free_claimed", golden_pass_free_claimed)
 	cfg.set_value("golden_pass", "premium_claimed", golden_pass_premium_claimed)
 	
+	cfg.set_value("tutorial", "level1_completed", level1_tutorial_completed)
+	
 	cfg.save(SAVE_PATH)
 
 func _load_progress():
@@ -536,6 +550,7 @@ func _load_progress():
 		else:
 			golden_pass_premium_claimed = []
 		_ensure_golden_pass_arrays()
+		level1_tutorial_completed = bool(cfg.get_value("tutorial", "level1_completed", false))
 	else:
 		_ensure_golden_pass_arrays()
 
