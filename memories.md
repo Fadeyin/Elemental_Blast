@@ -1,5 +1,5 @@
 # Agent context
-- Level 1 tutorial: overlay `scripts/level1_tutorial_overlay.gd`, `game_board.gd`, persist `LevelManager.level1_tutorial_completed` in `user://progress.cfg`.
+- Level 1 tutorial: overlay `scripts/level1_tutorial_overlay.gd`, `game_board.gd`; запускается при каждом старте уровня 1 (без сохранения «уже показано»).
 - Git: всегда пушить сразу в `main`, пока пользователь явно не попросит иначе (без отдельных веток по умолчанию).
 - Branch: main (предпочтение пользователя)
 - Prelevel boost purchase: rainbow 200 / bomb 100 / arrow 150 for +3 each; overlay uses ingame_booster_purchase_dialog with header «ПОКУПКА УСИЛЕНИЯ»; + button circular over icon slot.

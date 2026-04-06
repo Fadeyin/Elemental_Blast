@@ -6,6 +6,8 @@ signal tutorial_finished
 const DIM_COLOR := Color(0, 0, 0, 0.82)
 const HOLE_BORDER_COLOR := Color(0.95, 0.82, 0.25, 1.0)
 const HOLE_BORDER_WIDTH := 4.0
+# Резерв под нижнюю панель (бустеры / назад), как UI_BOTTOM_MARGIN в game_board
+const BOTTOM_UI_RESERVE := 128.0
 
 enum Phase { NONE = 0, ENEMY_INTRO = 1, CHIPS_HINT = 2, GOALS_HINT = 3, FULL_DIM = 4 }
 
@@ -32,7 +34,14 @@ func _ready() -> void:
 func set_board(board: Node) -> void:
 	_board = board
 
+func _await_valid_size() -> void:
+	for _i in range(12):
+		if size.x > 32.0 and size.y > 32.0:
+			return
+		await get_tree().process_frame
+
 func begin_enemy_step(enemy_rect_viewport: Rect2, message: String) -> void:
+	await _await_valid_size()
 	_phase = Phase.ENEMY_INTRO
 	_hole_rect = enemy_rect_viewport
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -40,6 +49,7 @@ func begin_enemy_step(enemy_rect_viewport: Rect2, message: String) -> void:
 	queue_redraw()
 
 func begin_chips_step(player_rect_viewport: Rect2, message: String) -> void:
+	await _await_valid_size()
 	_phase = Phase.CHIPS_HINT
 	_hole_rect = player_rect_viewport
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -47,6 +57,7 @@ func begin_chips_step(player_rect_viewport: Rect2, message: String) -> void:
 	queue_redraw()
 
 func begin_goals_step(goals_rect_viewport: Rect2, center_message: String) -> void:
+	await _await_valid_size()
 	_phase = Phase.GOALS_HINT
 	_hole_rect = goals_rect_viewport
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -65,18 +76,34 @@ func show_full_screen_dim() -> void:
 	queue_redraw()
 
 func _position_instruction_below_hole(hole: Rect2, text: String) -> void:
+	_instruction_label.add_theme_font_size_override("font_size", 22)
 	_instruction_label.text = text
-	var margin := 16.0
-	var max_w: float = min(size.x - 32.0, 560.0)
+	var margin := 12.0
+	var side_pad := 16.0
+	var max_w: float = maxf(120.0, size.x - side_pad * 2.0)
 	_instruction_label.custom_minimum_size = Vector2(max_w, 0.0)
 	_instruction_label.size = Vector2(max_w, 0.0)
 	await get_tree().process_frame
-	var label_h: float = _instruction_label.size.y
+	await get_tree().process_frame
+	var label_h: float = _instruction_label.get_content_height() + 4.0
+	if label_h < 24.0:
+		label_h = _instruction_label.size.y
+	label_h = maxf(label_h, 40.0)
 	var cx: float = hole.position.x + hole.size.x * 0.5
 	var top_y: float = hole.end.y + margin
-	var left: float = clampf(cx - max_w * 0.5, 16.0, size.x - max_w - 16.0)
+	var left: float = clampf(cx - max_w * 0.5, side_pad, maxf(side_pad, size.x - max_w - side_pad))
+	var max_top: float = size.y - BOTTOM_UI_RESERVE - label_h - 8.0
+	if top_y > max_top:
+		top_y = maxf(hole.end.y + 4.0, max_top)
+	if top_y + label_h > size.y - 4.0:
+		_instruction_label.add_theme_font_size_override("font_size", 18)
+		await get_tree().process_frame
+		label_h = maxf(_instruction_label.get_content_height() + 4.0, 32.0)
+		max_top = size.y - BOTTOM_UI_RESERVE - label_h - 8.0
+		if top_y > max_top:
+			top_y = maxf(8.0, max_top)
 	_instruction_label.position = Vector2(left, top_y)
-	_instruction_label.size = Vector2(max_w, max(label_h, 40.0))
+	_instruction_label.size = Vector2(max_w, label_h)
 
 func _position_instruction_above_hole(hole: Rect2, text: String) -> void:
 	_instruction_label.text = text

@@ -195,14 +195,13 @@ func _rect_global_to_overlay_local(overlay: Control, global_rect: Rect2) -> Rect
 	return Rect2(p0, p1 - p0)
 
 func _start_level1_tutorial_if_needed() -> void:
-	if LevelManager.is_level1_tutorial_completed():
-		return
 	if LevelManager.current_level != 1:
 		return
 	_level1_tutorial_phase = 1
 	var overlay = _attach_level1_tutorial_overlay()
 	var enemy_r = _rect_global_to_overlay_local(overlay, _get_enemy_field_rect_viewport())
-	await overlay.begin_enemy_step(enemy_r, "На вас нападают монстры, не дайте им забрать ваши жизни.")
+	var intro_text = "На вас нападают монстры, не дайте им забрать ваши жизни. Если монстры не получили урон, они будут двигаться к вам. Нажмите чтобы продолжить..."
+	await overlay.begin_enemy_step(enemy_r, intro_text)
 
 func _attach_level1_tutorial_overlay() -> Control:
 	if _level1_tutorial_overlay != null and is_instance_valid(_level1_tutorial_overlay):
@@ -253,7 +252,6 @@ func _on_level1_tutorial_after_enemy_intro() -> void:
 	await overlay.begin_chips_step(player_r, "Нажми на фишки одного цвета, чтобы выпустить снаряды во врагов.")
 
 func _on_level1_tutorial_finished() -> void:
-	LevelManager.mark_level1_tutorial_completed()
 	_level1_tutorial_phase = 0
 	_level1_tutorial_advancing_to_goals = false
 	if _level1_tutorial_overlay != null and is_instance_valid(_level1_tutorial_overlay):
@@ -730,8 +728,14 @@ func _init_enemies_from_config(cfg: Dictionary):
 	all_monsters.shuffle()
 	_monster_spawn_queue = all_monsters
 
-	# Начальное заполнение: заполняем первые 3 ряда монстрами из очереди
-	for y in range(3):
+	# Начальное заполнение: три ряда монстров; на уровне 1 — по центру поля врагов, иначе сверху
+	var initial_rows := 3
+	var y_start := 0
+	if LevelManager.current_level == 1:
+		y_start = int((ENEMY_ROWS - initial_rows) / 2)
+	for y in range(y_start, y_start + initial_rows):
+		if y < 0 or y >= ENEMY_ROWS:
+			continue
 		for x in range(COLS):
 			# Проверяем, что в клетке нет препятствия
 			if obstacles.size() > y and obstacles[y].size() > x and obstacles[y][x] > 0:
