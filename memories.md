@@ -1,6 +1,6 @@
 # Agent context
 - Level 1 tutorial: overlay `scripts/level1_tutorial_overlay.gd`, `game_board.gd`, persist `LevelManager.level1_tutorial_completed` in `user://progress.cfg`.
-- Git: работать и пушить напрямую в `main` без отдельных веток, пока пользователь не отменит это указание.
+- Git: всегда пушить сразу в `main`, пока пользователь явно не попросит иначе (без отдельных веток по умолчанию).
 - Branch: main (предпочтение пользователя)
 - Prelevel boost purchase: rainbow 200 / bomb 100 / arrow 150 for +3 each; overlay uses ingame_booster_purchase_dialog with header «ПОКУПКА УСИЛЕНИЯ»; + button circular over icon slot.
 - Level end: breach sets `_defeat_pending_breach`, stores attacker in `_pending_breach_monsters[column]`. After paid refill: restore hearts in attacked columns, `_increment_level_target` per pending, place pending monsters on heart row (or free cell), then `_shift_all_enemies_toward_spawn(REFILL_ENEMY_SHIFT_ROWS)` (1 row). No freeze on refill. Enemy move (mixed columns): только столбцы без сердца двигаются вниз/вбок и получают спавн; монстры на `_heart_row_y` в столбце с сердцем всё равно обрабатываются (heart_kill/breach), иначе они «зависали» из‑за раннего continue.
