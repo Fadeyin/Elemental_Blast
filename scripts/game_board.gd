@@ -266,15 +266,20 @@ func tutorial_forward_chip_click(screen_pos: Vector2) -> void:
 		return
 	if _active_booster != BoosterType.NONE:
 		return
+	if _level1_tutorial_overlay != null and is_instance_valid(_level1_tutorial_overlay):
+		_level1_tutorial_overlay.show_full_screen_dim()
 	var cell = _point_to_cell(screen_pos)
 	if cell.x < 0 or cell.y < ENEMY_ROWS:
+		if _level1_tutorial_overlay != null and is_instance_valid(_level1_tutorial_overlay):
+			_level1_tutorial_overlay.restore_chips_step_after_failed_pop()
 		return
 	var popped = await _pop_cluster(cell.x, cell.y)
 	if popped > 0:
 		_update_ui()
 		_level1_tutorial_phase = 3
+	else:
 		if _level1_tutorial_overlay != null and is_instance_valid(_level1_tutorial_overlay):
-			_level1_tutorial_overlay.show_full_screen_dim()
+			_level1_tutorial_overlay.restore_chips_step_after_failed_pop()
 
 func _try_advance_level1_tutorial_to_goals_step() -> void:
 	if _level1_tutorial_phase != 3:

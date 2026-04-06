@@ -15,6 +15,9 @@ var _phase: int = Phase.NONE
 var _hole_rect: Rect2 = Rect2()
 var _instruction_label: Label
 var _board: Node = null
+var _enemy_intro_draw_text: String = ""
+var _chips_step_hole_local: Rect2 = Rect2()
+var _chips_step_message: String = ""
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -29,6 +32,8 @@ func _ready() -> void:
 	_instruction_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))
 	_instruction_label.add_theme_constant_override("outline_size", 5)
 	_instruction_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_instruction_label.clip_contents = false
+	_instruction_label.z_index = 100
 	add_child(_instruction_label)
 
 func set_board(board: Node) -> void:
@@ -45,13 +50,16 @@ func begin_enemy_step(enemy_rect_viewport: Rect2, message: String) -> void:
 	_phase = Phase.ENEMY_INTRO
 	_hole_rect = enemy_rect_viewport
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	await _position_instruction_below_hole(enemy_rect_viewport, message)
+	_enemy_intro_draw_text = message
+	await _layout_enemy_intro_text_band(enemy_rect_viewport, message)
 	queue_redraw()
 
 func begin_chips_step(player_rect_viewport: Rect2, message: String) -> void:
 	await _await_valid_size()
 	_phase = Phase.CHIPS_HINT
 	_hole_rect = player_rect_viewport
+	_chips_step_hole_local = player_rect_viewport
+	_chips_step_message = message
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	await _position_instruction_above_hole(player_rect_viewport, message)
 	queue_redraw()
@@ -72,8 +80,67 @@ func dismiss_visual() -> void:
 func show_full_screen_dim() -> void:
 	_phase = Phase.FULL_DIM
 	_instruction_label.text = ""
+	_enemy_intro_draw_text = ""
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	queue_redraw()
+
+func restore_chips_step_after_failed_pop() -> void:
+	if _phase != Phase.FULL_DIM:
+		return
+	_phase = Phase.CHIPS_HINT
+	_hole_rect = _chips_step_hole_local
+	_instruction_label.text = _chips_step_message
+	_sync_instruction_above_hole(_chips_step_hole_local)
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	queue_redraw()
+
+func _sync_instruction_above_hole(hole: Rect2) -> void:
+	var margin := 16.0
+	var max_w: float = minf(size.x - 32.0, 560.0)
+	_instruction_label.custom_minimum_size = Vector2(max_w, 0.0)
+	_instruction_label.size = Vector2(max_w, 0.0)
+	var label_h: float = _instruction_label.get_content_height()
+	if label_h < 8.0:
+		label_h = 48.0
+	var cx: float = hole.position.x + hole.size.x * 0.5
+	var bottom_y: float = hole.position.y - margin
+	var top_y: float = bottom_y - label_h
+	top_y = maxf(16.0, top_y)
+	var left: float = clampf(cx - max_w * 0.5, 16.0, size.x - max_w - 16.0)
+	_instruction_label.position = Vector2(left, top_y)
+	_instruction_label.size = Vector2(max_w, max(label_h, 40.0))
+
+func _layout_enemy_intro_text_band(hole: Rect2, text: String) -> void:
+	var margin_top := 10.0
+	var margin_bottom := 10.0
+	var side_pad := 14.0
+	var band_top: float = hole.end.y + margin_top
+	var band_bottom: float = size.y - BOTTOM_UI_RESERVE - margin_bottom
+	var band_h: float = band_bottom - band_top
+	if band_h < 48.0:
+		band_top = maxf(8.0, hole.end.y + 4.0)
+		band_bottom = size.y - BOTTOM_UI_RESERVE - 4.0
+		band_h = maxf(40.0, band_bottom - band_top)
+	var band_w: float = maxf(100.0, size.x - side_pad * 2.0)
+	var left: float = side_pad
+	_instruction_label.add_theme_font_size_override("font_size", 22)
+	_instruction_label.text = text
+	_instruction_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_instruction_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_instruction_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_instruction_label.custom_minimum_size = Vector2(band_w, band_h)
+	_instruction_label.size = Vector2(band_w, band_h)
+	_instruction_label.position = Vector2(left, band_top)
+	_instruction_label.visible = true
+	await get_tree().process_frame
+	var fs := 22
+	for _try in range(3):
+		var ch: float = _instruction_label.get_content_height()
+		if ch <= band_h + 2.0 or fs <= 14:
+			break
+		fs -= 2
+		_instruction_label.add_theme_font_size_override("font_size", fs)
+		await get_tree().process_frame
 
 func _position_instruction_below_hole(hole: Rect2, text: String) -> void:
 	_instruction_label.add_theme_font_size_override("font_size", 22)
