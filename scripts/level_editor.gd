@@ -30,6 +30,9 @@ var _selected_spawn_count: int = 1
 var _selected_cell := Vector2i(0, 0)
 var _entity_refs := []
 var _pending_level_switch: int = -1
+var _grid_zoom: float = 1.0
+const GRID_ZOOM_MIN := 0.7
+const GRID_ZOOM_MAX := 2.0
 
 @onready var _level_spin: SpinBox = $Root/TopActions/LevelSpin
 @onready var _mode_option: OptionButton = $Root/ToolsScroll/Tools/ModeOption
@@ -102,6 +105,9 @@ func _init_controls() -> void:
 	_level_spin.min_value = 1
 	_level_spin.max_value = 999
 
+	for s in [_level_spin, _monster_hp_spin, _obstacle_hp_spin, _spawn_delay_spin, _spawn_count_spin, _moves_spin, _spawn_on_break_hp_spin, _spawn_on_break_count_spin]:
+		s.editable = false
+
 	for c in [
 		$Root/TopActions/NewButton,
 		$Root/TopActions/PrevLevelButton,
@@ -109,6 +115,9 @@ func _init_controls() -> void:
 		$Root/TopActions/NextLevelButton,
 		$Root/TopActions/LoadButton,
 		$Root/TopActions/SaveButton,
+		$Root/TopActions/ExportJsonButton,
+		$Root/TopActions/ExportZipButton,
+		$Root/TopActions/CopyJsonButton,
 		$Root/TopActions/TestButton,
 		$Root/TopActions/BackButton,
 		_mode_option,
@@ -199,6 +208,9 @@ func _connect_buttons() -> void:
 	$Root/TopActions/NewButton.pressed.connect(_on_new_pressed)
 	$Root/TopActions/LoadButton.pressed.connect(_on_load_pressed)
 	$Root/TopActions/SaveButton.pressed.connect(_on_save_pressed)
+	$Root/TopActions/ExportJsonButton.pressed.connect(_on_export_json_pressed)
+	$Root/TopActions/ExportZipButton.pressed.connect(_on_export_zip_pressed)
+	$Root/TopActions/CopyJsonButton.pressed.connect(_on_copy_json_pressed)
 	$Root/TopActions/TestButton.pressed.connect(_on_test_pressed)
 	$Root/TopActions/BackButton.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
 	$Root/TopActions/PrevLevelButton.pressed.connect(func(): _request_level_switch(_current_level_number - 1))
@@ -212,10 +224,13 @@ func _connect_buttons() -> void:
 		$Root/TopActions/NextLevelButton,
 		$Root/TopActions/LoadButton,
 		$Root/TopActions/SaveButton,
+		$Root/TopActions/ExportJsonButton,
+		$Root/TopActions/ExportZipButton,
+		$Root/TopActions/CopyJsonButton,
 		$Root/TopActions/TestButton,
 		$Root/TopActions/BackButton
 	]:
-		b.custom_minimum_size = Vector2(0, 36)
+		b.custom_minimum_size = Vector2(0, 48)
 
 func _autoload_current_level() -> void:
 	_current_level_number = max(1, int(LevelManager.current_level))
@@ -320,9 +335,49 @@ func _save_to_path(path: String) -> void:
 func _on_test_pressed() -> void:
 	var temp_path = "user://editor_preview_level.json"
 	_save_to_path(temp_path)
-	LevelManager.set_editor_level_override(temp_path)
-	LevelManager.set_current_level(_current_level_number)
+	LevelManager.begin_editor_test(temp_path, _current_level_number)
 	get_tree().change_scene_to_file("res://scenes/game_board.tscn")
+
+func _on_export_json_pressed() -> void:
+	var export_dir = "user://exports"
+	DirAccess.make_dir_recursive_absolute(export_dir)
+	var path = "%s/level_%03d.json" % [export_dir, _current_level_number]
+	var f = FileAccess.open(path, FileAccess.WRITE)
+	if not f:
+		_status_label.text = "Экспорт JSON не удался"
+		return
+	f.store_string(JSON.stringify(_level_data, "\t"))
+	f.close()
+	_status_label.text = "JSON сохранен: %s" % path
+
+func _on_export_zip_pressed() -> void:
+	var export_dir = "user://exports"
+	DirAccess.make_dir_recursive_absolute(export_dir)
+	var zip_path = "%s/levels_pack.zip" % export_dir
+	var zipper := ZIPPacker.new()
+	if zipper.open(zip_path) != OK:
+		_status_label.text = "Не удалось создать ZIP"
+		return
+	var levels = LevelManager.get_available_level_numbers()
+	for n in levels:
+		var src_path = LEVEL_PATH_TEMPLATE % int(n)
+		if not FileAccess.file_exists(src_path):
+			continue
+		var f = FileAccess.open(src_path, FileAccess.READ)
+		if not f:
+			continue
+		var content = f.get_as_text()
+		f.close()
+		var inner_path = "levels/level_%03d.json" % int(n)
+		if zipper.start_file(inner_path) == OK:
+			zipper.write_file(content.to_utf8_buffer())
+			zipper.close_file()
+	zipper.close()
+	_status_label.text = "ZIP сохранен: %s" % zip_path
+
+func _on_copy_json_pressed() -> void:
+	DisplayServer.clipboard_set(JSON.stringify(_level_data, "\t"))
+	_status_label.text = "JSON скопирован в буфер обмена"
 
 func _on_cell_pressed(x: int, y: int) -> void:
 	_selected_cell = Vector2i(x, y)
@@ -414,6 +469,13 @@ func _resize_grid_cells() -> void:
 	for c in _grid.get_children():
 		if c is Button:
 			c.custom_minimum_size = Vector2(side, side * 0.72)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMagnifyGesture:
+		_grid_zoom = clamp(_grid_zoom * event.factor, GRID_ZOOM_MIN, GRID_ZOOM_MAX)
+		var wrap: Control = $Root/CenterPanel/CenterWrap/GridWrap
+		if wrap:
+			wrap.scale = Vector2(_grid_zoom, _grid_zoom)
 
 func _refresh_grid_visuals() -> void:
 	var start_map := {}

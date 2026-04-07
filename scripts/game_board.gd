@@ -172,7 +172,10 @@ func _ready():
 	var back_btn = find_child("BackToMenu", true, false)
 	if back_btn != null:
 		back_btn.pressed.connect(func():
-			get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+			if LevelManager.is_editor_test_mode():
+				_return_to_editor_after_test()
+			else:
+				get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 		)
 		# Стилизация кнопки "Назад"
 		back_btn.add_theme_font_size_override("font_size", 40)
@@ -2486,6 +2489,9 @@ func _count_bonus_chips_on_player_field() -> int:
 
 
 func _on_level_completed():
+	if LevelManager.is_editor_test_mode():
+		_return_to_editor_after_test()
+		return
 	_victory_dialog_shown = true
 	# Награда за победу: базовая + бонус за оставшиеся на поле бонусные фишки
 	var base_reward = 50
@@ -2524,7 +2530,10 @@ func _on_level_end_to_menu() -> void:
 	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
 		_level_end_overlay.queue_free()
 		_level_end_overlay = null
-	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	if LevelManager.is_editor_test_mode():
+		_return_to_editor_after_test()
+	else:
+		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 func _show_level_end_defeat_no_lives() -> void:
 	var overlay = _attach_level_end_overlay()
@@ -2546,6 +2555,9 @@ func _on_defeat_no_lives_to_menu() -> void:
 	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
 		_level_end_overlay.queue_free()
 		_level_end_overlay = null
+	if LevelManager.is_editor_test_mode():
+		_return_to_editor_after_test()
+		return
 	LevelManager.mark_level_failed()
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
@@ -2560,12 +2572,22 @@ func _on_defeat_refill_lives() -> void:
 		_update_ui()
 		queue_redraw()
 	else:
+		if LevelManager.is_editor_test_mode():
+			_return_to_editor_after_test()
+			return
 		LevelManager.mark_level_failed()
 		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 func _on_level_failed():
+	if LevelManager.is_editor_test_mode():
+		_return_to_editor_after_test()
+		return
 	_defeat_dialog_shown = true
 	_show_level_end_defeat_no_lives()
+
+func _return_to_editor_after_test() -> void:
+	LevelManager.finish_editor_test()
+	get_tree().change_scene_to_file(LevelManager.get_editor_return_scene())
 
 func _enqueue_projectiles(col_x: int, from_y: int, count: int, base_delay: float = 0.0, trigger_move: bool = true):
 	# Планируем цели по ближайшим врагам/препятствиям снизу вверх, без превышения их суммарного HP

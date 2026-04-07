@@ -50,6 +50,8 @@ var golden_pass_unlocked_tiers: int = 1
 var golden_pass_free_claimed: Array = []
 var golden_pass_premium_claimed: Array = []
 var _editor_level_override_path: String = ""
+var _editor_test_mode: bool = false
+var _editor_return_scene: String = "res://scenes/level_editor.tscn"
 
 func get_prelevel_boost_pack_cost(boost_type: String) -> int:
 	match boost_type:
@@ -180,6 +182,21 @@ func set_editor_level_override(path: String) -> void:
 
 func clear_editor_level_override() -> void:
 	_editor_level_override_path = ""
+
+func begin_editor_test(level_path: String, level_num: int) -> void:
+	_editor_test_mode = true
+	_editor_level_override_path = level_path
+	current_level = max(1, level_num)
+
+func finish_editor_test() -> void:
+	_editor_test_mode = false
+	_editor_level_override_path = ""
+
+func is_editor_test_mode() -> bool:
+	return _editor_test_mode
+
+func get_editor_return_scene() -> String:
+	return _editor_return_scene
 
 # Функции управления монетами
 func get_level_config(level: int) -> Dictionary:
