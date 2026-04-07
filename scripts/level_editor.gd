@@ -55,6 +55,8 @@ func _ready() -> void:
 	_init_controls()
 	_build_grid()
 	_connect_buttons()
+	if get_viewport() != null:
+		get_viewport().size_changed.connect(_on_viewport_size_changed)
 	_autoload_current_level()
 
 func _new_level_template() -> Dictionary:
@@ -113,7 +115,7 @@ func _build_grid() -> void:
 	for y in range(ENEMY_ROWS):
 		for x in range(COLS):
 			var btn := Button.new()
-			btn.custom_minimum_size = Vector2(84, 58)
+			btn.custom_minimum_size = Vector2(72, 50)
 			btn.focus_mode = Control.FOCUS_NONE
 			btn.flat = false
 			btn.clip_contents = true
@@ -166,6 +168,7 @@ func _build_grid() -> void:
 			top_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			btn.add_child(top_label)
 			_grid.add_child(btn)
+	_resize_grid_cells()
 
 func _connect_buttons() -> void:
 	$Root/TopActions/NewButton.pressed.connect(_on_new_pressed)
@@ -177,6 +180,17 @@ func _connect_buttons() -> void:
 	$Root/TopActions/NextLevelButton.pressed.connect(func(): _request_level_switch(_current_level_number + 1))
 	$Root/BottomPanel/DeleteSelectedEntityButton.pressed.connect(_on_delete_selected_entity)
 	$Root/TopActions/GoToLevelButton.pressed.connect(func(): _request_level_switch(int(_level_spin.value)))
+	for b in [
+		$Root/TopActions/NewButton,
+		$Root/TopActions/PrevLevelButton,
+		$Root/TopActions/GoToLevelButton,
+		$Root/TopActions/NextLevelButton,
+		$Root/TopActions/LoadButton,
+		$Root/TopActions/SaveButton,
+		$Root/TopActions/TestButton,
+		$Root/TopActions/BackButton
+	]:
+		b.custom_minimum_size = Vector2(0, 36)
 
 func _autoload_current_level() -> void:
 	_current_level_number = max(1, int(LevelManager.current_level))
@@ -353,6 +367,28 @@ func _refresh_ui() -> void:
 
 	_refresh_grid_visuals()
 	_refresh_entity_list()
+	_resize_grid_cells()
+
+func _on_viewport_size_changed() -> void:
+	_resize_grid_cells()
+
+func _resize_grid_cells() -> void:
+	if _grid == null:
+		return
+	var wrap: Control = $Root/CenterPanel/CenterWrap/GridWrap
+	if wrap == null:
+		return
+	var avail = wrap.size
+	if avail.x <= 0 or avail.y <= 0:
+		return
+	var spacing_x = float(_grid.get_theme_constant("h_separation"))
+	var spacing_y = float(_grid.get_theme_constant("v_separation"))
+	var cell_w = floor((avail.x - spacing_x * float(COLS - 1)) / float(COLS))
+	var cell_h = floor((avail.y - spacing_y * float(ENEMY_ROWS - 1)) / float(ENEMY_ROWS))
+	var side = int(max(44.0, min(cell_w, cell_h)))
+	for c in _grid.get_children():
+		if c is Button:
+			c.custom_minimum_size = Vector2(side, side * 0.72)
 
 func _refresh_grid_visuals() -> void:
 	var start_map := {}

@@ -20,9 +20,10 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 8
 
-[node name="TopActions" type="HBoxContainer" parent="Root"]
+[node name="TopActions" type="GridContainer" parent="Root"]
 layout_mode = 2
 theme_override_constants/separation = 8
+columns = 5
 
 [node name="NewButton" type="Button" parent="Root/TopActions"]
 layout_mode = 2
@@ -66,7 +67,7 @@ text = "В меню"
 
 [node name="Tools" type="GridContainer" parent="Root"]
 layout_mode = 2
-columns = 5
+columns = 4
 
 [node name="ModeOption" type="OptionButton" parent="Root/Tools"]
 custom_minimum_size = Vector2(170, 0)
@@ -153,7 +154,7 @@ columns = 8
 
 [node name="BottomPanel" type="VBoxContainer" parent="Root"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 230)
+custom_minimum_size = Vector2(0, 170)
 theme_override_constants/separation = 8
 
 [node name="StatusLabel" type="Label" parent="Root/BottomPanel"]
