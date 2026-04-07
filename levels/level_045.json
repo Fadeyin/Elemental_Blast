@@ -2,233 +2,345 @@
   "cols": 7,
   "rows": 12,
   "enemy_rows": 10,
-  "moves": 16,
+  "moves": 40,
   "start_monsters": [
     {
       "x": 0,
-      "y": 1,
-      "hp": 2
-    },
-    {
-      "x": 1,
-      "y": 1,
-      "hp": 1
-    },
-    {
-      "x": 2,
-      "y": 1,
-      "hp": 2
-    },
-    {
-      "x": 3,
-      "y": 1,
-      "hp": 1
-    },
-    {
-      "x": 4,
-      "y": 1,
-      "hp": 2
-    },
-    {
-      "x": 5,
-      "y": 1,
-      "hp": 1
-    },
-    {
-      "x": 6,
-      "y": 1,
-      "hp": 2
-    },
-    {
-      "x": 0,
       "y": 2,
-      "hp": 1
+      "hp": 5
     },
     {
       "x": 1,
       "y": 2,
-      "hp": 2
+      "hp": 6
     },
     {
       "x": 2,
       "y": 2,
-      "hp": 1
+      "hp": 5
     },
     {
       "x": 3,
       "y": 2,
-      "hp": 2
+      "hp": 6
     },
     {
       "x": 4,
       "y": 2,
-      "hp": 1
+      "hp": 5
     },
     {
       "x": 5,
       "y": 2,
-      "hp": 2
+      "hp": 6
     },
     {
       "x": 6,
       "y": 2,
-      "hp": 1
+      "hp": 5
     },
     {
       "x": 0,
       "y": 3,
-      "hp": 2
+      "hp": 6
     },
     {
       "x": 1,
       "y": 3,
-      "hp": 1
+      "hp": 5
     },
     {
       "x": 2,
       "y": 3,
-      "hp": 2
+      "hp": 6
     },
     {
       "x": 3,
       "y": 3,
-      "hp": 1
+      "hp": 5
     },
     {
       "x": 4,
       "y": 3,
-      "hp": 2
+      "hp": 6
     },
     {
       "x": 5,
       "y": 3,
-      "hp": 1
+      "hp": 5
     },
     {
       "x": 6,
       "y": 3,
-      "hp": 2
+      "hp": 6
     },
     {
       "x": 0,
       "y": 4,
-      "hp": 1
+      "hp": 5
     },
     {
       "x": 1,
       "y": 4,
-      "hp": 2
+      "hp": 6
     },
     {
       "x": 2,
       "y": 4,
-      "hp": 1
+      "hp": 5
     },
     {
       "x": 3,
       "y": 4,
-      "hp": 2
+      "hp": 6
     },
     {
       "x": 4,
       "y": 4,
-      "hp": 1
+      "hp": 5
     },
     {
       "x": 5,
       "y": 4,
-      "hp": 2
+      "hp": 6
     },
     {
       "x": 6,
       "y": 4,
-      "hp": 1
+      "hp": 5
     },
     {
       "x": 0,
       "y": 5,
-      "hp": 2
+      "hp": 6
     },
     {
       "x": 1,
       "y": 5,
-      "hp": 1
+      "hp": 5
     },
     {
       "x": 2,
       "y": 5,
-      "hp": 2
+      "hp": 6
     },
     {
       "x": 3,
       "y": 5,
-      "hp": 1
+      "hp": 5
     },
     {
       "x": 4,
       "y": 5,
-      "hp": 2
+      "hp": 6
     },
     {
       "x": 5,
       "y": 5,
-      "hp": 1
+      "hp": 5
     },
     {
       "x": 6,
       "y": 5,
-      "hp": 2
+      "hp": 6
+    },
+    {
+      "x": 0,
+      "y": 6,
+      "hp": 5
+    },
+    {
+      "x": 1,
+      "y": 6,
+      "hp": 6
+    },
+    {
+      "x": 2,
+      "y": 6,
+      "hp": 5
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "hp": 6
+    },
+    {
+      "x": 4,
+      "y": 6,
+      "hp": 5
+    },
+    {
+      "x": 5,
+      "y": 6,
+      "hp": 6
+    },
+    {
+      "x": 6,
+      "y": 6,
+      "hp": 5
+    },
+    {
+      "x": 0,
+      "y": 7,
+      "hp": 6
+    },
+    {
+      "x": 1,
+      "y": 7,
+      "hp": 5
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "hp": 6
+    },
+    {
+      "x": 3,
+      "y": 7,
+      "hp": 5
+    },
+    {
+      "x": 4,
+      "y": 7,
+      "hp": 6
+    },
+    {
+      "x": 5,
+      "y": 7,
+      "hp": 5
+    },
+    {
+      "x": 6,
+      "y": 7,
+      "hp": 6
     }
   ],
   "scheduled_spawns": [
     {
       "x": 1,
       "y": 0,
-      "hp": 1,
+      "hp": 5,
       "count": 1,
-      "spawn_after_player_turns": 2
+      "spawn_after_player_turns": 14
     },
     {
       "x": 5,
       "y": 0,
-      "hp": 1,
+      "hp": 5,
       "count": 1,
-      "spawn_after_player_turns": 2
+      "spawn_after_player_turns": 14
     },
     {
       "x": 1,
       "y": 0,
-      "hp": 1,
+      "hp": 5,
       "count": 1,
-      "spawn_after_player_turns": 4
+      "spawn_after_player_turns": 16
     },
     {
       "x": 5,
       "y": 0,
-      "hp": 2,
+      "hp": 5,
       "count": 1,
-      "spawn_after_player_turns": 6
+      "spawn_after_player_turns": 16
     },
     {
       "x": 1,
       "y": 0,
-      "hp": 2,
+      "hp": 6,
       "count": 1,
-      "spawn_after_player_turns": 8
+      "spawn_after_player_turns": 21
     },
     {
       "x": 5,
       "y": 0,
-      "hp": 2,
+      "hp": 6,
       "count": 1,
-      "spawn_after_player_turns": 11
+      "spawn_after_player_turns": 21
     },
     {
       "x": 1,
       "y": 0,
-      "hp": 2,
+      "hp": 6,
       "count": 1,
-      "spawn_after_player_turns": 13
+      "spawn_after_player_turns": 23
+    },
+    {
+      "x": 5,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 26
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 28
+    },
+    {
+      "x": 5,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 28
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 30
+    },
+    {
+      "x": 5,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 33
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 35
+    },
+    {
+      "x": 5,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 35
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 42
+    },
+    {
+      "x": 5,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 42
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 48
+    },
+    {
+      "x": 5,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 48
     }
   ],
   "obstacles": [
@@ -333,15 +445,20 @@
       "type": "wall"
     },
     {
-      "x": 1,
-      "y": 8,
-      "hp": 1
+      "x": 0,
+      "y": 9,
+      "type": "wall"
     },
     {
-      "x": 5,
-      "y": 8,
-      "hp": 1
+      "x": 6,
+      "y": 9,
+      "type": "wall"
+    },
+    {
+      "x": 3,
+      "y": 3,
+      "hp": 4
     }
   ],
-  "seed": 9102
+  "seed": 9765
 }

@@ -2,19 +2,19 @@
   "cols": 7,
   "rows": 12,
   "enemy_rows": 10,
-  "moves": 15,
+  "moves": 18,
   "monster_tiers": [
     {
       "hp": 1,
-      "count": 6
+      "count": 9
     },
     {
       "hp": 2,
-      "count": 4
+      "count": 6
     },
     {
       "hp": 3,
-      "count": 2
+      "count": 3
     }
   ],
   "obstacles": [
@@ -34,5 +34,5 @@
       "type": "wall"
     }
   ],
-  "seed": 9051
+  "seed": 9153
 }

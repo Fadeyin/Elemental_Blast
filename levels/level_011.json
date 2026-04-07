@@ -1,25 +1,25 @@
 {
-  "cols": 7,
-  "rows": 12,
+  "cols": 8,
+  "rows": 16,
   "enemy_rows": 10,
-  "moves": 15,
+  "moves": 19,
   "monster_tiers": [
     {
       "hp": 1,
-      "count": 6
+      "count": 10
     },
     {
       "hp": 2,
-      "count": 4
+      "count": 7
     },
     {
       "hp": 3,
-      "count": 2
+      "count": 3
     }
   ],
   "obstacles": [
     {
-      "x": 1,
+      "x": 2,
       "y": 3,
       "hp": 2
     },
@@ -32,7 +32,12 @@
       "x": 3,
       "y": 5,
       "type": "wall"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "type": "wall"
     }
   ],
-  "seed": 9051
+  "seed": 9187
 }
