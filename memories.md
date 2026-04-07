@@ -1,4 +1,5 @@
 # Agent context
+- Кампания: 50 файлов `levels/level_001.json` … `level_050.json`; «порталы» = `scheduled_spawns` с `y: 0`. Перегенерация: `python3 tools/generate_campaign_levels.py`.
 - Level 1 tutorial: overlay `scripts/level1_tutorial_overlay.gd`, `game_board.gd`; запускается при каждом старте уровня 1 (без сохранения «уже показано»).
 - Git: всегда пушить сразу в `main`, пока пользователь явно не попросит иначе (без отдельных веток по умолчанию).
 - Branch: main (предпочтение пользователя)
