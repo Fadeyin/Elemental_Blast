@@ -13,6 +13,8 @@ const MONSTER_TEXTURES := {
 	4: preload("res://textures/Monster_4_lvl.png"),
 	5: preload("res://textures/Monster_5_lvl.png")
 }
+const OBSTACLE_COLOR := Color(0.4, 0.35, 0.3, 1.0)
+const WALL_COLOR := Color(0.36, 0.38, 0.45, 1.0)
 
 enum BrushMode { START_MONSTER, SCHEDULED_MONSTER, OBSTACLE, ERASE }
 
@@ -114,7 +116,55 @@ func _build_grid() -> void:
 			btn.custom_minimum_size = Vector2(84, 58)
 			btn.focus_mode = Control.FOCUS_NONE
 			btn.flat = false
+			btn.clip_contents = true
 			btn.pressed.connect(_on_cell_pressed.bind(x, y))
+			var icon := TextureRect.new()
+			icon.name = "MonsterIcon"
+			icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			icon.offset_left = 6
+			icon.offset_top = 4
+			icon.offset_right = -6
+			icon.offset_bottom = -16
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			btn.add_child(icon)
+
+			var hp_bg := ColorRect.new()
+			hp_bg.name = "HpBg"
+			hp_bg.anchor_left = 0.15
+			hp_bg.anchor_top = 1.0
+			hp_bg.anchor_right = 0.85
+			hp_bg.anchor_bottom = 1.0
+			hp_bg.offset_top = -12
+			hp_bg.offset_bottom = -6
+			hp_bg.color = Color(0.1, 0.1, 0.1, 0.6)
+			hp_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			btn.add_child(hp_bg)
+
+			var hp_fg := ColorRect.new()
+			hp_fg.name = "HpFg"
+			hp_fg.anchor_left = 0.15
+			hp_fg.anchor_top = 1.0
+			hp_fg.anchor_right = 0.85
+			hp_fg.anchor_bottom = 1.0
+			hp_fg.offset_top = -12
+			hp_fg.offset_bottom = -6
+			hp_fg.color = Color(0.25, 0.8, 0.3, 0.95)
+			hp_fg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			btn.add_child(hp_fg)
+
+			var top_label := Label.new()
+			top_label.name = "TopLabel"
+			top_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+			top_label.offset_left = 4
+			top_label.offset_top = 2
+			top_label.add_theme_font_size_override("font_size", 12)
+			top_label.add_theme_color_override("font_color", Color.WHITE)
+			top_label.add_theme_color_override("font_outline_color", Color.BLACK)
+			top_label.add_theme_constant_override("outline_size", 2)
+			top_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			btn.add_child(top_label)
 			_grid.add_child(btn)
 
 func _connect_buttons() -> void:
@@ -330,42 +380,56 @@ func _refresh_grid_visuals() -> void:
 			var idx = y * COLS + x
 			var btn: Button = _grid.get_child(idx)
 			btn.text = ""
-			btn.icon = null
 			btn.modulate = Color(1, 1, 1, 1)
+			btn.self_modulate = Color(1, 1, 1, 1)
 			btn.tooltip_text = "x=%d y=%d" % [x, y]
 			var key = "%d:%d" % [x, y]
+			var icon: TextureRect = btn.get_node("MonsterIcon")
+			var hp_bg: ColorRect = btn.get_node("HpBg")
+			var hp_fg: ColorRect = btn.get_node("HpFg")
+			var top_label: Label = btn.get_node("TopLabel")
+			icon.texture = null
+			top_label.text = ""
+			hp_bg.visible = false
+			hp_fg.visible = false
 
 			if obstacle_map.has(key):
 				var obs = obstacle_map[key]
 				var typ = str(obs.get("type", "breakable"))
 				if typ == "wall":
-					btn.text = "W"
-					btn.self_modulate = Color(0.55, 0.55, 0.62, 1.0)
+					btn.self_modulate = WALL_COLOR
+					top_label.text = "W"
 				else:
-					btn.text = "O%d" % int(obs.get("hp", 1))
-					btn.self_modulate = Color(0.85, 0.75, 0.55, 1.0)
+					btn.self_modulate = OBSTACLE_COLOR
+					var ohp = int(obs.get("hp", 1))
+					top_label.text = "O%d" % ohp
+					hp_bg.visible = true
+					hp_fg.visible = true
+					var hp_ratio = clamp(float(ohp) / 5.0, 0.2, 1.0)
+					hp_fg.anchor_right = 0.15 + 0.7 * hp_ratio
 			else:
 				btn.self_modulate = Color(1, 1, 1, 1)
 
 			if start_map.has(key) and start_map[key].size() > 0:
 				var hp = int(start_map[key][0].get("hp", 1))
-				btn.icon = MONSTER_TEXTURES.get(hp, null)
-				btn.expand_icon = true
-				btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				btn.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
-				btn.text = btn.text + (" M%d" % hp)
+				icon.texture = MONSTER_TEXTURES.get(hp, null)
+				top_label.text = ("M%d" % hp) + ((" " + top_label.text) if top_label.text != "" else "")
+				hp_bg.visible = true
+				hp_fg.visible = true
 
 			if sched_map.has(key) and sched_map[key].size() > 0:
 				if not start_map.has(key):
 					var shp = int(sched_map[key][0].get("hp", 1))
-					btn.icon = MONSTER_TEXTURES.get(shp, null)
+					icon.texture = MONSTER_TEXTURES.get(shp, null)
 					btn.modulate = Color(1, 1, 1, 0.5)
-				btn.text = btn.text + (" q×%d" % sched_map[key].size())
+				top_label.text = (top_label.text + " " if top_label.text != "" else "") + ("q×%d" % sched_map[key].size())
 
 			if _selected_cell.x == x and _selected_cell.y == y:
 				btn.add_theme_color_override("font_color", Color(1, 0.95, 0.6))
+				btn.add_theme_color_override("font_hover_color", Color(1, 0.95, 0.6))
 			else:
 				btn.remove_theme_color_override("font_color")
+				btn.remove_theme_color_override("font_hover_color")
 
 func _refresh_entity_list() -> void:
 	_entities_list.clear()
