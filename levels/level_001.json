@@ -1,10 +1,16 @@
 {
-  "cols": 7,
-  "rows": 12,
+  "cols": 8,
+  "rows": 16,
   "enemy_rows": 10,
   "moves": 10,
-  "monster_tiers": [
-    { "hp": 1, "count": 10 }
+  "start_monsters": [
+    { "x": 2, "y": 1, "hp": 1 },
+    { "x": 4, "y": 1, "hp": 1 },
+    { "x": 3, "y": 2, "hp": 2 }
+  ],
+  "scheduled_spawns": [
+    { "x": 2, "y": 0, "hp": 1, "count": 2, "spawn_after_player_turns": 2 },
+    { "x": 4, "y": 0, "hp": 2, "count": 1, "spawn_after_player_turns": 4 }
   ],
   "seed": 1001
 }

@@ -49,6 +49,7 @@ var golden_pass_last_calendar_date: String = ""
 var golden_pass_unlocked_tiers: int = 1
 var golden_pass_free_claimed: Array = []
 var golden_pass_premium_claimed: Array = []
+var _editor_level_override_path: String = ""
 
 func get_prelevel_boost_pack_cost(boost_type: String) -> int:
 	match boost_type:
@@ -174,8 +175,19 @@ func get_mort_helmet_level() -> int:
 func get_win_streak() -> int:
 	return win_streak
 
+func set_editor_level_override(path: String) -> void:
+	_editor_level_override_path = path
+
+func clear_editor_level_override() -> void:
+	_editor_level_override_path = ""
+
 # Функции управления монетами
 func get_level_config(level: int) -> Dictionary:
+	if _editor_level_override_path != "" and FileAccess.file_exists(_editor_level_override_path):
+		var override_data = _load_level_config_from_path(_editor_level_override_path)
+		if not override_data.is_empty():
+			return _normalize_level_config(override_data, level)
+
 	# Пытаемся загрузить JSON-конфиг уровня из res://levels/
 	var candidates := [
 		"res://levels/level_%03d.json" % level,
@@ -183,23 +195,66 @@ func get_level_config(level: int) -> Dictionary:
 	]
 	for path in candidates:
 		if FileAccess.file_exists(path):
-			var f := FileAccess.open(path, FileAccess.READ)
-			if f:
-				var txt := f.get_as_text()
-				f.close()
-				var j := JSON.new()
-				if j.parse(txt) == OK:
-					var data = j.get_data()
-					if typeof(data) == TYPE_DICTIONARY:
-						return data
+			var data = _load_level_config_from_path(path)
+			if not data.is_empty():
+				return _normalize_level_config(data, level)
 	# Дефолтные параметры, если файл не найден
-	return {
+	return _normalize_level_config({
 		"cols": 7,
 		"rows": 12,
 		"enemy_rows": 10,
 		"strong_monsters": max(0, (level - 1) * 5),
 		"strong_hp": 3
-	}
+	}, level)
+
+func _load_level_config_from_path(path: String) -> Dictionary:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if not f:
+		return {}
+	var txt := f.get_as_text()
+	f.close()
+	var j := JSON.new()
+	if j.parse(txt) != OK:
+		return {}
+	var data = j.get_data()
+	if typeof(data) != TYPE_DICTIONARY:
+		return {}
+	return data
+
+func _normalize_level_config(data: Dictionary, level: int) -> Dictionary:
+	var out = data.duplicate(true)
+	out["cols"] = int(out.get("cols", 7))
+	out["rows"] = int(out.get("rows", 12))
+	out["enemy_rows"] = int(out.get("enemy_rows", 6))
+	out["moves"] = int(out.get("moves", (15 if level == 1 else 20)))
+
+	var normalized_scheduled := []
+	if out.has("scheduled_spawns") and typeof(out.scheduled_spawns) == TYPE_ARRAY:
+		for item in out.scheduled_spawns:
+			if typeof(item) != TYPE_DICTIONARY:
+				continue
+			normalized_scheduled.append({
+				"hp": max(1, int(item.get("hp", 1))),
+				"count": max(1, int(item.get("count", 1))),
+				"x": int(item.get("x", 0)),
+				"y": int(item.get("y", 0)),
+				"spawn_after_player_turns": max(0, int(item.get("spawn_after_player_turns", 0)))
+			})
+	out["scheduled_spawns"] = normalized_scheduled
+
+	var normalized_start := []
+	if out.has("start_monsters") and typeof(out.start_monsters) == TYPE_ARRAY:
+		for item in out.start_monsters:
+			if typeof(item) != TYPE_DICTIONARY:
+				continue
+			normalized_start.append({
+				"hp": max(1, int(item.get("hp", 1))),
+				"x": int(item.get("x", 0)),
+				"y": int(item.get("y", 0))
+			})
+	out["start_monsters"] = normalized_start
+
+	return out
 
 func _emit_start():
 	_save_progress()

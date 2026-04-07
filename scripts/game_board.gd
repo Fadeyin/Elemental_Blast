@@ -71,6 +71,9 @@ var enemies := [] # 2D массив здоровья врагов (y: 0..ENEMY_R
 var enemies_initial_hp := [] # Исходный HP врагов для целей
 var _enemies_hit_this_turn := [] # 2D массив флагов попадания в этом ходу
 var _monster_spawn_queue := [] # Очередь монстров для появления на поле
+var _scheduled_spawns := [] # [{hp:int, x:int, y:int, spawn_after_player_turns:int}]
+var _use_scheduled_spawns: bool = false
+var _player_turn_counter: int = 0
 var obstacles := [] # 2D массив здоровья препятствий (y: 0..ENEMY_ROWS-1)
 var obstacles_initial_hp := [] # Исходный HP препятствий
 var _projectiles := [] # [{x:int, start_y:float, end_y:float, t:float, d:float, delay:float, color:Color, hit_applied:bool, has_target:bool}]
@@ -691,8 +694,12 @@ func _init_chips():
 func _init_enemies_from_config(cfg: Dictionary):
 	enemies.clear()
 	enemies_initial_hp.clear()
+	_enemies_hit_this_turn.clear()
 	_level_targets.clear()
 	_monster_spawn_queue.clear()
+	_scheduled_spawns.clear()
+	_use_scheduled_spawns = false
+	_player_turn_counter = 0
 	
 	# Подготовим пустую сетку HP=0
 	for y in range(ENEMY_ROWS):
@@ -707,7 +714,47 @@ func _init_enemies_from_config(cfg: Dictionary):
 		enemies_initial_hp.append(row0)
 		_enemies_hit_this_turn.append(row_hit)
 
-	# Собираем всех монстров уровня в общую очередь
+	# Новый режим: стартовые монстры + управляемые отложенные спавны
+	if cfg.has("start_monsters") and typeof(cfg.start_monsters) == TYPE_ARRAY:
+		_use_scheduled_spawns = true
+		for item in cfg.start_monsters:
+			if typeof(item) != TYPE_DICTIONARY:
+				continue
+			var hp = max(1, int(item.get("hp", 1)))
+			var x = int(item.get("x", -1))
+			var y = int(item.get("y", -1))
+			if x < 0 or x >= COLS or y < 0 or y >= ENEMY_ROWS:
+				continue
+			if obstacles[y][x] > 0:
+				continue
+			if enemies[y][x] == 0:
+				enemies[y][x] = hp
+				enemies_initial_hp[y][x] = hp
+				_level_targets[hp] = int(_level_targets.get(hp, 0)) + 1
+
+	if cfg.has("scheduled_spawns") and typeof(cfg.scheduled_spawns) == TYPE_ARRAY:
+		_use_scheduled_spawns = true
+		for item in cfg.scheduled_spawns:
+			if typeof(item) != TYPE_DICTIONARY:
+				continue
+			var hp = max(1, int(item.get("hp", 1)))
+			var x = clamp(int(item.get("x", 0)), 0, COLS - 1)
+			var y = clamp(int(item.get("y", 0)), 0, ENEMY_ROWS - 1)
+			var turn_n = max(0, int(item.get("spawn_after_player_turns", 0)))
+			var count = max(1, int(item.get("count", 1)))
+			for i in range(count):
+				_scheduled_spawns.append({
+					"hp": hp,
+					"x": x,
+					"y": y,
+					"spawn_after_player_turns": turn_n
+				})
+				_level_targets[hp] = int(_level_targets.get(hp, 0)) + 1
+
+	if _use_scheduled_spawns:
+		return
+
+	# Legacy режим: старая очередь монстров
 	var all_monsters := []
 	if cfg.has("monster_tiers") and typeof(cfg.monster_tiers) == TYPE_ARRAY:
 		for tier in cfg.monster_tiers:
@@ -1913,6 +1960,8 @@ func _unhandled_input(event):
 			
 			var popped = await _pop_cluster(cell.x, cell.y)
 			if popped > 0:
+				_player_turn_counter += 1
+				_moves_left = max(0, _moves_left - 1)
 				_update_ui()
 		# Проверку победы/поражения делаем после завершения анимаций в _process
 
@@ -2356,6 +2405,8 @@ func _check_level_completed() -> bool:
 	# Победа: нет монстров в очереди, все цели выполнены, нет живых врагов и препятствий
 	if not _monster_spawn_queue.is_empty():
 		return false
+	if not _scheduled_spawns.is_empty():
+		return false
 	for hp in _level_targets:
 		if int(_level_targets[hp]) > 0:
 			return false
@@ -2682,22 +2733,25 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 				"t": 0.0, "d": 0.25
 			})
 
-	# 4. Появление новых врагов в верхнем ряду (row 0)
-	for x in range(COLS):
-		if mixed_breach_priority and x < _column_hearts.size() and _column_hearts[x]:
-			continue
-		# Проверяем, что нет препятствия в этой клетке
-		if enemies[0][x] == 0 and obstacles[0][x] == 0 and not _monster_spawn_queue.is_empty():
-			var hp = _monster_spawn_queue.pop_front()
-			enemies[0][x] = hp
-			enemies_initial_hp[0][x] = hp
-			_enemy_move_anims.append({
-				"fx": x, "fy": -1, 
-				"tx": x, "ty": 0, 
-				"hp": hp, 
-				"init": hp, 
-				"t": 0.0, "d": 0.25
-			})
+	if _use_scheduled_spawns:
+		_process_scheduled_spawns()
+	else:
+		# Legacy-логика: появление новых врагов в верхнем ряду (row 0)
+		for x in range(COLS):
+			if mixed_breach_priority and x < _column_hearts.size() and _column_hearts[x]:
+				continue
+			# Проверяем, что нет препятствия в этой клетке
+			if enemies[0][x] == 0 and obstacles[0][x] == 0 and not _monster_spawn_queue.is_empty():
+				var hp = _monster_spawn_queue.pop_front()
+				enemies[0][x] = hp
+				enemies_initial_hp[0][x] = hp
+				_enemy_move_anims.append({
+					"fx": x, "fy": -1, 
+					"tx": x, "ty": 0, 
+					"hp": hp, 
+					"init": hp, 
+					"t": 0.0, "d": 0.25
+				})
 
 	if _enemy_move_anims.size() > 0:
 		set_process(true)
@@ -2720,6 +2774,30 @@ func _enemy_move_step() -> void:
 		queue_redraw()
 		return
 	_apply_enemy_moves_from_plan(planned)
+
+func _process_scheduled_spawns():
+	for i in range(_scheduled_spawns.size() - 1, -1, -1):
+		var item = _scheduled_spawns[i]
+		var due_turn = int(item.get("spawn_after_player_turns", 0))
+		if due_turn > _player_turn_counter:
+			continue
+		var x = clamp(int(item.get("x", 0)), 0, COLS - 1)
+		var y = clamp(int(item.get("y", 0)), 0, ENEMY_ROWS - 1)
+		var hp = max(1, int(item.get("hp", 1)))
+		if obstacles[y][x] > 0:
+			continue
+		if enemies[y][x] > 0:
+			continue
+		enemies[y][x] = hp
+		enemies_initial_hp[y][x] = hp
+		_enemy_move_anims.append({
+			"fx": x, "fy": y - 1,
+			"tx": x, "ty": y,
+			"hp": hp,
+			"init": hp,
+			"t": 0.0, "d": 0.25
+		})
+		_scheduled_spawns.remove_at(i)
 
 func _apply_gravity_up():
 	# Смещаем фишки вверх только внутри зоны игрока (ENEMY_ROWS .. ROWS)

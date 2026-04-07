@@ -1,6 +1,7 @@
 extends Control
 
 @onready var play_button = $TabContent/MainTab/PlayButton
+@onready var editor_button = $TabContent/MainTab/EditorButton
 @onready var start_level_label = $TabContent/MainTab/StartLevelLabel
 @onready var levels_grid = $TabContent/MainTab/LevelsScroll/LevelsGrid
 @onready var version_label = $VersionLabel
@@ -23,6 +24,8 @@ var _golden_pass_dialog_open: bool = false
 const GOLDEN_PASS_DIALOG_SCRIPT := preload("res://scripts/golden_pass_dialog.gd")
 
 func _ready():
+	if LevelManager:
+		LevelManager.clear_editor_level_override()
 	_create_top_bar()
 	if LevelManager:
 		LevelManager.tick_golden_pass_daily_login()
@@ -31,6 +34,8 @@ func _ready():
 	if is_instance_valid(play_button):
 		play_button.pressed.connect(_on_play_pressed)
 		_style_play_button()
+	if is_instance_valid(editor_button):
+		editor_button.pressed.connect(_on_editor_pressed)
 	
 	_setup_navigation()
 	_update_level_label()
@@ -368,6 +373,9 @@ func _style_nav_button(btn: Button):
 func _on_play_pressed():
 	LevelManager.set_current_level(LevelManager.current_level)
 	_show_level_start_dialog(LevelManager.current_level)
+
+func _on_editor_pressed():
+	get_tree().change_scene_to_file("res://scenes/level_editor.tscn")
 
 func _style_play_button():
 	if not is_instance_valid(play_button):

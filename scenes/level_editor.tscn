@@ -11,69 +11,112 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_2k4m3")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="."]
+[node name="Root" type="VBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_constants/separation = 8
 
-[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
+[node name="Header" type="HBoxContainer" parent="Root"]
 layout_mode = 2
+theme_override_constants/separation = 8
 
-[node name="LevelNameEdit" type="LineEdit" parent="VBoxContainer/HBoxContainer"]
-custom_minimum_size = Vector2(200, 0)
+[node name="NewButton" type="Button" parent="Root/Header"]
 layout_mode = 2
-placeholder_text = "Название уровня"
+text = "Новый"
 
-[node name="DifficultySpinBox" type="SpinBox" parent="VBoxContainer/HBoxContainer"]
-custom_minimum_size = Vector2(100, 0)
-layout_mode = 2
-min_value = 1.0
-max_value = 10.0
-value = 1.0
-
-[node name="SaveButton" type="Button" parent="VBoxContainer/HBoxContainer"]
-layout_mode = 2
-text = "Сохранить"
-
-[node name="LoadButton" type="Button" parent="VBoxContainer/HBoxContainer"]
+[node name="LoadButton" type="Button" parent="Root/Header"]
 layout_mode = 2
 text = "Загрузить"
 
-[node name="LevelDescriptionEdit" type="TextEdit" parent="VBoxContainer"]
-custom_minimum_size = Vector2(0, 100)
+[node name="SaveButton" type="Button" parent="Root/Header"]
 layout_mode = 2
-placeholder_text = "Описание уровня"
+text = "Сохранить"
 
-[node name="HBoxContainer2" type="HBoxContainer" parent="VBoxContainer"]
+[node name="SaveAsButton" type="Button" parent="Root/Header"]
+layout_mode = 2
+text = "Сохранить как"
+
+[node name="TestButton" type="Button" parent="Root/Header"]
+layout_mode = 2
+text = "Тестовый запуск"
+
+[node name="BackButton" type="Button" parent="Root/Header"]
+layout_mode = 2
+text = "В меню"
+
+[node name="TopBar" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ModeOption" type="OptionButton" parent="Root/TopBar"]
+custom_minimum_size = Vector2(220, 0)
 layout_mode = 2
 
-[node name="CreatureTypeButtons" type="HBoxContainer" parent="VBoxContainer/HBoxContainer2"]
+[node name="MonsterHpSpin" type="SpinBox" parent="Root/TopBar"]
+custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
+min_value = 1.0
+max_value = 9.0
+value = 1.0
+prefix = "HP M:"
 
-[node name="RedButton" type="Button" parent="VBoxContainer/HBoxContainer2/CreatureTypeButtons"]
-custom_minimum_size = Vector2(50, 50)
+[node name="ObstacleHpSpin" type="SpinBox" parent="Root/TopBar"]
+custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
-text = "🔴"
+min_value = 1.0
+max_value = 9.0
+value = 2.0
+prefix = "HP O:"
 
-[node name="BlueButton" type="Button" parent="VBoxContainer/HBoxContainer2/CreatureTypeButtons"]
-custom_minimum_size = Vector2(50, 50)
+[node name="SpawnDelaySpin" type="SpinBox" parent="Root/TopBar"]
+custom_minimum_size = Vector2(180, 0)
 layout_mode = 2
-text = "🔵"
+max_value = 50.0
+value = 1.0
+prefix = "Через ходов:"
 
-[node name="GreenButton" type="Button" parent="VBoxContainer/HBoxContainer2/CreatureTypeButtons"]
-custom_minimum_size = Vector2(50, 50)
+[node name="SpawnCountSpin" type="SpinBox" parent="Root/TopBar"]
+custom_minimum_size = Vector2(130, 0)
 layout_mode = 2
-text = "🟢"
+min_value = 1.0
+max_value = 20.0
+value = 1.0
+prefix = "Кол-во:"
 
-[node name="PurpleButton" type="Button" parent="VBoxContainer/HBoxContainer2/CreatureTypeButtons"]
-custom_minimum_size = Vector2(50, 50)
+[node name="MovesSpin" type="SpinBox" parent="Root/TopBar"]
+custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
-text = "🟣"
+min_value = 1.0
+max_value = 99.0
+value = 20.0
+prefix = "Ходы:"
 
-[node name="GridContainer" type="GridContainer" parent="VBoxContainer"]
+[node name="Main" type="HSplitContainer" parent="Root"]
 layout_mode = 2
 size_flags_vertical = 3
+split_offset = 650
+
+[node name="GridPanel" type="PanelContainer" parent="Root/Main"]
+layout_mode = 2
+
+[node name="Grid" type="GridContainer" parent="Root/Main/GridPanel"]
+layout_mode = 2
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
 columns = 8
+
+[node name="Sidebar" type="VBoxContainer" parent="Root/Main"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="StatusLabel" type="Label" parent="Root/Main/Sidebar"]
+layout_mode = 2
+text = "Статус"
+
+[node name="EntitiesList" type="ItemList" parent="Root/Main/Sidebar"]
+layout_mode = 2
+size_flags_vertical = 3

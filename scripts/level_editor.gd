@@ -2,188 +2,249 @@ extends Control
 
 class_name LevelEditor
 
-# Константы
-const CELL_SIZE = 100
-const COLS = 8
-const ROWS = 8
+const COLS := 8
+const ENEMY_ROWS := 10
 
-# Переменные для хранения данных уровня
-var current_level_data = {
-	"name": "Новый уровень",
-	"description": "",
-	"difficulty": 1,
-	"grid": [],  # Будет хранить состояние сетки
-	"enemies": [],  # Будет хранить информацию о врагах
-	"rewards": {  # Награды за прохождение
-		"gold": 100,
-		"dice_charges": 1
-	}
+enum BrushMode { START_MONSTER, SCHEDULED_MONSTER, OBSTACLE, ERASE }
+
+var _level_data := {
+	"cols": COLS,
+	"rows": 16,
+	"enemy_rows": ENEMY_ROWS,
+	"moves": 20,
+	"start_monsters": [],
+	"scheduled_spawns": [],
+	"obstacles": [],
+	"seed": 1
 }
+var _current_file_path := ""
+var _brush_mode: BrushMode = BrushMode.START_MONSTER
+var _selected_hp: int = 1
+var _selected_obstacle_hp: int = 2
+var _selected_spawn_delay: int = 1
+var _selected_spawn_count: int = 1
 
-# Ссылки на узлы
-@onready var grid_container = $VBoxContainer/GridContainer
-@onready var save_button = $VBoxContainer/HBoxContainer/SaveButton
-@onready var load_button = $VBoxContainer/HBoxContainer/LoadButton
-@onready var level_name_edit = $VBoxContainer/HBoxContainer/LevelNameEdit
-@onready var level_description_edit = $VBoxContainer/LevelDescriptionEdit
-@onready var difficulty_spinbox = $VBoxContainer/HBoxContainer/DifficultySpinBox
-@onready var red_button = $VBoxContainer/HBoxContainer2/CreatureTypeButtons/RedButton
-@onready var blue_button = $VBoxContainer/HBoxContainer2/CreatureTypeButtons/BlueButton
-@onready var green_button = $VBoxContainer/HBoxContainer2/CreatureTypeButtons/GreenButton
-@onready var purple_button = $VBoxContainer/HBoxContainer2/CreatureTypeButtons/PurpleButton
+@onready var _mode_option: OptionButton = $Root/TopBar/ModeOption
+@onready var _monster_hp_spin: SpinBox = $Root/TopBar/MonsterHpSpin
+@onready var _obstacle_hp_spin: SpinBox = $Root/TopBar/ObstacleHpSpin
+@onready var _spawn_delay_spin: SpinBox = $Root/TopBar/SpawnDelaySpin
+@onready var _spawn_count_spin: SpinBox = $Root/TopBar/SpawnCountSpin
+@onready var _moves_spin: SpinBox = $Root/TopBar/MovesSpin
+@onready var _grid: GridContainer = $Root/Main/GridPanel/Grid
+@onready var _status_label: Label = $Root/Main/Sidebar/StatusLabel
+@onready var _entities_list: ItemList = $Root/Main/Sidebar/EntitiesList
 
-const CHIP_TEXTURES := [
-	preload("res://textures/Сhip_Base_Red.png"),
-	preload("res://textures/Сhip_Base_Blue.png"),
-	preload("res://textures/Сhip_Base_Green.png"),
-	preload("res://textures/Сhip_Base_White.png")
-]
+func _ready() -> void:
+	_init_mode_controls()
+	_build_grid()
+	_connect_buttons()
+	_refresh_ui()
 
-# Текущий выбранный тип фишки
-var selected_creature_type = 1
-
-func _ready():
-	# Инициализируем сетку
-	initialize_grid()
-	
-	# Подключаем сигналы
-	save_button.pressed.connect(_on_save_button_pressed)
-	load_button.pressed.connect(_on_load_button_pressed)
-	level_name_edit.text_changed.connect(_on_level_name_changed)
-	level_description_edit.text_changed.connect(_on_level_description_changed)
-	difficulty_spinbox.value_changed.connect(_on_difficulty_changed)
-	
-	# Подключаем сигналы кнопок выбора типа фишки
-	red_button.pressed.connect(_on_creature_type_selected.bind(1))
-	blue_button.pressed.connect(_on_creature_type_selected.bind(2))
-	green_button.pressed.connect(_on_creature_type_selected.bind(3))
-	purple_button.pressed.connect(_on_creature_type_selected.bind(4))
-	
-	# Выделяем красную фишку по умолчанию
-	update_creature_type_buttons()
-
-func initialize_grid():
-	# Создаем пустую сетку
-	current_level_data.grid = []
-	for y in range(ROWS):
-		var row = []
-		for x in range(COLS):
-			row.append(null)
-		current_level_data.grid.append(row)
-	
-	# Создаем визуальные ячейки
-	for y in range(ROWS):
-		for x in range(COLS):
-			var cell = ColorRect.new()
-			cell.size = Vector2(CELL_SIZE, CELL_SIZE)
-			cell.color = Color(0.2, 0.2, 0.2, 1.0) if (x + y) % 2 == 0 else Color(0.3, 0.3, 0.3, 1.0)
-			cell.gui_input.connect(_on_cell_gui_input.bind(x, y))
-			grid_container.add_child(cell)
-
-func _on_cell_gui_input(event: InputEvent, x: int, y: int):
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		# Размещаем или удаляем фишку
-		if current_level_data.grid[y][x] == null:
-			# Создаем новую фишку
-			var creature = create_creature(selected_creature_type)
-			current_level_data.grid[y][x] = {
-				"type": selected_creature_type,
-				"level": 1
-			}
-			grid_container.get_child(y * COLS + x).add_child(creature)
-		else:
-			# Удаляем существующую фишку
-			var cell = grid_container.get_child(y * COLS + x)
-			for child in cell.get_children():
-				child.queue_free()
-			current_level_data.grid[y][x] = null
-
-func create_creature(type: int) -> Control:
-	var creature = TextureRect.new()
-	creature.size = Vector2(CELL_SIZE, CELL_SIZE)
-	creature.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	
-	if type >= 1 and type <= CHIP_TEXTURES.size():
-		creature.texture = CHIP_TEXTURES[type - 1]
-	
-	return creature
-
-func _on_save_button_pressed():
-	var save_dialog = FileDialog.new()
-	save_dialog.title = "Сохранить уровень"
-	save_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
-	save_dialog.add_filter("*.json", "JSON файлы")
-	add_child(save_dialog)
-	
-	save_dialog.file_selected.connect(func(path: String):
-		var file = FileAccess.open(path, FileAccess.WRITE)
-		if file:
-			file.store_string(JSON.stringify(current_level_data))
-			file.close()
-			print("Уровень сохранен в: ", path)
-		save_dialog.queue_free()
+func _init_mode_controls() -> void:
+	_mode_option.clear()
+	_mode_option.add_item("Стартовый монстр")
+	_mode_option.add_item("Отложенный монстр")
+	_mode_option.add_item("Препятствие")
+	_mode_option.add_item("Ластик")
+	_mode_option.item_selected.connect(func(i: int):
+		_brush_mode = BrushMode(i)
+		_refresh_ui()
 	)
-	
-	save_dialog.popup_centered()
 
-func _on_load_button_pressed():
-	var load_dialog = FileDialog.new()
-	load_dialog.title = "Загрузить уровень"
-	load_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
-	load_dialog.add_filter("*.json", "JSON файлы")
-	add_child(load_dialog)
-	
-	load_dialog.file_selected.connect(func(path: String):
-		var file = FileAccess.open(path, FileAccess.READ)
-		if file:
-			var json = JSON.parse_string(file.get_as_text())
-			if json:
-				current_level_data = json
-				update_grid_visuals()
-				print("Уровень загружен из: ", path)
-			file.close()
-		load_dialog.queue_free()
-	)
-	
-	load_dialog.popup_centered()
+	_monster_hp_spin.value_changed.connect(func(v: float): _selected_hp = max(1, int(v)))
+	_obstacle_hp_spin.value_changed.connect(func(v: float): _selected_obstacle_hp = max(1, int(v)))
+	_spawn_delay_spin.value_changed.connect(func(v: float): _selected_spawn_delay = max(0, int(v)))
+	_spawn_count_spin.value_changed.connect(func(v: float): _selected_spawn_count = max(1, int(v)))
+	_moves_spin.value_changed.connect(func(v: float): _level_data["moves"] = max(1, int(v)))
 
-func update_grid_visuals():
-	# Очищаем текущую сетку
-	for cell in grid_container.get_children():
-		for child in cell.get_children():
-			child.queue_free()
-	
-	# Обновляем визуальное отображение
-	for y in range(ROWS):
+func _build_grid() -> void:
+	for c in _grid.get_children():
+		c.queue_free()
+	_grid.columns = COLS
+	for y in range(ENEMY_ROWS):
 		for x in range(COLS):
-			var cell_data = current_level_data.grid[y][x]
-			if cell_data != null:
-				var creature = create_creature(cell_data.type)
-				grid_container.get_child(y * COLS + x).add_child(creature)
+			var btn := Button.new()
+			btn.custom_minimum_size = Vector2(74, 44)
+			btn.focus_mode = Control.FOCUS_NONE
+			btn.pressed.connect(_on_cell_pressed.bind(x, y))
+			_grid.add_child(btn)
 
-func _on_level_name_changed(new_text: String):
-	current_level_data.name = new_text
+func _connect_buttons() -> void:
+	$Root/Header/NewButton.pressed.connect(_on_new_pressed)
+	$Root/Header/LoadButton.pressed.connect(_on_load_pressed)
+	$Root/Header/SaveButton.pressed.connect(_on_save_pressed)
+	$Root/Header/SaveAsButton.pressed.connect(_on_save_as_pressed)
+	$Root/Header/TestButton.pressed.connect(_on_test_pressed)
+	$Root/Header/BackButton.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
 
-func _on_level_description_changed(new_text: String):
-	current_level_data.description = new_text
+func _on_cell_pressed(x: int, y: int) -> void:
+	match _brush_mode:
+		BrushMode.START_MONSTER:
+			_erase_cell(x, y)
+			_level_data["start_monsters"].append({"x": x, "y": y, "hp": _selected_hp})
+		BrushMode.SCHEDULED_MONSTER:
+			_erase_cell(x, y, false)
+			_level_data["scheduled_spawns"].append({
+				"x": x,
+				"y": y,
+				"hp": _selected_hp,
+				"count": _selected_spawn_count,
+				"spawn_after_player_turns": _selected_spawn_delay
+			})
+		BrushMode.OBSTACLE:
+			_erase_obstacle(x, y)
+			_level_data["obstacles"].append({"x": x, "y": y, "hp": _selected_obstacle_hp})
+		BrushMode.ERASE:
+			_erase_cell(x, y)
+	_refresh_ui()
 
-func _on_difficulty_changed(value: float):
-	current_level_data.difficulty = int(value)
+func _erase_cell(x: int, y: int, erase_scheduled: bool = true) -> void:
+	var next_start := []
+	for m in _level_data["start_monsters"]:
+		if int(m.get("x", -1)) == x and int(m.get("y", -1)) == y:
+			continue
+		next_start.append(m)
+	_level_data["start_monsters"] = next_start
 
-func _on_creature_type_selected(type: int):
-	selected_creature_type = type
-	update_creature_type_buttons()
+	if erase_scheduled:
+		var next_sched := []
+		for s in _level_data["scheduled_spawns"]:
+			if int(s.get("x", -1)) == x and int(s.get("y", -1)) == y:
+				continue
+			next_sched.append(s)
+		_level_data["scheduled_spawns"] = next_sched
 
-func update_creature_type_buttons():
-	# Сбрасываем все кнопки
-	red_button.modulate = Color.WHITE
-	blue_button.modulate = Color.WHITE
-	green_button.modulate = Color.WHITE
-	purple_button.modulate = Color.WHITE
-	
-	# Выделяем выбранную кнопку
-	match selected_creature_type:
-		1: red_button.modulate = Color(1.5, 1.5, 1.5)
-		2: blue_button.modulate = Color(1.5, 1.5, 1.5)
-		3: green_button.modulate = Color(1.5, 1.5, 1.5)
-		4: purple_button.modulate = Color(1.5, 1.5, 1.5) 
+	_erase_obstacle(x, y)
+
+func _erase_obstacle(x: int, y: int) -> void:
+	var next_obs := []
+	for o in _level_data["obstacles"]:
+		if int(o.get("x", -1)) == x and int(o.get("y", -1)) == y:
+			continue
+		next_obs.append(o)
+	_level_data["obstacles"] = next_obs
+
+func _refresh_ui() -> void:
+	_mode_option.select(int(_brush_mode))
+	_status_label.text = "Режим: %s | Файл: %s" % [_mode_option.get_item_text(_mode_option.selected), (_current_file_path if _current_file_path != "" else "новый уровень")]
+	_entities_list.clear()
+
+	for y in range(ENEMY_ROWS):
+		for x in range(COLS):
+			var btn: Button = _grid.get_child(y * COLS + x)
+			btn.text = ""
+			btn.modulate = Color.WHITE
+			btn.tooltip_text = "x=%d y=%d" % [x, y]
+
+	var start_index := {}
+	for m in _level_data["start_monsters"]:
+		var x = int(m.get("x", -1))
+		var y = int(m.get("y", -1))
+		var hp = int(m.get("hp", 1))
+		if x < 0 or x >= COLS or y < 0 or y >= ENEMY_ROWS:
+			continue
+		var idx = y * COLS + x
+		start_index["%d:%d" % [x, y]] = true
+		var cell: Button = _grid.get_child(idx)
+		cell.text = "M%d" % hp
+		cell.modulate = Color(1, 1, 1, 1)
+		_entities_list.add_item("Старт: hp=%d @ (%d,%d)" % [hp, x, y])
+
+	for s in _level_data["scheduled_spawns"]:
+		var x = int(s.get("x", -1))
+		var y = int(s.get("y", -1))
+		var hp = int(s.get("hp", 1))
+		var delay = int(s.get("spawn_after_player_turns", 0))
+		var count = int(s.get("count", 1))
+		if x < 0 or x >= COLS or y < 0 or y >= ENEMY_ROWS:
+			continue
+		var idx = y * COLS + x
+		var cell: Button = _grid.get_child(idx)
+		if not start_index.has("%d:%d" % [x, y]):
+			cell.text = "q%d" % hp
+			cell.modulate = Color(1, 1, 1, 0.5)
+		_entities_list.add_item("Очередь: hp=%d x%d через %d ходов @ (%d,%d)" % [hp, count, delay, x, y])
+
+	for o in _level_data["obstacles"]:
+		var x = int(o.get("x", -1))
+		var y = int(o.get("y", -1))
+		var hp = int(o.get("hp", 1))
+		if x < 0 or x >= COLS or y < 0 or y >= ENEMY_ROWS:
+			continue
+		var idx = y * COLS + x
+		var cell: Button = _grid.get_child(idx)
+		cell.text = "O%d" % hp
+		cell.modulate = Color(0.9, 0.7, 0.4, 1)
+		_entities_list.add_item("Препятствие: hp=%d @ (%d,%d)" % [hp, x, y])
+
+func _on_new_pressed() -> void:
+	_current_file_path = ""
+	_level_data = {
+		"cols": COLS,
+		"rows": 16,
+		"enemy_rows": ENEMY_ROWS,
+		"moves": 20,
+		"start_monsters": [],
+		"scheduled_spawns": [],
+		"obstacles": [],
+		"seed": int(Time.get_unix_time_from_system())
+	}
+	_moves_spin.value = _level_data["moves"]
+	_refresh_ui()
+
+func _on_load_pressed() -> void:
+	var dlg := FileDialog.new()
+	dlg.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	dlg.add_filter("*.json", "JSON level")
+	dlg.file_selected.connect(func(path: String):
+		var f = FileAccess.open(path, FileAccess.READ)
+		if not f:
+			return
+		var data = JSON.parse_string(f.get_as_text())
+		f.close()
+		if typeof(data) == TYPE_DICTIONARY:
+			_level_data = data
+			_level_data["start_monsters"] = _level_data.get("start_monsters", [])
+			_level_data["scheduled_spawns"] = _level_data.get("scheduled_spawns", [])
+			_level_data["obstacles"] = _level_data.get("obstacles", [])
+			_level_data["moves"] = int(_level_data.get("moves", 20))
+			_current_file_path = path
+			_moves_spin.value = _level_data["moves"]
+			_refresh_ui()
+		dlg.queue_free()
+	)
+	add_child(dlg)
+	dlg.popup_centered_ratio(0.8)
+
+func _on_save_pressed() -> void:
+	if _current_file_path == "":
+		_on_save_as_pressed()
+		return
+	_save_to_path(_current_file_path)
+
+func _on_save_as_pressed() -> void:
+	var dlg := FileDialog.new()
+	dlg.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	dlg.add_filter("*.json", "JSON level")
+	dlg.file_selected.connect(func(path: String):
+		_current_file_path = path
+		_save_to_path(path)
+		dlg.queue_free()
+	)
+	add_child(dlg)
+	dlg.popup_centered_ratio(0.8)
+
+func _save_to_path(path: String) -> void:
+	var f = FileAccess.open(path, FileAccess.WRITE)
+	if not f:
+		return
+	f.store_string(JSON.stringify(_level_data, "\t"))
+	f.close()
+	_refresh_ui()
+
+func _on_test_pressed() -> void:
+	var temp_path = "user://editor_preview_level.json"
+	_save_to_path(temp_path)
+	LevelManager.set_editor_level_override(temp_path)
+	LevelManager.set_current_level(1)
+	get_tree().change_scene_to_file("res://scenes/game_board.tscn")
