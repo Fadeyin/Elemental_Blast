@@ -32,16 +32,16 @@ var _entity_refs := []
 var _pending_level_switch: int = -1
 
 @onready var _level_spin: SpinBox = $Root/TopActions/LevelSpin
-@onready var _mode_option: OptionButton = $Root/Tools/ModeOption
-@onready var _monster_hp_spin: SpinBox = $Root/Tools/MonsterHpSpin
-@onready var _obstacle_hp_spin: SpinBox = $Root/Tools/ObstacleHpSpin
-@onready var _spawn_delay_spin: SpinBox = $Root/Tools/SpawnDelaySpin
-@onready var _spawn_count_spin: SpinBox = $Root/Tools/SpawnCountSpin
-@onready var _moves_spin: SpinBox = $Root/Tools/MovesSpin
-@onready var _obstacle_type_option: OptionButton = $Root/Tools/ObstacleTypeOption
-@onready var _spawn_on_break_check: CheckBox = $Root/Tools/SpawnOnBreakCheck
-@onready var _spawn_on_break_hp_spin: SpinBox = $Root/Tools/SpawnOnBreakHpSpin
-@onready var _spawn_on_break_count_spin: SpinBox = $Root/Tools/SpawnOnBreakCountSpin
+@onready var _mode_option: OptionButton = $Root/ToolsScroll/Tools/ModeOption
+@onready var _monster_hp_spin: SpinBox = $Root/ToolsScroll/Tools/MonsterHpSpin
+@onready var _obstacle_hp_spin: SpinBox = $Root/ToolsScroll/Tools/ObstacleHpSpin
+@onready var _spawn_delay_spin: SpinBox = $Root/ToolsScroll/Tools/SpawnDelaySpin
+@onready var _spawn_count_spin: SpinBox = $Root/ToolsScroll/Tools/SpawnCountSpin
+@onready var _moves_spin: SpinBox = $Root/ToolsScroll/Tools/MovesSpin
+@onready var _obstacle_type_option: OptionButton = $Root/ToolsScroll/Tools/ObstacleTypeOption
+@onready var _spawn_on_break_check: CheckBox = $Root/ToolsScroll/Tools/SpawnOnBreakCheck
+@onready var _spawn_on_break_hp_spin: SpinBox = $Root/ToolsScroll/Tools/SpawnOnBreakHpSpin
+@onready var _spawn_on_break_count_spin: SpinBox = $Root/ToolsScroll/Tools/SpawnOnBreakCountSpin
 @onready var _grid: GridContainer = $Root/CenterPanel/CenterWrap/GridWrap/Grid
 @onready var _status_label: Label = $Root/BottomPanel/StatusLabel
 @onready var _counts_label: Label = $Root/BottomPanel/CountsLabel
@@ -101,6 +101,31 @@ func _init_controls() -> void:
 
 	_level_spin.min_value = 1
 	_level_spin.max_value = 999
+
+	for c in [
+		$Root/TopActions/NewButton,
+		$Root/TopActions/PrevLevelButton,
+		$Root/TopActions/GoToLevelButton,
+		$Root/TopActions/NextLevelButton,
+		$Root/TopActions/LoadButton,
+		$Root/TopActions/SaveButton,
+		$Root/TopActions/TestButton,
+		$Root/TopActions/BackButton,
+		_mode_option,
+		_monster_hp_spin,
+		_obstacle_hp_spin,
+		_spawn_delay_spin,
+		_spawn_count_spin,
+		_moves_spin,
+		_obstacle_type_option,
+		_spawn_on_break_check,
+		_spawn_on_break_hp_spin,
+		_spawn_on_break_count_spin
+	]:
+		if c is Control:
+			c.add_theme_font_size_override("font_size", 14)
+			if c is BaseButton:
+				c.custom_minimum_size.y = 34
 
 	_confirm_switch.dialog_text = "Сохранить текущий уровень перед переходом?"
 	_confirm_switch.get_ok_button().text = "Сохранить и перейти"

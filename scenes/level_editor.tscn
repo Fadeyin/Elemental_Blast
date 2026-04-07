@@ -65,15 +65,21 @@ text = "Тестовый запуск"
 layout_mode = 2
 text = "В меню"
 
-[node name="Tools" type="GridContainer" parent="Root"]
+[node name="ToolsScroll" type="ScrollContainer" parent="Root"]
+custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
+horizontal_scroll_mode = 1
+vertical_scroll_mode = 0
+
+[node name="Tools" type="GridContainer" parent="Root/ToolsScroll"]
 layout_mode = 2
 columns = 4
 
-[node name="ModeOption" type="OptionButton" parent="Root/Tools"]
+[node name="ModeOption" type="OptionButton" parent="Root/ToolsScroll/Tools"]
 custom_minimum_size = Vector2(170, 0)
 layout_mode = 2
 
-[node name="MonsterHpSpin" type="SpinBox" parent="Root/Tools"]
+[node name="MonsterHpSpin" type="SpinBox" parent="Root/ToolsScroll/Tools"]
 custom_minimum_size = Vector2(130, 0)
 layout_mode = 2
 min_value = 1.0
@@ -81,7 +87,7 @@ max_value = 9.0
 value = 1.0
 prefix = "HP M:"
 
-[node name="ObstacleHpSpin" type="SpinBox" parent="Root/Tools"]
+[node name="ObstacleHpSpin" type="SpinBox" parent="Root/ToolsScroll/Tools"]
 custom_minimum_size = Vector2(130, 0)
 layout_mode = 2
 min_value = 1.0
@@ -89,14 +95,14 @@ max_value = 9.0
 value = 2.0
 prefix = "HP O:"
 
-[node name="SpawnDelaySpin" type="SpinBox" parent="Root/Tools"]
+[node name="SpawnDelaySpin" type="SpinBox" parent="Root/ToolsScroll/Tools"]
 custom_minimum_size = Vector2(160, 0)
 layout_mode = 2
 max_value = 50.0
 value = 1.0
 prefix = "Через ходов:"
 
-[node name="SpawnCountSpin" type="SpinBox" parent="Root/Tools"]
+[node name="SpawnCountSpin" type="SpinBox" parent="Root/ToolsScroll/Tools"]
 custom_minimum_size = Vector2(140, 0)
 layout_mode = 2
 min_value = 1.0
@@ -104,7 +110,7 @@ max_value = 20.0
 value = 1.0
 prefix = "Кол-во:"
 
-[node name="MovesSpin" type="SpinBox" parent="Root/Tools"]
+[node name="MovesSpin" type="SpinBox" parent="Root/ToolsScroll/Tools"]
 custom_minimum_size = Vector2(140, 0)
 layout_mode = 2
 min_value = 1.0
@@ -112,15 +118,15 @@ max_value = 99.0
 value = 20.0
 prefix = "Ходы:"
 
-[node name="ObstacleTypeOption" type="OptionButton" parent="Root/Tools"]
+[node name="ObstacleTypeOption" type="OptionButton" parent="Root/ToolsScroll/Tools"]
 custom_minimum_size = Vector2(170, 0)
 layout_mode = 2
 
-[node name="SpawnOnBreakCheck" type="CheckBox" parent="Root/Tools"]
+[node name="SpawnOnBreakCheck" type="CheckBox" parent="Root/ToolsScroll/Tools"]
 layout_mode = 2
 text = "Монстр после разруш."
 
-[node name="SpawnOnBreakHpSpin" type="SpinBox" parent="Root/Tools"]
+[node name="SpawnOnBreakHpSpin" type="SpinBox" parent="Root/ToolsScroll/Tools"]
 custom_minimum_size = Vector2(130, 0)
 layout_mode = 2
 min_value = 1.0
@@ -128,7 +134,7 @@ max_value = 9.0
 value = 1.0
 prefix = "HP:"
 
-[node name="SpawnOnBreakCountSpin" type="SpinBox" parent="Root/Tools"]
+[node name="SpawnOnBreakCountSpin" type="SpinBox" parent="Root/ToolsScroll/Tools"]
 custom_minimum_size = Vector2(130, 0)
 layout_mode = 2
 min_value = 1.0
