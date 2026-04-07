@@ -254,6 +254,28 @@ func _normalize_level_config(data: Dictionary, level: int) -> Dictionary:
 			})
 	out["start_monsters"] = normalized_start
 
+	var normalized_obstacles := []
+	if out.has("obstacles") and typeof(out.obstacles) == TYPE_ARRAY:
+		for item in out.obstacles:
+			if typeof(item) != TYPE_DICTIONARY:
+				continue
+			var o_type = str(item.get("type", "breakable"))
+			var obstacle_data = {
+				"x": int(item.get("x", 0)),
+				"y": int(item.get("y", 0)),
+				"type": ("wall" if o_type == "wall" else "breakable")
+			}
+			if obstacle_data["type"] == "breakable":
+				obstacle_data["hp"] = max(1, int(item.get("hp", 1)))
+			if item.has("spawn_on_destroy") and typeof(item.spawn_on_destroy) == TYPE_DICTIONARY:
+				var sp = item.spawn_on_destroy
+				obstacle_data["spawn_on_destroy"] = {
+					"hp": max(1, int(sp.get("hp", 1))),
+					"count": max(1, int(sp.get("count", 1)))
+				}
+			normalized_obstacles.append(obstacle_data)
+	out["obstacles"] = normalized_obstacles
+
 	return out
 
 func _emit_start():

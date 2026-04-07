@@ -20,66 +20,114 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 8
 
-[node name="Header" type="HBoxContainer" parent="Root"]
+[node name="TopActions" type="HBoxContainer" parent="Root"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="NewButton" type="Button" parent="Root/Header"]
+[node name="NewButton" type="Button" parent="Root/TopActions"]
 layout_mode = 2
 text = "Новый"
 
-[node name="LoadButton" type="Button" parent="Root/Header"]
+[node name="PrevLevelButton" type="Button" parent="Root/TopActions"]
+layout_mode = 2
+text = "<"
+
+[node name="LevelSpin" type="SpinBox" parent="Root/TopActions"]
+custom_minimum_size = Vector2(110, 0)
+layout_mode = 2
+min_value = 1.0
+max_value = 999.0
+value = 1.0
+prefix = "Lvl:"
+
+[node name="GoToLevelButton" type="Button" parent="Root/TopActions"]
+layout_mode = 2
+text = "Открыть"
+
+[node name="NextLevelButton" type="Button" parent="Root/TopActions"]
+layout_mode = 2
+text = ">"
+
+[node name="LoadButton" type="Button" parent="Root/TopActions"]
 layout_mode = 2
 text = "Загрузить"
 
-[node name="SaveButton" type="Button" parent="Root/Header"]
+[node name="SaveButton" type="Button" parent="Root/TopActions"]
 layout_mode = 2
 text = "Сохранить"
 
-[node name="SaveAsButton" type="Button" parent="Root/Header"]
-layout_mode = 2
-text = "Сохранить как"
-
-[node name="TestButton" type="Button" parent="Root/Header"]
+[node name="TestButton" type="Button" parent="Root/TopActions"]
 layout_mode = 2
 text = "Тестовый запуск"
 
-[node name="BackButton" type="Button" parent="Root/Header"]
+[node name="BackButton" type="Button" parent="Root/TopActions"]
 layout_mode = 2
 text = "В меню"
 
-[node name="TopBar" type="HBoxContainer" parent="Root"]
+[node name="Tools" type="GridContainer" parent="Root"]
 layout_mode = 2
-theme_override_constants/separation = 8
+columns = 5
 
-[node name="ModeOption" type="OptionButton" parent="Root/TopBar"]
-custom_minimum_size = Vector2(220, 0)
+[node name="ModeOption" type="OptionButton" parent="Root/Tools"]
+custom_minimum_size = Vector2(170, 0)
 layout_mode = 2
 
-[node name="MonsterHpSpin" type="SpinBox" parent="Root/TopBar"]
-custom_minimum_size = Vector2(120, 0)
+[node name="MonsterHpSpin" type="SpinBox" parent="Root/Tools"]
+custom_minimum_size = Vector2(130, 0)
 layout_mode = 2
 min_value = 1.0
 max_value = 9.0
 value = 1.0
 prefix = "HP M:"
 
-[node name="ObstacleHpSpin" type="SpinBox" parent="Root/TopBar"]
-custom_minimum_size = Vector2(120, 0)
+[node name="ObstacleHpSpin" type="SpinBox" parent="Root/Tools"]
+custom_minimum_size = Vector2(130, 0)
 layout_mode = 2
 min_value = 1.0
 max_value = 9.0
 value = 2.0
 prefix = "HP O:"
 
-[node name="SpawnDelaySpin" type="SpinBox" parent="Root/TopBar"]
-custom_minimum_size = Vector2(180, 0)
+[node name="SpawnDelaySpin" type="SpinBox" parent="Root/Tools"]
+custom_minimum_size = Vector2(160, 0)
 layout_mode = 2
 max_value = 50.0
 value = 1.0
 prefix = "Через ходов:"
 
-[node name="SpawnCountSpin" type="SpinBox" parent="Root/TopBar"]
+[node name="SpawnCountSpin" type="SpinBox" parent="Root/Tools"]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+min_value = 1.0
+max_value = 20.0
+value = 1.0
+prefix = "Кол-во:"
+
+[node name="MovesSpin" type="SpinBox" parent="Root/Tools"]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+min_value = 1.0
+max_value = 99.0
+value = 20.0
+prefix = "Ходы:"
+
+[node name="ObstacleTypeOption" type="OptionButton" parent="Root/Tools"]
+custom_minimum_size = Vector2(170, 0)
+layout_mode = 2
+
+[node name="SpawnOnBreakCheck" type="CheckBox" parent="Root/Tools"]
+layout_mode = 2
+text = "Монстр после разруш."
+
+[node name="SpawnOnBreakHpSpin" type="SpinBox" parent="Root/Tools"]
+custom_minimum_size = Vector2(130, 0)
+layout_mode = 2
+min_value = 1.0
+max_value = 9.0
+value = 1.0
+prefix = "HP:"
+
+[node name="SpawnOnBreakCountSpin" type="SpinBox" parent="Root/Tools"]
 custom_minimum_size = Vector2(130, 0)
 layout_mode = 2
 min_value = 1.0
@@ -87,36 +135,50 @@ max_value = 20.0
 value = 1.0
 prefix = "Кол-во:"
 
-[node name="MovesSpin" type="SpinBox" parent="Root/TopBar"]
-custom_minimum_size = Vector2(120, 0)
-layout_mode = 2
-min_value = 1.0
-max_value = 99.0
-value = 20.0
-prefix = "Ходы:"
-
-[node name="Main" type="HSplitContainer" parent="Root"]
+[node name="CenterPanel" type="PanelContainer" parent="Root"]
 layout_mode = 2
 size_flags_vertical = 3
-split_offset = 650
 
-[node name="GridPanel" type="PanelContainer" parent="Root/Main"]
+[node name="CenterWrap" type="CenterContainer" parent="Root/CenterPanel"]
 layout_mode = 2
 
-[node name="Grid" type="GridContainer" parent="Root/Main/GridPanel"]
+[node name="GridWrap" type="PanelContainer" parent="Root/CenterPanel/CenterWrap"]
+layout_mode = 2
+
+[node name="Grid" type="GridContainer" parent="Root/CenterPanel/CenterWrap/GridWrap"]
 layout_mode = 2
 theme_override_constants/h_separation = 4
 theme_override_constants/v_separation = 4
 columns = 8
 
-[node name="Sidebar" type="VBoxContainer" parent="Root/Main"]
+[node name="BottomPanel" type="VBoxContainer" parent="Root"]
 layout_mode = 2
+custom_minimum_size = Vector2(0, 230)
 theme_override_constants/separation = 8
 
-[node name="StatusLabel" type="Label" parent="Root/Main/Sidebar"]
+[node name="StatusLabel" type="Label" parent="Root/BottomPanel"]
 layout_mode = 2
 text = "Статус"
 
-[node name="EntitiesList" type="ItemList" parent="Root/Main/Sidebar"]
+[node name="CountsLabel" type="Label" parent="Root/BottomPanel"]
+layout_mode = 2
+text = "Счетчики"
+
+[node name="OnlySelectedCheck" type="CheckBox" parent="Root/BottomPanel"]
+layout_mode = 2
+text = "Показывать только выбранную ячейку"
+
+[node name="SelectedCellLabel" type="Label" parent="Root/BottomPanel"]
+layout_mode = 2
+text = "Выбрана ячейка: (0,0)"
+
+[node name="EntitiesList" type="ItemList" parent="Root/BottomPanel"]
 layout_mode = 2
 size_flags_vertical = 3
+
+[node name="DeleteSelectedEntityButton" type="Button" parent="Root/BottomPanel"]
+layout_mode = 2
+text = "Удалить выбранную запись"
+
+[node name="ConfirmSwitchDialog" type="ConfirmationDialog" parent="."]
+title = "Переход к уровню"

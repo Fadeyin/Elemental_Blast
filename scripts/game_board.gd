@@ -76,6 +76,8 @@ var _use_scheduled_spawns: bool = false
 var _player_turn_counter: int = 0
 var obstacles := [] # 2D массив здоровья препятствий (y: 0..ENEMY_ROWS-1)
 var obstacles_initial_hp := [] # Исходный HP препятствий
+var obstacles_unbreakable := [] # 2D массив неразрушаемых препятствий
+var _obstacle_spawn_on_destroy := {} # "x:y" -> {hp:int,count:int}
 var _projectiles := [] # [{x:int, start_y:float, end_y:float, t:float, d:float, delay:float, color:Color, hit_applied:bool, has_target:bool}]
 var _active_anims := [] # [{x:int, start_y:int, end_y:int, color:int, t:float, d:float}]
 var _enemy_death_anims := [] # [{x:int, y:int, t:float, d:float, hp:int, init:int, id:int}]
@@ -88,6 +90,8 @@ var _enemy_attack_warn_time_left: float = 0.0
 var _cached_enemy_moves: Array = []
 var _cached_mixed_breach_priority: bool = false
 var _enemy_move_anims := [] # [{fx:int,fy:int,tx:int,ty:int,hp:int,init:int,t:float,d:float}]
+var _moves_total: int = 20
+var _moves_left: int = 20
 
 var _needs_ui_update: bool = false
 const COINS_PER_REMAINING_BONUS_CHIP := 10
@@ -148,6 +152,7 @@ func _ready():
 	_init_chips()
 	_init_obstacles_from_config(cfg)
 	_init_enemies_from_config(cfg)
+	_init_moves_from_config(cfg)
 	_init_column_hearts()
 	_init_ui()
 	_update_ui()
@@ -810,25 +815,41 @@ func _increment_level_target_for_init_hp(init_hp: int) -> void:
 func _init_obstacles_from_config(cfg: Dictionary):
 	obstacles.clear()
 	obstacles_initial_hp.clear()
+	obstacles_unbreakable.clear()
+	_obstacle_spawn_on_destroy.clear()
 	
 	for y in range(ENEMY_ROWS):
 		var row := []
 		var row_init := []
+		var row_wall := []
 		for x in range(COLS):
 			row.append(0)
 			row_init.append(0)
+			row_wall.append(false)
 		obstacles.append(row)
 		obstacles_initial_hp.append(row_init)
+		obstacles_unbreakable.append(row_wall)
 	
 	if cfg.has("obstacles") and typeof(cfg.obstacles) == TYPE_ARRAY:
 		for obs in cfg.obstacles:
-			if typeof(obs) == TYPE_DICTIONARY and obs.has("x") and obs.has("y") and obs.has("hp"):
+			if typeof(obs) == TYPE_DICTIONARY and obs.has("x") and obs.has("y"):
 				var ox = int(obs.x)
 				var oy = int(obs.y)
-				var hp = int(obs.hp)
 				if oy >= 0 and oy < ENEMY_ROWS and ox >= 0 and ox < COLS:
-					obstacles[oy][ox] = hp
-					obstacles_initial_hp[oy][ox] = hp
+					var o_type = str(obs.get("type", "breakable"))
+					if o_type == "wall":
+						obstacles[oy][ox] = 1
+						obstacles_initial_hp[oy][ox] = 1
+						obstacles_unbreakable[oy][ox] = true
+					else:
+						var hp = max(1, int(obs.get("hp", 1)))
+						obstacles[oy][ox] = hp
+						obstacles_initial_hp[oy][ox] = hp
+					if obs.has("spawn_on_destroy") and typeof(obs.spawn_on_destroy) == TYPE_DICTIONARY:
+						var sp = obs.spawn_on_destroy
+						var shp = max(1, int(sp.get("hp", 1)))
+						var scnt = max(1, int(sp.get("count", 1)))
+						_obstacle_spawn_on_destroy["%d:%d" % [ox, oy]] = {"hp": shp, "count": scnt}
 
 func _count_column_hearts_remaining() -> int:
 	var n = 0
@@ -1169,7 +1190,7 @@ func _draw():
 					origin.y + float(y) * ENEMY_CELL_HEIGHT
 				)
 				var obs_size = Vector2(CELL_SIZE, ENEMY_CELL_HEIGHT)
-				_draw_obstacle(obs_top_left, obs_size, obstacles[y][x], obstacles_initial_hp[y][x])
+				_draw_obstacle(obs_top_left, obs_size, obstacles[y][x], obstacles_initial_hp[y][x], obstacles_unbreakable[y][x])
 	
 	# Отрисовываем всех монстров в правильном порядке
 	var e_chip_size = Vector2(CELL_SIZE * CHIP_SIZE_FACTOR, CELL_SIZE * CHIP_SIZE_FACTOR)
@@ -1694,7 +1715,20 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 	
 	_draw_monster_health_bar(anim_top_left, anim_size.x, hp, initial_hp, alpha)
 
-func _draw_obstacle(top_left: Vector2, size: Vector2, hp: int, max_hp: int):
+func _draw_obstacle(top_left: Vector2, size: Vector2, hp: int, max_hp: int, is_unbreakable: bool = false):
+	if is_unbreakable:
+		var wall_base = Color(0.36, 0.38, 0.45, 1.0)
+		var wall_edge = Color(0.2, 0.22, 0.3, 1.0)
+		draw_rect(Rect2(top_left + Vector2(2, 2), size - Vector2(4, 4)), Color(0, 0, 0, 0.35))
+		draw_rect(Rect2(top_left, size), wall_base)
+		draw_line(top_left, top_left + Vector2(size.x, 0), wall_edge, 3.0)
+		draw_line(top_left, top_left + Vector2(0, size.y), wall_edge, 3.0)
+		draw_line(top_left + Vector2(size.x, 0), top_left + size, wall_edge, 3.0)
+		draw_line(top_left + Vector2(0, size.y), top_left + size, wall_edge, 3.0)
+		draw_line(top_left + Vector2(4, 4), top_left + size - Vector2(4, 4), Color(1, 1, 1, 0.18), 2.0)
+		draw_line(Vector2(top_left.x + size.x - 4, top_left.y + 4), Vector2(top_left.x + 4, top_left.y + size.y - 4), Color(1, 1, 1, 0.18), 2.0)
+		return
+
 	var base_color = OBSTACLE_COLOR
 	var edge_color = OBSTACLE_EDGE_COLOR
 	
@@ -1844,21 +1878,38 @@ func _process(delta: float) -> void:
 				if ty >= 0 and ty < ENEMY_ROWS and enemies.size() > ty and enemies[ty].size() > tx:
 					# Проверяем препятствие
 					if obstacles[ty][tx] > 0:
-						obstacles[ty][tx] -= 1
-						if obstacles[ty][tx] <= 0:
-							obstacles[ty][tx] = 0
-							obstacles_initial_hp[ty][tx] = 0
-							# VFX разрушения препятствия
-							var vp_size = get_viewport_rect().size
-							var origin = _grid_origin(vp_size)
-							var obs_center = origin + Vector2(float(tx) * CELL_SIZE + CELL_SIZE * 0.5, float(ty) * ENEMY_CELL_HEIGHT + ENEMY_CELL_HEIGHT * 0.5)
-							_board_vfx.append({
-								"type": "explosion",
-								"pos": obs_center,
-								"color": OBSTACLE_COLOR,
-								"t": 0.0,
-								"d": 0.3
-							})
+						if obstacles_unbreakable[ty][tx]:
+							# Неразрушаемая стена просто блокирует снаряд
+							pass
+						else:
+							obstacles[ty][tx] -= 1
+							if obstacles[ty][tx] <= 0:
+								obstacles[ty][tx] = 0
+								obstacles_initial_hp[ty][tx] = 0
+								# VFX разрушения препятствия
+								var vp_size = get_viewport_rect().size
+								var origin = _grid_origin(vp_size)
+								var obs_center = origin + Vector2(float(tx) * CELL_SIZE + CELL_SIZE * 0.5, float(ty) * ENEMY_CELL_HEIGHT + ENEMY_CELL_HEIGHT * 0.5)
+								_board_vfx.append({
+									"type": "explosion",
+									"pos": obs_center,
+									"color": OBSTACLE_COLOR,
+									"t": 0.0,
+									"d": 0.3
+								})
+								var key = "%d:%d" % [tx, ty]
+								if _obstacle_spawn_on_destroy.has(key):
+									var sp = _obstacle_spawn_on_destroy[key]
+									var shp = max(1, int(sp.get("hp", 1)))
+									var scnt = max(1, int(sp.get("count", 1)))
+									for ii in range(scnt):
+										_scheduled_spawns.append({
+											"hp": shp,
+											"x": tx,
+											"y": ty,
+											"spawn_after_player_turns": _player_turn_counter
+										})
+									_obstacle_spawn_on_destroy.erase(key)
 						queue_redraw()
 					# Проверяем монстра (только если нет препятствия)
 					elif enemies[ty][tx] > 0:
@@ -1940,6 +1991,10 @@ func _spawn_new_chips_with_fall():
 	if any and not new_anims.is_empty():
 		_active_anims = _active_anims + new_anims
 		set_process(true)
+
+func _init_moves_from_config(cfg: Dictionary) -> void:
+	_moves_total = max(1, int(cfg.get("moves", 20)))
+	_moves_left = _moves_total
 
 
 func _unhandled_input(event):
