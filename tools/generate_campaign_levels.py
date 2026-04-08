@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+from collections import defaultdict
 from pathlib import Path
 
 
@@ -52,19 +53,41 @@ def chess_monsters(cols: int, y0: int, y1: int, hp_even: int, hp_odd: int) -> li
     return sm
 
 
-def portal_spawns(
-    cols: int,
-    portal_xs: list[int],
-    waves: list[tuple[int, int, int]],
-) -> list[dict]:
+def obstacle_blocked_cells(obstacles: list[dict], enemy_rows: int, cols: int) -> set[tuple[int, int]]:
+    blocked: set[tuple[int, int]] = set()
+    for o in obstacles:
+        ox = int(o.get("x", -1))
+        oy = int(o.get("y", -1))
+        if 0 <= ox < cols and 0 <= oy < enemy_rows:
+            blocked.add((ox, oy))
+    return blocked
+
+
+def expand_scheduled(raw: list[dict]) -> list[dict]:
+    out: list[dict] = []
+    for item in raw:
+        hp = min(6, max(1, int(item.get("hp", 1))))
+        x = int(item.get("x", 0))
+        y = int(item.get("y", 0))
+        count = max(1, int(item.get("count", 1)))
+        turn = max(0, int(item.get("spawn_after_player_turns", 0)))
+        for _ in range(count):
+            out.append({"x": x, "y": y, "hp": hp, "spawn_after_player_turns": turn})
+    return out
+
+
+def sequential_portal_spawns(portal_xs: list[int], spawn_list: list[tuple[int, int]]) -> list[dict]:
     """
-    waves: (hp, count, first_turn) — для каждого портала по кругу распределяем волны.
+    spawn_list: (hp, count) — волны подряд; каждый монстр со своим ходом 1,2,3,…
+    чтобы не было «пустого поля», пока не наступит большой spawn_after_player_turns.
     """
     sp: list[dict] = []
     if not portal_xs:
         return sp
+    turn = 1
     wi = 0
-    for hp, count, turn0 in waves:
+    for hp, count in spawn_list:
+        hp = min(6, max(1, hp))
         for _ in range(count):
             px = portal_xs[wi % len(portal_xs)]
             sp.append(
@@ -73,11 +96,55 @@ def portal_spawns(
                     "y": 0,
                     "hp": hp,
                     "count": 1,
-                    "spawn_after_player_turns": turn0 + (wi // len(portal_xs)) * 2,
+                    "spawn_after_player_turns": turn,
                 }
             )
+            turn += 1
             wi += 1
     return sp
+
+
+def count_level_targets(data: dict) -> dict[int, int]:
+    """Те же правила, что LevelManager._normalize + game_board _init_enemies_from_config."""
+    targets: dict[int, int] = defaultdict(int)
+    er = int(data.get("enemy_rows", 10))
+    cols = int(data.get("cols", 7))
+    blocked = obstacle_blocked_cells(list(data.get("obstacles", [])), er, cols)
+
+    if data.get("start_monsters"):
+        for item in data["start_monsters"]:
+            hp = min(6, max(1, int(item.get("hp", 1))))
+            x, y = int(item.get("x", 0)), int(item.get("y", 0))
+            if (x, y) in blocked:
+                continue
+            targets[hp] += 1
+
+    if data.get("scheduled_spawns"):
+        for e in expand_scheduled(list(data["scheduled_spawns"])):
+            targets[int(e["hp"])] += 1
+
+    if data.get("monster_tiers"):
+        for tier in data["monster_tiers"]:
+            if isinstance(tier, dict) and "hp" in tier and "count" in tier:
+                hp = min(6, max(1, int(tier["hp"])))
+                cnt = max(0, int(tier["count"]))
+                targets[hp] += cnt
+
+    if not data.get("start_monsters") and not data.get("scheduled_spawns"):
+        if not data.get("monster_tiers"):
+            total = er * cols
+            strong = int(data.get("strong_monsters", 0))
+            strong_hp = min(6, max(1, int(data.get("strong_hp", 3))))
+            for _ in range(min(strong, total)):
+                targets[strong_hp] += 1
+            for _ in range(max(0, total - strong)):
+                targets[1] += 1
+
+    return dict(targets)
+
+
+def total_positive_targets(targets: dict[int, int]) -> int:
+    return sum(c for c in targets.values() if c > 0)
 
 
 def tier_level(
@@ -136,8 +203,9 @@ def build_level(n: int) -> dict:
                 {"x": 3, "y": 2, "hp": 2},
             ],
             "scheduled_spawns": [
-                {"x": 2, "y": 0, "hp": 1, "count": 2, "spawn_after_player_turns": 2},
-                {"x": 4, "y": 0, "hp": 2, "count": 1, "spawn_after_player_turns": 4},
+                {"x": 2, "y": 0, "hp": 1, "count": 1, "spawn_after_player_turns": 1},
+                {"x": 2, "y": 0, "hp": 1, "count": 1, "spawn_after_player_turns": 2},
+                {"x": 4, "y": 0, "hp": 2, "count": 1, "spawn_after_player_turns": 3},
             ],
             "seed": 1001,
         }
@@ -148,32 +216,33 @@ def build_level(n: int) -> dict:
     er = 10
     seed = 9000 + n * 17
 
-    # Босс: больше HP, плотнее волны, меньше ходов относительно массы
     if boss:
-        wave_step = 5 + n // 5
         hp_lo = 1 + n // 10
         hp_hi = 2 + n // 8
-        moves = 18 + min(22, n // 2)
+        hp_lo = min(6, max(1, hp_lo))
+        hp_hi = min(6, max(1, hp_hi))
+        moves = 20 + min(24, n // 2)
 
         portal_xs = [1, cols - 2]
         if cols >= 8:
             portal_xs = [1, cols // 2, cols - 2]
-        waves = [
-            (min(6, max(1, hp_lo)), 4, wave_step),
-            (min(6, max(1, hp_lo + 1)), 3, wave_step + 3),
-            (min(6, max(2, hp_hi)), 4, wave_step + 6),
-            (min(6, max(2, hp_hi + 1)), 3, wave_step + 9),
-            (6, 2, wave_step + 14),
+
+        spawn_list: list[tuple[int, int]] = [
+            (hp_lo, 4),
+            (min(6, hp_lo + 1), 3),
+            (min(6, max(2, hp_hi)), 4),
+            (min(6, hp_hi + 1), 3),
+            (6, 2),
         ]
         if n >= 35:
-            waves.append((6, 2, wave_step + 18))
+            spawn_list.append((6, 2))
+        sched = sequential_portal_spawns(portal_xs, spawn_list)
 
         y_fill0 = 2
         y_fill1 = min(4 + n // 12, er - 3)
         if y_fill1 < y_fill0:
             y_fill1 = y_fill0
         sm = chess_monsters(cols, y_fill0, y_fill1, hp_lo, hp_hi)
-        sched = portal_spawns(cols, portal_xs, waves)
 
         cx = cols // 2
         obs = merge_obstacles(
@@ -183,31 +252,31 @@ def build_level(n: int) -> dict:
                 {"x": cols - 1, "y": er - 1, "type": "wall"},
             ],
         )
-        # Ломаемые блоки на «перекрёстке»
         if 3 < er - 2:
             obs.append({"x": cx, "y": 3, "hp": min(4, 2 + n // 15)})
 
         return portal_level(n, cols, rows, moves, sm, sched, obs, seed)
 
-    # Не босс: чередуем tiers и шахматку + порталы
     use_chess = (n % 2 == 0) or (n % 7 == 0)
 
     if use_chess:
-        moves = 12 + min(20, (n * 4) // 5)
+        moves = 14 + min(22, (n * 4) // 5)
         hp_lo = 1 + (n // 12)
         hp_hi = 2 + (n // 10)
+        hp_lo = min(6, max(1, hp_lo))
+        hp_hi = min(6, max(1, hp_hi))
         y0, y1 = 1, min(5 + n // 8, er - 4)
         sm = chess_monsters(cols, y0, y1, hp_lo, hp_hi)
 
         portal_xs = [cols // 4, (3 * cols) // 4]
         if cols == 7:
             portal_xs = [1, 5]
-        waves = [
-            (hp_lo, 3, 2 + n // 10),
-            (hp_hi, 2, 4 + n // 8),
-            (max(2, hp_hi), 2, 7 + n // 12),
+        spawn_list = [
+            (hp_lo, 3),
+            (hp_hi, 2),
+            (min(6, max(2, hp_hi)), 2),
         ]
-        sched = portal_spawns(cols, portal_xs, waves)
+        sched = sequential_portal_spawns(portal_xs, spawn_list)
 
         obs: list[dict] = []
         if n % 4 == 0:
@@ -228,7 +297,6 @@ def build_level(n: int) -> dict:
 
         return portal_level(n, cols, rows, moves, sm, sched, obs, seed)
 
-    # monster_tiers: растущая лесенка по глубине кампании
     base = 8 + (n * 3) // 5
     t1 = max(6, base - 4)
     t2 = max(4, base // 2)
@@ -272,6 +340,8 @@ def main() -> None:
     for n in range(1, 51):
         path = levels_dir / f"level_{n:03d}.json"
         data = build_level(n)
+        tg = count_level_targets(data)
+        assert total_positive_targets(tg) > 0, f"level {n}: нет целей"
         path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(path.name)
 

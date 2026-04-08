@@ -2,7 +2,7 @@
   "cols": 8,
   "rows": 16,
   "enemy_rows": 10,
-  "moves": 15,
+  "moves": 17,
   "start_monsters": [
     {
       "x": 0,
@@ -211,7 +211,7 @@
       "y": 0,
       "hp": 1,
       "count": 1,
-      "spawn_after_player_turns": 2
+      "spawn_after_player_turns": 1
     },
     {
       "x": 6,
@@ -225,7 +225,21 @@
       "y": 0,
       "hp": 1,
       "count": 1,
+      "spawn_after_player_turns": 3
+    },
+    {
+      "x": 6,
+      "y": 0,
+      "hp": 2,
+      "count": 1,
       "spawn_after_player_turns": 4
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "hp": 2,
+      "count": 1,
+      "spawn_after_player_turns": 5
     },
     {
       "x": 6,
@@ -239,21 +253,7 @@
       "y": 0,
       "hp": 2,
       "count": 1,
-      "spawn_after_player_turns": 8
-    },
-    {
-      "x": 6,
-      "y": 0,
-      "hp": 2,
-      "count": 1,
-      "spawn_after_player_turns": 11
-    },
-    {
-      "x": 2,
-      "y": 0,
-      "hp": 2,
-      "count": 1,
-      "spawn_after_player_turns": 13
+      "spawn_after_player_turns": 7
     }
   ],
   "obstacles": [

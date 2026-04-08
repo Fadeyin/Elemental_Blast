@@ -1953,6 +1953,13 @@ func _process(delta: float) -> void:
 	# Удаляем завершённые после отрисовки
 	# Автопобеда/поражение и шаги врагов после завершения всех эффектов
 	if _projectiles.is_empty() and _active_anims.is_empty() and _enemy_death_anims.is_empty():
+		# Отложенные спавны (порталы): раньше обрабатывались только после хода врагов —
+		# при пустом поле и уже наступившем ходе игрока волна не появлялась до следующего хода.
+		if _use_scheduled_spawns:
+			var anim_count_before_spawn := _enemy_move_anims.size()
+			_process_scheduled_spawns()
+			if _enemy_move_anims.size() > anim_count_before_spawn:
+				set_process(true)
 		if not _defeat_dialog_shown and (_count_column_hearts_remaining() == 0 or _defeat_pending_breach):
 			_defeat_pending_breach = false
 			_on_level_failed()

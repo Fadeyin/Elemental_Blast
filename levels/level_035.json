@@ -2,7 +2,7 @@
   "cols": 8,
   "rows": 16,
   "enemy_rows": 10,
-  "moves": 35,
+  "moves": 37,
   "start_monsters": [
     {
       "x": 0,
@@ -211,126 +211,126 @@
       "y": 0,
       "hp": 4,
       "count": 1,
-      "spawn_after_player_turns": 12
+      "spawn_after_player_turns": 1
     },
     {
       "x": 4,
       "y": 0,
       "hp": 4,
       "count": 1,
-      "spawn_after_player_turns": 12
+      "spawn_after_player_turns": 2
     },
     {
       "x": 6,
       "y": 0,
       "hp": 4,
       "count": 1,
-      "spawn_after_player_turns": 12
+      "spawn_after_player_turns": 3
     },
     {
       "x": 1,
       "y": 0,
       "hp": 4,
+      "count": 1,
+      "spawn_after_player_turns": 4
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "hp": 5,
+      "count": 1,
+      "spawn_after_player_turns": 5
+    },
+    {
+      "x": 6,
+      "y": 0,
+      "hp": 5,
+      "count": 1,
+      "spawn_after_player_turns": 6
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "hp": 5,
+      "count": 1,
+      "spawn_after_player_turns": 7
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 8
+    },
+    {
+      "x": 6,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 9
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 10
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 11
+    },
+    {
+      "x": 6,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 12
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 13
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "hp": 6,
       "count": 1,
       "spawn_after_player_turns": 14
     },
     {
+      "x": 6,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 15
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "hp": 6,
+      "count": 1,
+      "spawn_after_player_turns": 16
+    },
+    {
       "x": 4,
       "y": 0,
-      "hp": 5,
+      "hp": 6,
       "count": 1,
       "spawn_after_player_turns": 17
     },
     {
       "x": 6,
       "y": 0,
-      "hp": 5,
-      "count": 1,
-      "spawn_after_player_turns": 17
-    },
-    {
-      "x": 1,
-      "y": 0,
-      "hp": 5,
-      "count": 1,
-      "spawn_after_player_turns": 19
-    },
-    {
-      "x": 4,
-      "y": 0,
       "hp": 6,
       "count": 1,
-      "spawn_after_player_turns": 22
-    },
-    {
-      "x": 6,
-      "y": 0,
-      "hp": 6,
-      "count": 1,
-      "spawn_after_player_turns": 22
-    },
-    {
-      "x": 1,
-      "y": 0,
-      "hp": 6,
-      "count": 1,
-      "spawn_after_player_turns": 24
-    },
-    {
-      "x": 4,
-      "y": 0,
-      "hp": 6,
-      "count": 1,
-      "spawn_after_player_turns": 24
-    },
-    {
-      "x": 6,
-      "y": 0,
-      "hp": 6,
-      "count": 1,
-      "spawn_after_player_turns": 27
-    },
-    {
-      "x": 1,
-      "y": 0,
-      "hp": 6,
-      "count": 1,
-      "spawn_after_player_turns": 29
-    },
-    {
-      "x": 4,
-      "y": 0,
-      "hp": 6,
-      "count": 1,
-      "spawn_after_player_turns": 29
-    },
-    {
-      "x": 6,
-      "y": 0,
-      "hp": 6,
-      "count": 1,
-      "spawn_after_player_turns": 34
-    },
-    {
-      "x": 1,
-      "y": 0,
-      "hp": 6,
-      "count": 1,
-      "spawn_after_player_turns": 36
-    },
-    {
-      "x": 4,
-      "y": 0,
-      "hp": 6,
-      "count": 1,
-      "spawn_after_player_turns": 40
-    },
-    {
-      "x": 6,
-      "y": 0,
-      "hp": 6,
-      "count": 1,
-      "spawn_after_player_turns": 40
+      "spawn_after_player_turns": 18
     }
   ],
   "obstacles": [
