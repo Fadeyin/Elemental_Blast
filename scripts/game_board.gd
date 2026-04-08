@@ -2467,20 +2467,16 @@ func _check_level_completed() -> bool:
 	# Нельзя засчитать победу, пока ожидается проигрыш по прорыву или открыт диалог поражения
 	if _defeat_pending_breach or _defeat_dialog_shown:
 		return false
-	# Победа: нет монстров в очереди, все цели выполнены, нет живых врагов и препятствий
-	if not _monster_spawn_queue.is_empty():
-		return false
-	if not _scheduled_spawns.is_empty():
+	# Победа: выполнены все цели; живые враги и препятствия на поле не отменяют победу
+	if _level_targets.is_empty():
 		return false
 	for hp in _level_targets:
 		if int(_level_targets[hp]) > 0:
 			return false
-	for y in range(ENEMY_ROWS):
-		for x in range(COLS):
-			if enemies[y][x] > 0:
-				return false
-			if obstacles.size() > y and obstacles[y].size() > x and obstacles[y][x] > 0:
-				return false
+	if not _monster_spawn_queue.is_empty():
+		return false
+	if not _scheduled_spawns.is_empty():
+		return false
 	return true
 
 func _count_bonus_chips_on_player_field() -> int:

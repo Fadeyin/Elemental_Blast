@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import random
 from collections import defaultdict
 from pathlib import Path
 
@@ -76,6 +77,57 @@ def expand_scheduled(raw: list[dict]) -> list[dict]:
     return out
 
 
+def split_tiers_to_field_and_portals(
+    tiers: list[dict],
+    cols: int,
+    enemy_rows: int,
+    blocked: set[tuple[int, int]],
+    portal_xs: list[int],
+    rng: random.Random,
+) -> tuple[list[dict], list[dict]]:
+    """Часть монстров на поле с первого кадра, остаток — через порталы (по очереди ходов)."""
+    queue: list[int] = []
+    for tier in tiers:
+        if not isinstance(tier, dict) or "hp" not in tier or "count" not in tier:
+            continue
+        hp = min(6, max(1, int(tier["hp"])))
+        for _ in range(max(0, int(tier["count"]))):
+            queue.append(hp)
+    rng.shuffle(queue)
+
+    start: list[dict] = []
+    for y in range(enemy_rows):
+        for x in range(cols):
+            if (x, y) in blocked:
+                continue
+            if not queue:
+                break
+            start.append({"x": x, "y": y, "hp": queue.pop(0)})
+        if not queue:
+            break
+
+    sched: list[dict] = []
+    if not portal_xs:
+        portal_xs = [cols // 2]
+    turn = 1
+    wi = 0
+    while queue:
+        hp = queue.pop(0)
+        px = portal_xs[wi % len(portal_xs)]
+        sched.append(
+            {
+                "x": px,
+                "y": 0,
+                "hp": hp,
+                "count": 1,
+                "spawn_after_player_turns": turn,
+            }
+        )
+        turn += 1
+        wi += 1
+    return start, sched
+
+
 def sequential_portal_spawns(portal_xs: list[int], spawn_list: list[tuple[int, int]]) -> list[dict]:
     """
     spawn_list: (hp, count) — волны подряд; каждый монстр со своим ходом 1,2,3,…
@@ -145,27 +197,6 @@ def count_level_targets(data: dict) -> dict[int, int]:
 
 def total_positive_targets(targets: dict[int, int]) -> int:
     return sum(c for c in targets.values() if c > 0)
-
-
-def tier_level(
-    n: int,
-    cols: int,
-    rows: int,
-    moves: int,
-    tiers: list[dict],
-    obstacles: list[dict],
-    seed: int,
-) -> dict:
-    tiers = [t for t in tiers if int(t.get("count", 0)) > 0]
-    return {
-        "cols": cols,
-        "rows": rows,
-        "enemy_rows": 10,
-        "moves": moves,
-        "monster_tiers": tiers,
-        "obstacles": obstacles,
-        "seed": seed,
-    }
 
 
 def portal_level(
@@ -316,6 +347,8 @@ def build_level(n: int) -> dict:
     if n >= 40:
         tiers.append({"hp": 6, "count": max(1, n // 20)})
 
+    tiers = [t for t in tiers if int(t.get("count", 0)) > 0]
+
     moves = 14 + min(24, n // 2)
     obs2: list[dict] = []
     if cols >= 8:
@@ -330,7 +363,14 @@ def build_level(n: int) -> dict:
             {"x": 3, "y": 5, "type": "wall"},
         ]
 
-    return tier_level(n, cols, rows, moves, tiers, obs2, seed)
+    blocked = obstacle_blocked_cells(obs2, er, cols)
+    portal_xs = [cols // 4, (3 * cols) // 4]
+    if cols == 7:
+        portal_xs = [1, 5]
+    rng = random.Random(seed)
+    sm, sched = split_tiers_to_field_and_portals(tiers, cols, er, blocked, portal_xs, rng)
+    assert len(sm) > 0, f"level {n}: нет монстров на поле (все клетки закрыты?)"
+    return portal_level(n, cols, rows, moves, sm, sched, obs2, seed)
 
 
 def main() -> None:
@@ -342,6 +382,17 @@ def main() -> None:
         data = build_level(n)
         tg = count_level_targets(data)
         assert total_positive_targets(tg) > 0, f"level {n}: нет целей"
+        on_field = sum(
+            1
+            for m in data.get("start_monsters", [])
+            if (int(m.get("x", 0)), int(m.get("y", 0)))
+            not in obstacle_blocked_cells(
+                list(data.get("obstacles", [])),
+                int(data.get("enemy_rows", 10)),
+                int(data.get("cols", 7)),
+            )
+        )
+        assert on_field > 0, f"level {n}: нет монстров на поле в первый кадр"
         path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(path.name)
 
