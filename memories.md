@@ -1,5 +1,6 @@
 # Agent context
 - Кампания: 50 файлов `levels/level_001.json` … `level_050.json`; «порталы» = `scheduled_spawns` с `y: 0`. Перегенерация: `python3 tools/generate_campaign_levels.py`. Победа: `_check_level_completed` — только выполнение `_level_targets`, пустое поле и препятствия не требуются.
+- Обход препятствий врагами: `_find_detour_exit_column_below_obstacle` + `_horizontal_detour_direction_order` — при блоке снизу порядок шагов влево/вправо к ближайшей колонке с проходом под связной группой `obstacles`.
 - Level 1 tutorial: overlay `scripts/level1_tutorial_overlay.gd`, `game_board.gd`; запускается при каждом старте уровня 1 (без сохранения «уже показано»).
 - Git: всегда пушить сразу в `main`, пока пользователь явно не попросит иначе (без отдельных веток по умолчанию).
 - Branch: main (предпочтение пользователя)

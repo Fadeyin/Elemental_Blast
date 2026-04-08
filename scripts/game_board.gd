@@ -2650,6 +2650,70 @@ func _enemy_mixed_columns_mode() -> bool:
 			return true
 	return false
 
+# Колонка клетки сразу под связной группой препятствий (проход для обхода сбоку)
+func _find_detour_exit_column_below_obstacle(monster_x: int, monster_y: int) -> int:
+	var ty_down = monster_y + 1
+	if ty_down < 0 or ty_down >= ENEMY_ROWS:
+		return -1
+	if obstacles[ty_down][monster_x] <= 0:
+		return -1
+	var visited := {}
+	var stack: Array = [Vector2i(monster_x, ty_down)]
+	var col_bottom_row := {}
+	while not stack.is_empty():
+		var c: Vector2i = stack.pop_back()
+		var key = str(c.x) + "," + str(c.y)
+		if visited.has(key):
+			continue
+		visited[key] = true
+		var cx = int(c.x)
+		var cy = int(c.y)
+		if not col_bottom_row.has(cx) or cy > int(col_bottom_row[cx]):
+			col_bottom_row[cx] = cy
+		var nbs = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+		for d in nbs:
+			var n = c + d
+			if n.x < 0 or n.x >= COLS or n.y < 0 or n.y >= ENEMY_ROWS:
+				continue
+			if obstacles[n.y][n.x] <= 0:
+				continue
+			stack.append(n)
+	var exit_cols: Array = []
+	for col_key in col_bottom_row.keys():
+		var col = int(col_key)
+		var bottom_r = int(col_bottom_row[col_key])
+		var exit_r = bottom_r + 1
+		if exit_r < ENEMY_ROWS and obstacles[exit_r][col] <= 0:
+			exit_cols.append(col)
+	if exit_cols.is_empty():
+		return -1
+	exit_cols.sort()
+	var best_col = int(exit_cols[0])
+	var best_dist = abs(best_col - monster_x)
+	for i in range(1, exit_cols.size()):
+		var cand = int(exit_cols[i])
+		var dist = abs(cand - monster_x)
+		if dist < best_dist:
+			best_dist = dist
+			best_col = cand
+		elif dist == best_dist and cand < best_col:
+			best_col = cand
+	return best_col
+
+# Порядок проверки влево/вправо: сначала к ближайшему проходу под многоклеточным препятствием
+func _horizontal_detour_direction_order(monster_x: int, monster_y: int) -> Array:
+	var exit_c = _find_detour_exit_column_below_obstacle(monster_x, monster_y)
+	if exit_c < 0:
+		var dirs_alt = [-1, 1]
+		if (monster_x + monster_y + int(Time.get_ticks_msec() * 0.001)) % 2 == 0:
+			dirs_alt.reverse()
+		return dirs_alt
+	if exit_c < monster_x:
+		return [-1, 1]
+	if exit_c > monster_x:
+		return [1, -1]
+	return [-1, 1]
+
 func _plan_enemy_moves() -> Array:
 	_enemy_move_anims.clear()
 	_cached_mixed_breach_priority = _enemy_mixed_columns_mode()
@@ -2701,9 +2765,7 @@ func _plan_enemy_moves() -> Array:
 						occupied_next[y][x] = false
 						moved = true
 					if not moved:
-						var dirs = [-1, 1]
-						if (x + y + int(Time.get_ticks_msec() * 0.001)) % 2 == 0:
-							dirs.reverse()
+						var dirs = _horizontal_detour_direction_order(x, y)
 						for dx in dirs:
 							var nx = x + dx
 							if nx >= 0 and nx < COLS:
