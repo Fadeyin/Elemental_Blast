@@ -1,7 +1,7 @@
 extends Node3D
 
-# Генератор 3D деревьев для фона
-const TREE_COUNT := 12
+# Генератор 3D деревьев для фона (меньше мешей — меньше нагрузка на WebGL / слабые iPad)
+const TREE_COUNT := 6
 const SPREAD_X := 20.0
 const SPREAD_Z := 15.0
 const DEPTH_OFFSET := -5.0
@@ -43,7 +43,7 @@ func _create_cylinder(radius: float, height: float, color: Color) -> MeshInstanc
 	cylinder.top_radius = radius
 	cylinder.bottom_radius = radius
 	cylinder.height = height
-	cylinder.radial_segments = 8
+	cylinder.radial_segments = 6
 	mesh_instance.mesh = cylinder
 	
 	var material = StandardMaterial3D.new()
@@ -58,8 +58,8 @@ func _create_sphere(radius: float, color: Color) -> MeshInstance3D:
 	var sphere = SphereMesh.new()
 	sphere.radius = radius
 	sphere.height = radius * 2
-	sphere.radial_segments = 12
-	sphere.rings = 8
+	sphere.radial_segments = 8
+	sphere.rings = 6
 	mesh_instance.mesh = sphere
 	
 	var material = StandardMaterial3D.new()
