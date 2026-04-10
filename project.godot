@@ -15,7 +15,6 @@ run/main_scene="uid://q6kql6yp0x11"
 config/features=PackedStringArray("4.6", "Mobile")
 boot_splash/bg_color=Color(0.1, 0.12, 0.16, 1)
 boot_splash/stretch_mode=0
-boot_splash/image="res://textures/Background.png"
 config/icon="res://icon.svg"
 
 [autoload]
