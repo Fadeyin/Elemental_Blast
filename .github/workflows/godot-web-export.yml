@@ -123,7 +123,8 @@ jobs:
               <meta name="apple-mobile-web-app-capable" content="yes">\
               <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">\
               <style>\
-                  html, body { touch-action: none; -webkit-touch-callout: none; }\
+                  html, body { margin: 0; overflow: hidden; touch-action: manipulation; -webkit-touch-callout: none; }\
+                  canvas#canvas, canvas { touch-action: manipulation; }\
               </style>' build/web/index.html
           
           echo "=== Modified index.html preview ==="
