@@ -43,5 +43,6 @@
       "spawn_after_player_turns": 3
     }
   ],
-  "seed": 1001
+  "seed": 1001,
+  "obstacles": []
 }

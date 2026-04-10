@@ -3,8 +3,8 @@
 
 Ограничение уровней: в каждом ряду зоны врагов у неразрушаемых стен (type=wall)
 должно оставаться минимум две свободные колонки: не более (cols - 2) стен в ряду.
-Иначе монстры не проходят вниз. Горизонтальные «дорожки» задают gap слева;
-при записи JSON — assert_wall_row_gaps и при необходимости enforce_wall_row_gaps.
+Плотные ряды (ровно столько стен) чередуют проход слева/справа — «змейка»
+(enforce_wall_row_gaps). При записи JSON — assert_wall_row_gaps.
 """
 
 from __future__ import annotations
@@ -215,11 +215,32 @@ def total_positive_targets(targets: dict[int, int]) -> int:
     return sum(c for c in targets.values() if c > 0)
 
 
+def _wall_row_target_x_columns(
+    cols: int, min_free_columns: int, dense_row_index: int
+) -> list[int]:
+    """Колонки со стенами для «плотного» ряда: чередование змейки.
+
+    dense_row_index 0,2,4,… — проход справа (свободны последние min_free колонок),
+    стены слева подряд: 0 .. cols - min_free - 1.
+    dense_row_index 1,3,… — проход слева (свободны первые min_free колонок),
+    стены справа подряд: min_free .. cols - 1.
+    """
+    max_walls = max(0, int(cols) - int(min_free_columns))
+    if max_walls <= 0:
+        return []
+    if dense_row_index % 2 == 0:
+        return list(range(0, cols - min_free_columns))
+    return list(range(min_free_columns, cols))
+
+
 def enforce_wall_row_gaps(
     obstacles: list[dict], cols: int, er: int, min_free_columns: int = 2
 ) -> list[dict]:
-    """Оставляет в каждом ряду не более (cols - min_free_columns) стен; лишние
-    отбрасываются по возрастанию x (сохраняются более «левые» стены).
+    """В каждом ряду не более (cols - min_free_columns) стен.
+
+    Ряды, где стен не меньше этого числа («плотные»), нумеруются по возрастанию y;
+    для них чередуется сторона прохода (змейка): 0-я, 2-я, … — проход справа;
+    1-я, 3-я, … — проход слева. Координаты стен выставляются по целевым колонкам.
     """
     max_walls = max(0, int(cols) - int(min_free_columns))
     non_wall: list[dict] = []
@@ -234,13 +255,24 @@ def enforce_wall_row_gaps(
             non_wall.append(o)
             continue
         by_row[oy].append(o)
+    dense_ys = sorted(y for y in range(er) if len(by_row.get(y, [])) >= max_walls)
+    dense_rank = {y: i for i, y in enumerate(dense_ys)}
     new_walls: list[dict] = []
     for y in range(er):
-        row = by_row.get(y, [])
-        row.sort(key=lambda ob: int(ob["x"]))
-        if len(row) > max_walls:
-            row = row[:max_walls]
-        new_walls.extend(row)
+        row = sorted(by_row.get(y, []), key=lambda ob: int(ob["x"]))
+        if not row:
+            continue
+        if len(row) < max_walls:
+            new_walls.extend(row)
+            continue
+        tier = dense_rank[y]
+        targets = _wall_row_target_x_columns(cols, min_free_columns, tier)
+        chunk = row[:max_walls]
+        for i, ob in enumerate(chunk):
+            d = dict(ob)
+            d["x"] = targets[i]
+            d["type"] = "wall"
+            new_walls.append(d)
     return non_wall + new_walls
 
 
@@ -446,6 +478,11 @@ def main() -> None:
     for n in range(1, 51):
         path = levels_dir / f"level_{n:03d}.json"
         data = build_level(n)
+        c_w = int(data.get("cols", 8))
+        er_w = int(data.get("enemy_rows", 10))
+        data["obstacles"] = enforce_wall_row_gaps(
+            list(data.get("obstacles", [])), c_w, er_w, 2
+        )
         tg = count_level_targets(data)
         assert total_positive_targets(tg) > 0, f"level {n}: нет целей"
         on_field = sum(
