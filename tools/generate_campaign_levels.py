@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Генерация 50 JSON-уровней: порталы = scheduled_spawns на y=0, дорожки = стены."""
+"""Генерация 50 JSON-уровней: порталы = scheduled_spawns на y=0, дорожки = стены.
+
+Ограничение уровней: ни один ряд зоны врагов не может быть целиком из неразрушаемых
+стен (type=wall) — иначе монстры не проходят вниз. Горизонтальные «дорожки»
+оставляют минимум две свободные колонки в каждом ряду стен; при записи JSON
+проверка assert_no_full_wall_row.
+"""
 
 from __future__ import annotations
 
@@ -20,10 +26,20 @@ def wall_road_vertical(cols: int, enemy_rows: int, cx: int) -> list[dict]:
     return obs
 
 
-def wall_road_horizontal(cols: int, enemy_rows: int, ry: int) -> list[dict]:
-    """Горизонтальная «дорожка»: стены сверху и снизу от ряда ry."""
+def wall_road_horizontal(
+    cols: int, enemy_rows: int, ry: int, gap_columns: int = 2
+) -> list[dict]:
+    """Горизонтальная «дорожка»: стены сверху и снизу от ряда ry.
+
+    В каждом из двух рядов стен оставляем gap_columns левых колонок без стен,
+    чтобы ни один ряд не был целиком из неразрушаемых стен (иначе монстры
+    не проходят вниз по полю).
+    """
     obs: list[dict] = []
+    gap_columns = max(0, min(int(gap_columns), cols))
     for x in range(cols):
+        if x < gap_columns:
+            continue
         if ry - 1 >= 0:
             obs.append({"x": x, "y": ry - 1, "type": "wall"})
         if ry + 1 < enemy_rows:
@@ -197,6 +213,26 @@ def count_level_targets(data: dict) -> dict[int, int]:
 
 def total_positive_targets(targets: dict[int, int]) -> int:
     return sum(c for c in targets.values() if c > 0)
+
+
+def assert_no_full_wall_row(data: dict, level_label: str) -> None:
+    """Ни один ряд зоны врагов не должен состоять только из type=wall."""
+    cols = int(data.get("cols", 8))
+    er = int(data.get("enemy_rows", 10))
+    walls: set[tuple[int, int]] = set()
+    for o in data.get("obstacles", []):
+        if str(o.get("type", "")) != "wall":
+            continue
+        ox = int(o.get("x", -1))
+        oy = int(o.get("y", -1))
+        if 0 <= ox < cols and 0 <= oy < er:
+            walls.add((ox, oy))
+    for y in range(er):
+        if all((x, y) in walls for x in range(cols)):
+            raise AssertionError(
+                f"{level_label}: ряд y={y} полностью занят неразрушаемыми стенами; "
+                "нужны минимум две пустые клетки в ряду без стен."
+            )
 
 
 def portal_level(
@@ -393,6 +429,7 @@ def main() -> None:
             )
         )
         assert on_field > 0, f"level {n}: нет монстров на поле в первый кадр"
+        assert_no_full_wall_row(data, f"level {n}")
         path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(path.name)
 
