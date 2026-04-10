@@ -2717,7 +2717,6 @@ func _horizontal_detour_direction_order(monster_x: int, monster_y: int) -> Array
 func _plan_enemy_moves() -> Array:
 	_enemy_move_anims.clear()
 	_cached_mixed_breach_priority = _enemy_mixed_columns_mode()
-	var mixed_breach_priority = _cached_mixed_breach_priority
 	var moves: Array = []
 	var occupied_next = []
 	for yy in range(ENEMY_ROWS):
@@ -2730,9 +2729,6 @@ func _plan_enemy_moves() -> Array:
 				var hp = enemies[y][x]
 				var init = enemies_initial_hp[y][x]
 				var was_hit_this_turn = _enemies_hit_this_turn[y][x]
-				var col_has_heart = x >= 0 and x < _column_hearts.size() and _column_hearts[x]
-				if mixed_breach_priority and col_has_heart and y != _heart_row_y:
-					continue
 				if was_hit_this_turn:
 					pass
 				else:
