@@ -330,6 +330,13 @@ func get_available_level_numbers() -> Array:
 	out.sort()
 	return out
 
+func get_max_level_number() -> int:
+	var nums := get_available_level_numbers()
+	var max_num := 1
+	for n in nums:
+		max_num = maxi(max_num, int(n))
+	return max_num
+
 func add_coins(amount: int):
 	player_coins += amount
 	_save_progress()
