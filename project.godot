@@ -25,10 +25,9 @@ LevelManager="*res://scripts/LevelManager.gd"
 
 [display]
 
-window/size/viewport_width=432
-window/size/viewport_height=800
+window/size/viewport_width=648
+window/size/viewport_height=1200
 window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
 window/handheld/orientation=1
 
 [rendering]
