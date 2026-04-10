@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Генерация 50 JSON-уровней: порталы = scheduled_spawns на y=0, дорожки = стены.
 
-Ограничение уровней: ни один ряд зоны врагов не может быть целиком из неразрушаемых
-стен (type=wall) — иначе монстры не проходят вниз. Горизонтальные «дорожки»
-оставляют минимум две свободные колонки в каждом ряду стен; при записи JSON
-проверка assert_no_full_wall_row.
+Ограничение уровней: в каждом ряду зоны врагов у неразрушаемых стен (type=wall)
+должно оставаться минимум две свободные колонки: не более (cols - 2) стен в ряду.
+Иначе монстры не проходят вниз. Горизонтальные «дорожки» задают gap слева;
+при записи JSON — assert_wall_row_gaps и при необходимости enforce_wall_row_gaps.
 """
 
 from __future__ import annotations
@@ -215,23 +215,53 @@ def total_positive_targets(targets: dict[int, int]) -> int:
     return sum(c for c in targets.values() if c > 0)
 
 
-def assert_no_full_wall_row(data: dict, level_label: str) -> None:
-    """Ни один ряд зоны врагов не должен состоять только из type=wall."""
-    cols = int(data.get("cols", 8))
-    er = int(data.get("enemy_rows", 10))
-    walls: set[tuple[int, int]] = set()
-    for o in data.get("obstacles", []):
+def enforce_wall_row_gaps(
+    obstacles: list[dict], cols: int, er: int, min_free_columns: int = 2
+) -> list[dict]:
+    """Оставляет в каждом ряду не более (cols - min_free_columns) стен; лишние
+    отбрасываются по возрастанию x (сохраняются более «левые» стены).
+    """
+    max_walls = max(0, int(cols) - int(min_free_columns))
+    non_wall: list[dict] = []
+    by_row: dict[int, list[dict]] = defaultdict(list)
+    for o in obstacles:
         if str(o.get("type", "")) != "wall":
+            non_wall.append(o)
             continue
         ox = int(o.get("x", -1))
         oy = int(o.get("y", -1))
-        if 0 <= ox < cols and 0 <= oy < er:
-            walls.add((ox, oy))
+        if not (0 <= ox < cols and 0 <= oy < er):
+            non_wall.append(o)
+            continue
+        by_row[oy].append(o)
+    new_walls: list[dict] = []
     for y in range(er):
-        if all((x, y) in walls for x in range(cols)):
+        row = by_row.get(y, [])
+        row.sort(key=lambda ob: int(ob["x"]))
+        if len(row) > max_walls:
+            row = row[:max_walls]
+        new_walls.extend(row)
+    return non_wall + new_walls
+
+
+def assert_wall_row_gaps(data: dict, level_label: str, min_free_columns: int = 2) -> None:
+    """В каждом ряду не более (cols - min_free_columns) клеток с type=wall."""
+    cols = int(data.get("cols", 8))
+    er = int(data.get("enemy_rows", 10))
+    max_walls = max(0, cols - min_free_columns)
+    for y in range(er):
+        n = 0
+        for o in data.get("obstacles", []):
+            if str(o.get("type", "")) != "wall":
+                continue
+            ox = int(o.get("x", -1))
+            oy = int(o.get("y", -1))
+            if 0 <= ox < cols and 0 <= oy < er and oy == y:
+                n += 1
+        if n > max_walls:
             raise AssertionError(
-                f"{level_label}: ряд y={y} полностью занят неразрушаемыми стенами; "
-                "нужны минимум две пустые клетки в ряду без стен."
+                f"{level_label}: ряд y={y}: слишком много неразрушаемых стен ({n}), "
+                f"максимум {max_walls} при cols={cols} (нужны минимум {min_free_columns} свободные колонки)."
             )
 
 
@@ -429,7 +459,7 @@ def main() -> None:
             )
         )
         assert on_field > 0, f"level {n}: нет монстров на поле в первый кадр"
-        assert_no_full_wall_row(data, f"level {n}")
+        assert_wall_row_gaps(data, f"level {n}")
         path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(path.name)
 
