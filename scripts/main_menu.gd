@@ -1,10 +1,13 @@
 extends Control
 
 @onready var play_button = $TabContent/MainTab/PlayButton
-@onready var editor_button = $TabContent/MainTab/EditorButton
 @onready var start_level_label = $TabContent/MainTab/StartLevelLabel
-@onready var levels_grid = $TabContent/MainTab/LevelsScroll/LevelsGrid
 @onready var version_label = $VersionLabel
+
+@onready var ranks_level_edit: LineEdit = $TabContent/RanksTab/RanksMargin/RanksVBox/LevelPickRow/LevelNumberEdit
+@onready var ranks_minus_btn: Button = $TabContent/RanksTab/RanksMargin/RanksVBox/LevelPickRow/MinusBtn
+@onready var ranks_plus_btn: Button = $TabContent/RanksTab/RanksMargin/RanksVBox/LevelPickRow/PlusBtn
+@onready var ranks_editor_button: Button = $TabContent/RanksTab/RanksMargin/RanksVBox/RanksEditorButton
 
 @onready var shop_tab = $TabContent/ShopTab
 @onready var main_tab = $TabContent/MainTab
@@ -23,6 +26,8 @@ var _golden_pass_dialog_open: bool = false
 
 const GOLDEN_PASS_DIALOG_SCRIPT := preload("res://scripts/golden_pass_dialog.gd")
 
+var _syncing_ranks_level_edit: bool = false
+
 func _ready():
 	if LevelManager:
 		LevelManager.clear_editor_level_override()
@@ -34,13 +39,14 @@ func _ready():
 	if is_instance_valid(play_button):
 		play_button.pressed.connect(_on_play_pressed)
 		_style_play_button()
-	if is_instance_valid(editor_button):
-		editor_button.pressed.connect(_on_editor_pressed)
+	if is_instance_valid(ranks_editor_button):
+		ranks_editor_button.pressed.connect(_on_editor_pressed)
+		_style_secondary_action_button(ranks_editor_button)
+	_setup_ranks_level_controls()
 	
 	_setup_navigation()
 	_update_level_label()
 	_update_version_label()
-	_build_levels_grid()
 	_build_shop_tab()
 	_switch_tab("main")
 	
@@ -342,6 +348,8 @@ func _switch_tab(tab_name: String):
 	shop_tab.visible = (tab_name == "shop")
 	main_tab.visible = (tab_name == "main")
 	ranks_tab.visible = (tab_name == "ranks")
+	if tab_name == "ranks":
+		_sync_ranks_level_field_from_manager()
 	
 	# Подсветка активной кнопки
 	shop_btn.modulate = Color(1, 1, 1) if tab_name == "shop" else Color(0.6, 0.6, 0.6)
@@ -376,6 +384,90 @@ func _on_play_pressed():
 
 func _on_editor_pressed():
 	get_tree().change_scene_to_file("res://scenes/level_editor.tscn")
+
+func _setup_ranks_level_controls() -> void:
+	if is_instance_valid(ranks_minus_btn):
+		ranks_minus_btn.pressed.connect(_on_ranks_level_step.bind(-1))
+	if is_instance_valid(ranks_plus_btn):
+		ranks_plus_btn.pressed.connect(_on_ranks_level_step.bind(1))
+	if is_instance_valid(ranks_level_edit):
+		ranks_level_edit.text_submitted.connect(_on_ranks_level_submitted)
+		ranks_level_edit.focus_exited.connect(_on_ranks_level_focus_exited)
+	_sync_ranks_level_field_from_manager()
+
+func _get_max_selectable_level() -> int:
+	if LevelManager:
+		return LevelManager.get_max_level_number()
+	return 1
+
+func _clamp_level_choice(value: int) -> int:
+	return clampi(value, 1, _get_max_selectable_level())
+
+func _sync_ranks_level_field_from_manager() -> void:
+	if not is_instance_valid(ranks_level_edit) or not LevelManager:
+		return
+	var lvl := _clamp_level_choice(LevelManager.current_level)
+	_syncing_ranks_level_edit = true
+	ranks_level_edit.text = str(lvl)
+	_syncing_ranks_level_edit = false
+
+func _on_ranks_level_submitted(_text: String) -> void:
+	_apply_ranks_level_from_field(true)
+
+func _on_ranks_level_focus_exited() -> void:
+	_apply_ranks_level_from_field(true)
+
+func _apply_ranks_level_from_field(force_valid: bool) -> void:
+	if not LevelManager or not is_instance_valid(ranks_level_edit):
+		return
+	var raw := ranks_level_edit.text.strip_edges()
+	if raw.is_empty():
+		if force_valid:
+			_sync_ranks_level_field_from_manager()
+		return
+	if not raw.is_valid_int():
+		if force_valid:
+			_sync_ranks_level_field_from_manager()
+		return
+	var parsed := int(raw)
+	var clamped := _clamp_level_choice(parsed)
+	LevelManager.set_current_level(clamped)
+	_update_level_label()
+	if clamped != parsed or force_valid:
+		_sync_ranks_level_field_from_manager()
+
+func _on_ranks_level_step(delta: int) -> void:
+	if not LevelManager:
+		return
+	var max_lvl := _get_max_selectable_level()
+	var next := clampi(LevelManager.current_level + delta, 1, max_lvl)
+	LevelManager.set_current_level(next)
+	_update_level_label()
+	_sync_ranks_level_field_from_manager()
+
+func _style_secondary_action_button(btn: Button) -> void:
+	var normal_style := StyleBoxFlat.new()
+	normal_style.bg_color = Color(0.22, 0.38, 0.52, 1.0)
+	normal_style.corner_radius_top_left = 16
+	normal_style.corner_radius_top_right = 16
+	normal_style.corner_radius_bottom_left = 16
+	normal_style.corner_radius_bottom_right = 16
+	normal_style.border_width_top = 2
+	normal_style.border_width_bottom = 2
+	normal_style.border_width_left = 2
+	normal_style.border_width_right = 2
+	normal_style.border_color = Color(0.45, 0.62, 0.85, 1.0)
+	var hover_style := normal_style.duplicate()
+	hover_style.bg_color = Color(0.32, 0.48, 0.62, 1.0)
+	var pressed_style := normal_style.duplicate()
+	pressed_style.bg_color = Color(0.16, 0.3, 0.45, 1.0)
+	btn.add_theme_stylebox_override("normal", normal_style)
+	btn.add_theme_stylebox_override("hover", hover_style)
+	btn.add_theme_stylebox_override("pressed", pressed_style)
+	btn.add_theme_font_size_override("font_size", 28)
+	btn.add_theme_color_override("font_color", Color.WHITE)
+	btn.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
+	btn.add_theme_constant_override("outline_size", 3)
 
 func _style_play_button():
 	if not is_instance_valid(play_button):
@@ -442,72 +534,6 @@ func _update_version_label():
 		version_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65, 0.8))
 		version_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.4))
 		version_label.add_theme_constant_override("outline_size", 2)
-
-# удалены обработчики стрелок
-
-func _build_levels_grid():
-	if not is_instance_valid(levels_grid):
-		return
-	for c in levels_grid.get_children():
-		c.queue_free()
-	
-	if not LevelManager:
-		print("ОШИБКА: LevelManager не инициализирован!")
-		return
-	
-	var levels = LevelManager.get_available_level_numbers()
-	for n in levels:
-		var b = Button.new()
-		b.set_meta("level_number", n)
-		b.text = "Уровень " + str(n)
-		b.custom_minimum_size = Vector2(160, 100)
-		b.add_theme_font_size_override("font_size", 40)
-		
-		# Стиль кнопок уровней
-		var normal_style = StyleBoxFlat.new()
-		normal_style.bg_color = Color(0.25, 0.3, 0.4, 0.9)
-		normal_style.corner_radius_top_left = 12
-		normal_style.corner_radius_top_right = 12
-		normal_style.corner_radius_bottom_left = 12
-		normal_style.corner_radius_bottom_right = 12
-		normal_style.border_width_top = 2
-		normal_style.border_width_bottom = 2
-		normal_style.border_width_left = 2
-		normal_style.border_width_right = 2
-		normal_style.border_color = Color(0.5, 0.6, 0.8, 1.0)
-		
-		var hover_style = normal_style.duplicate()
-		hover_style.bg_color = Color(0.35, 0.45, 0.6, 1.0)
-		
-		var pressed_style = normal_style.duplicate()
-		pressed_style.bg_color = Color(0.2, 0.5, 0.7, 1.0)
-		pressed_style.border_color = Color(0.6, 0.8, 1.0, 1.0)
-		
-		b.add_theme_stylebox_override("normal", normal_style)
-		b.add_theme_stylebox_override("hover", hover_style)
-		b.add_theme_stylebox_override("pressed", pressed_style)
-		b.add_theme_color_override("font_color", Color.WHITE)
-		b.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
-		b.add_theme_constant_override("outline_size", 3)
-		
-		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		
-		b.toggle_mode = false
-		b.pressed.connect(func():
-			var lvl_num = int(b.get_meta("level_number"))
-			LevelManager.set_current_level(lvl_num)
-			_update_level_label()
-			_show_level_start_dialog(lvl_num)
-		)
-		levels_grid.add_child(b)
-
-func _highlight_selected_in_grid():
-	if not is_instance_valid(levels_grid):
-		return
-	for b in levels_grid.get_children():
-		if b is Button and b.has_meta("level_number"):
-			b.button_pressed = (int(b.get_meta("level_number")) == LevelManager.current_level)
 
 func _show_level_start_dialog(level: int):
 	# Предотвращаем множественное открытие диалога

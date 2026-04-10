@@ -84,29 +84,6 @@ text = "Стартовый уровень: 1"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="LevelsScroll" type="ScrollContainer" parent="TabContent/MainTab"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -280.0
-offset_top = -400.0
-offset_right = 280.0
-offset_bottom = 250.0
-grow_horizontal = 2
-grow_vertical = 2
-horizontal_scroll_mode = 0
-
-[node name="LevelsGrid" type="GridContainer" parent="TabContent/MainTab/LevelsScroll"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-theme_override_constants/h_separation = 20
-theme_override_constants/v_separation = 20
-columns = 3
-
 [node name="PlayButton" type="Button" parent="TabContent/MainTab"]
 custom_minimum_size = Vector2(420, 120)
 layout_mode = 1
@@ -123,22 +100,6 @@ grow_horizontal = 2
 grow_vertical = 0
 text = "Уровень 1"
 
-[node name="EditorButton" type="Button" parent="TabContent/MainTab"]
-custom_minimum_size = Vector2(420, 70)
-layout_mode = 1
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -210.0
-offset_top = -120.0
-offset_right = 210.0
-offset_bottom = -45.0
-grow_horizontal = 2
-grow_vertical = 0
-text = "Редактор уровней"
-
 [node name="RanksTab" type="ColorRect" parent="TabContent"]
 visible = false
 layout_mode = 1
@@ -149,22 +110,66 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.1, 0.15, 0.12, 0.7)
 
-[node name="Label" type="Label" parent="TabContent/RanksTab"]
+[node name="RanksMargin" type="MarginContainer" parent="TabContent/RanksTab"]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -100.0
-offset_top = -24.0
-offset_right = 100.0
-offset_bottom = 24.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_font_sizes/font_size = 48
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="RanksVBox" type="VBoxContainer" parent="TabContent/RanksTab/RanksMargin"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="RanksTitle" type="Label" parent="TabContent/RanksTab/RanksMargin/RanksVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
 text = "РАНГИ"
 horizontal_alignment = 1
+
+[node name="LevelPickHint" type="Label" parent="TabContent/RanksTab/RanksMargin/RanksVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Перейти к уровню"
+horizontal_alignment = 1
+
+[node name="LevelPickRow" type="HBoxContainer" parent="TabContent/RanksTab/RanksMargin/RanksVBox"]
+layout_mode = 2
+size_flags_horizontal = 4
+alignment = 1
+theme_override_constants/separation = 12
+
+[node name="MinusBtn" type="Button" parent="TabContent/RanksTab/RanksMargin/RanksVBox/LevelPickRow"]
+custom_minimum_size = Vector2(72, 72)
+layout_mode = 2
+text = "−"
+
+[node name="LevelNumberEdit" type="LineEdit" parent="TabContent/RanksTab/RanksMargin/RanksVBox/LevelPickRow"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+placeholder_text = "Номер"
+virtual_keyboard_enabled = true
+
+[node name="PlusBtn" type="Button" parent="TabContent/RanksTab/RanksMargin/RanksVBox/LevelPickRow"]
+custom_minimum_size = Vector2(72, 72)
+layout_mode = 2
+text = "+"
+
+[node name="RanksEditorButton" type="Button" parent="TabContent/RanksTab/RanksMargin/RanksVBox"]
+custom_minimum_size = Vector2(420, 72)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Редактор уровней"
 
 [node name="BottomNav" type="ColorRect" parent="."]
 custom_minimum_size = Vector2(0, 100)
