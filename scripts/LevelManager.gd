@@ -40,9 +40,15 @@ var selected_prelevel_boosts := {
 
 const PRELEVEL_BOOST_PACK_COUNT := 3
 
+# Восстановление сердец за монеты: 1-я покупка 100 за единицу, далее +50 за каждую совершённую покупку
+const HEART_REFILL_BASE_COINS_PER_UNIT := 100
+const HEART_REFILL_COINS_INCREMENT_PER_PURCHASE := 50
+
 # Золотой пропуск: лента наград по календарным дням входа
 const GOLDEN_PASS_TIER_COUNT := 30
 const GOLDEN_PASS_PREMIUM_PRICE_COINS := 499
+
+var heart_refill_purchases_count: int = 0
 
 var golden_pass_purchased: bool = false
 var golden_pass_last_calendar_date: String = ""
@@ -74,6 +80,7 @@ func _ready():
 func start_new_game():
 	is_campaign_started = true
 	current_level = 1
+	heart_refill_purchases_count = 0
 	_emit_start()
 
 func start_next_level():
@@ -352,6 +359,13 @@ func spend_coins(amount: int) -> bool:
 
 func get_coins() -> int:
 	return player_coins
+
+func get_heart_refill_coins_per_unit() -> int:
+	return HEART_REFILL_BASE_COINS_PER_UNIT + heart_refill_purchases_count * HEART_REFILL_COINS_INCREMENT_PER_PURCHASE
+
+func commit_heart_refill_purchase() -> void:
+	heart_refill_purchases_count += 1
+	_save_progress()
 
 func _ensure_golden_pass_arrays() -> void:
 	while golden_pass_free_claimed.size() < GOLDEN_PASS_TIER_COUNT:
@@ -661,6 +675,8 @@ func _save_progress():
 	cfg.set_value("golden_pass", "free_claimed", golden_pass_free_claimed)
 	cfg.set_value("golden_pass", "premium_claimed", golden_pass_premium_claimed)
 	
+	cfg.set_value("heart_refill", "purchases_count", heart_refill_purchases_count)
+	
 	cfg.save(SAVE_PATH)
 
 func _load_progress():
@@ -701,6 +717,7 @@ func _load_progress():
 			golden_pass_premium_claimed = pc.duplicate()
 		else:
 			golden_pass_premium_claimed = []
+		heart_refill_purchases_count = int(cfg.get_value("heart_refill", "purchases_count", 0))
 		_ensure_golden_pass_arrays()
 	else:
 		_ensure_golden_pass_arrays()

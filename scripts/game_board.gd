@@ -95,7 +95,6 @@ var _moves_left: int = 20
 
 var _needs_ui_update: bool = false
 const COINS_PER_REMAINING_BONUS_CHIP := 10
-const REFILL_GOLD_PER_HEART := 50
 # После оплаты восстановления сердец — сдвиг всех монстров к спавну на столько рядов
 const REFILL_ENEMY_SHIFT_ROWS := 1
 # Мигание красным перед атакой с переднего ряда (сердце / прорыв)
@@ -894,7 +893,7 @@ func _compute_refill_cost_after_breach() -> int:
 	var k = _breach_refill_unit_count()
 	if k <= 0:
 		return 0
-	return REFILL_GOLD_PER_HEART * k
+	return LevelManager.get_heart_refill_coins_per_unit() * k
 
 func _find_free_enemy_cell_in_column_from(x: int, start_y: int) -> int:
 	var y = clampi(start_y, 0, ENEMY_ROWS - 1)
@@ -2590,6 +2589,7 @@ func _on_defeat_refill_lives() -> void:
 		_level_end_overlay = null
 	var cost = _compute_refill_cost_after_breach()
 	if cost > 0 and LevelManager.spend_coins(cost):
+		LevelManager.commit_heart_refill_purchase()
 		_clear_board_vfx_after_refill()
 		_apply_partial_refill_after_breach_paid()
 		_update_ui()
