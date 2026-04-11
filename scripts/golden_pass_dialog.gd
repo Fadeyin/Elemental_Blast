@@ -12,6 +12,8 @@ const REWARD_ICON_BOX := 88
 
 var _scroll_content: VBoxContainer
 var _buy_pass_btn: Button
+var _claim_all_bar: Control
+var _claim_all_btn: Button
 var _closing: bool = false
 
 func _ready() -> void:
@@ -51,10 +53,11 @@ func setup() -> void:
 	margin.add_theme_constant_override("margin_top", 12)
 	margin.add_theme_constant_override("margin_right", 14)
 	margin.add_theme_constant_override("margin_bottom", 12)
-	panel.add_child(margin)
 	var root_v := VBoxContainer.new()
 	root_v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root_v.add_theme_constant_override("separation", 10)
+	panel.add_child(margin)
+	margin.offset_bottom = -88.0
 	margin.add_child(root_v)
 	var top_row := HBoxContainer.new()
 	top_row.add_theme_constant_override("separation", 12)
@@ -99,6 +102,61 @@ func setup() -> void:
 	_scroll_content.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_scroll_content.add_theme_constant_override("separation", 10)
 	scroll.add_child(_scroll_content)
+	_claim_all_bar = PanelContainer.new()
+	_claim_all_bar.name = "GoldenPassClaimAllBar"
+	_claim_all_bar.mouse_filter = Control.MOUSE_FILTER_STOP
+	_claim_all_bar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	_claim_all_bar.anchor_top = 1.0
+	_claim_all_bar.anchor_bottom = 1.0
+	_claim_all_bar.offset_left = 18.0
+	_claim_all_bar.offset_right = -18.0
+	_claim_all_bar.offset_top = -82.0
+	_claim_all_bar.offset_bottom = -14.0
+	_claim_all_bar.z_index = 6
+	var bar_st := StyleBoxFlat.new()
+	bar_st.bg_color = Color(0.06, 0.08, 0.12, 0.97)
+	bar_st.set_corner_radius_all(14)
+	bar_st.border_width_left = 2
+	bar_st.border_width_top = 2
+	bar_st.border_width_right = 2
+	bar_st.border_width_bottom = 2
+	bar_st.border_color = Color(0.88, 0.68, 0.22, 1.0)
+	bar_st.shadow_color = Color(0, 0, 0, 0.45)
+	bar_st.shadow_size = 8
+	bar_st.shadow_offset = Vector2(0, 3)
+	_claim_all_bar.add_theme_stylebox_override("panel", bar_st)
+	var bar_margin := MarginContainer.new()
+	bar_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar_margin.add_theme_constant_override("margin_left", 12)
+	bar_margin.add_theme_constant_override("margin_top", 8)
+	bar_margin.add_theme_constant_override("margin_right", 12)
+	bar_margin.add_theme_constant_override("margin_bottom", 8)
+	_claim_all_bar.add_child(bar_margin)
+	_claim_all_btn = Button.new()
+	_claim_all_btn.name = "GoldenPassClaimAllBtn"
+	_claim_all_btn.focus_mode = Control.FOCUS_NONE
+	_claim_all_btn.text = "ЗАБРАТЬ ВСЁ"
+	_claim_all_btn.custom_minimum_size = Vector2(0, 48)
+	_claim_all_btn.add_theme_font_size_override("font_size", 20)
+	var c0 := StyleBoxFlat.new()
+	c0.bg_color = Color(0.22, 0.42, 0.72, 1.0)
+	c0.set_corner_radius_all(12)
+	c0.border_width_left = 2
+	c0.border_width_top = 2
+	c0.border_width_right = 2
+	c0.border_width_bottom = 2
+	c0.border_color = Color(0.45, 0.65, 0.95, 1.0)
+	var c1 := c0.duplicate()
+	c1.bg_color = Color(0.28, 0.52, 0.85, 1.0)
+	var c2 := c0.duplicate()
+	c2.bg_color = Color(0.16, 0.32, 0.58, 1.0)
+	_claim_all_btn.add_theme_stylebox_override("normal", c0)
+	_claim_all_btn.add_theme_stylebox_override("hover", c1)
+	_claim_all_btn.add_theme_stylebox_override("pressed", c2)
+	_claim_all_btn.add_theme_color_override("font_color", Color.WHITE)
+	_claim_all_btn.pressed.connect(_on_claim_all_pressed)
+	bar_margin.add_child(_claim_all_btn)
+	panel.add_child(_claim_all_bar)
 	if LevelManager and not LevelManager.golden_pass_state_changed.is_connected(_rebuild_rows):
 		LevelManager.golden_pass_state_changed.connect(_rebuild_rows)
 	_rebuild_all()
@@ -162,6 +220,23 @@ func _rebuild_all() -> void:
 	var n := LevelManager.GOLDEN_PASS_TIER_COUNT
 	for tier in range(n):
 		_scroll_content.add_child(_build_tier_row(tier))
+	_update_claim_all_bar()
+
+func _update_claim_all_bar() -> void:
+	if not is_instance_valid(_claim_all_bar) or not is_instance_valid(_claim_all_btn) or not LevelManager:
+		return
+	var pending := LevelManager.get_golden_pass_pending_claim_count()
+	var show_bar := pending > 0
+	_claim_all_bar.visible = show_bar
+	if show_bar:
+		_claim_all_btn.text = "ЗАБРАТЬ ВСЁ (%d)" % pending
+
+func _on_claim_all_pressed() -> void:
+	if not LevelManager:
+		return
+	if LevelManager.get_golden_pass_pending_claim_count() <= 0:
+		return
+	LevelManager.claim_all_golden_pass_rewards()
 
 func _header_cell(txt: String, w: float, narrow: bool) -> Control:
 	var l := Label.new()

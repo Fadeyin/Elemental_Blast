@@ -428,6 +428,54 @@ func claim_golden_pass_premium(tier_index: int) -> bool:
 	emit_signal("golden_pass_state_changed")
 	return true
 
+func get_golden_pass_pending_claim_count() -> int:
+	_ensure_golden_pass_arrays()
+	var pending := 0
+	for tier_index in range(GOLDEN_PASS_TIER_COUNT):
+		if can_claim_golden_pass_free(tier_index):
+			pending += 1
+		if can_claim_golden_pass_premium(tier_index):
+			pending += 1
+	return pending
+
+func claim_all_golden_pass_rewards() -> int:
+	_ensure_golden_pass_arrays()
+	var claimed_slots := 0
+	var need_coins_signal := false
+	var need_boosters_signal := false
+	for tier_index in range(GOLDEN_PASS_TIER_COUNT):
+		if can_claim_golden_pass_free(tier_index):
+			var reward_free: Dictionary = get_golden_pass_tier_reward(tier_index)
+			if reward_free.has("free"):
+				var applied_free: Dictionary = _apply_golden_pass_reward_silent(reward_free["free"])
+				if applied_free.get("ok", false):
+					golden_pass_free_claimed[tier_index] = true
+					claimed_slots += 1
+					if applied_free.get("emit_coins", false):
+						need_coins_signal = true
+					if applied_free.get("emit_boosters", false):
+						need_boosters_signal = true
+		if can_claim_golden_pass_premium(tier_index):
+			var reward_prem: Dictionary = get_golden_pass_tier_reward(tier_index)
+			if reward_prem.has("premium"):
+				var applied_prem: Dictionary = _apply_golden_pass_reward_silent(reward_prem["premium"])
+				if applied_prem.get("ok", false):
+					golden_pass_premium_claimed[tier_index] = true
+					claimed_slots += 1
+					if applied_prem.get("emit_coins", false):
+						need_coins_signal = true
+					if applied_prem.get("emit_boosters", false):
+						need_boosters_signal = true
+	if claimed_slots == 0:
+		return 0
+	_save_progress()
+	if need_coins_signal:
+		emit_signal("coins_changed", player_coins)
+	if need_boosters_signal:
+		emit_signal("boosters_changed")
+	emit_signal("golden_pass_state_changed")
+	return claimed_slots
+
 func purchase_golden_pass_with_coins() -> bool:
 	if golden_pass_purchased:
 		return true
@@ -447,34 +495,51 @@ func _booster_type_from_pass_id(pass_id: String) -> BoosterType:
 		_: return BoosterType.HAMMER
 
 func _apply_golden_pass_reward(entry: Dictionary) -> bool:
+	var silent: Dictionary = _apply_golden_pass_reward_silent(entry)
+	if not silent.get("ok", false):
+		return false
+	if silent.get("emit_coins", false):
+		_save_progress()
+		emit_signal("coins_changed", player_coins)
+	elif silent.get("emit_boosters", false):
+		_save_progress()
+		emit_signal("boosters_changed")
+	else:
+		_save_progress()
+	return true
+
+func _apply_golden_pass_reward_silent(entry: Dictionary) -> Dictionary:
+	var out := {"ok": false, "emit_coins": false, "emit_boosters": false}
 	var kind: String = str(entry.get("kind", ""))
 	match kind:
 		"coins":
 			var amt: int = int(entry.get("amount", 0))
 			if amt <= 0:
-				return false
-			add_coins(amt)
-			return true
+				return out
+			player_coins += amt
+			out.ok = true
+			out.emit_coins = true
+			return out
 		"booster":
 			var bid: String = str(entry.get("id", "hammer"))
 			var n: int = int(entry.get("amount", 1))
 			if n <= 0:
-				return false
+				return out
 			var bt := _booster_type_from_pass_id(bid)
 			booster_counts[bt] = booster_counts.get(bt, 0) + n
-			_save_progress()
-			emit_signal("boosters_changed")
-			return true
+			out.ok = true
+			out.emit_boosters = true
+			return out
 		"bonus_chip":
 			var chip: String = str(entry.get("id", "bomb"))
 			var c: int = int(entry.get("amount", 1))
 			if c <= 0 or not prelevel_boosts.has(chip):
-				return false
+				return out
 			prelevel_boosts[chip] += c
-			_save_progress()
-			return true
+			out.ok = true
+			return out
 		_:
-			return false
+			return out
 
 func get_golden_pass_tier_reward(tier_index: int) -> Dictionary:
 	var rows: Array = [
