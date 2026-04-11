@@ -1,4 +1,5 @@
 # Agent context
+- Связная группа соседних бонусов (ортогонально): `_collect_connected_bonus_component` в `game_board.gd`; при комбо без спец-пары/тройки эффекты вызываются по каждой клетке (`_activate_rainbow_chip` / `_apply_row_blast` / `_activate_bomb`), а не только по клетке клика.
 - Кампания: 50 файлов `levels/level_001.json` … `level_050.json`; «порталы» = `scheduled_spawns` с `y: 0`. Перегенерация: `python3 tools/generate_campaign_levels.py` (assert `assert_wall_row_gaps`; `enforce_wall_row_gaps` — плотные ряды стен чередуют проход слева/справа по порядку y — «змейка»). Победа: `_check_level_completed` — только выполнение `_level_targets`, пустое поле и препятствия не требуются.
 - Обход препятствий врагами: `_find_detour_exit_column_below_obstacle` + `_horizontal_detour_direction_order` — при блоке снизу порядок шагов влево/вправо к ближайшей колонке с проходом под связной группой `obstacles`.
 - Level 1 tutorial: overlay `scripts/level1_tutorial_overlay.gd`, `game_board.gd`; запускается при каждом старте уровня 1 (без сохранения «уже показано»).

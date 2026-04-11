@@ -2133,6 +2133,32 @@ func _point_to_cell(screen_pos: Vector2) -> Vector2i:
 		return Vector2i(-1, -1)
 	return Vector2i(x, y)
 
+func _collect_connected_bonus_component(x: int, y: int) -> Array:
+	if y < ENEMY_ROWS or y >= ROWS or x < 0 or x >= COLS:
+		return []
+	if chips[y][x] >= -1:
+		return []
+	var stack: Array = [Vector2i(x, y)]
+	var visited := {}
+	var component: Array = []
+	while not stack.is_empty():
+		var c: Vector2i = stack.pop_back()
+		var key = str(c.x) + "," + str(c.y)
+		if visited.has(key):
+			continue
+		visited[key] = true
+		if c.y < ENEMY_ROWS or c.y >= ROWS or c.x < 0 or c.x >= COLS:
+			continue
+		var cell_type = chips[c.y][c.x]
+		if cell_type >= -1:
+			continue
+		component.append(c)
+		stack.append(Vector2i(c.x + 1, c.y))
+		stack.append(Vector2i(c.x - 1, c.y))
+		stack.append(Vector2i(c.x, c.y + 1))
+		stack.append(Vector2i(c.x, c.y - 1))
+	return component
+
 func _get_cluster_at(x: int, y: int) -> Array:
 	if y < ENEMY_ROWS or y >= ROWS or x < 0 or x >= COLS: return []
 	var color_idx = chips[y][x]
@@ -2272,31 +2298,21 @@ func _pop_cluster(x: int, y: int):
 	return cluster.size()
 
 func _check_and_execute_bonus_combine(x: int, y: int) -> bool:
-	var neighbors = [Vector2i(x+1, y), Vector2i(x-1, y), Vector2i(x, y+1), Vector2i(x, y-1)]
-	var combined_points = [Vector2i(x, y)]
-	var types = {chips[y][x]: true}
-	
-	for n in neighbors:
-		if n.x >= 0 and n.x < COLS and n.y >= ENEMY_ROWS and n.y < ROWS:
-			var t = chips[n.y][n.x]
-			if t < -1:
-				combined_points.append(n)
-				types[t] = true
-	
+	var combined_points = _collect_connected_bonus_component(x, y)
 	if combined_points.size() < 2:
-		return false # Нет соседей-бонусов
-	
+		return false
+	var types := {}
+	var point_bonus_types := {}
+	for p in combined_points:
+		var bt = chips[p.y][p.x]
+		types[bt] = true
+		point_bonus_types[str(p.x) + "," + str(p.y)] = bt
 	_is_executing_combo = true
-	
-	# Поглощаем все бонусы, участвующие в комбо
 	for p in combined_points:
 		chips[p.y][p.x] = -1
-	
-	# Определяем тип комбо
 	var has_rainbow = types.has(RAINBOW_CHIP_IDX)
 	var has_rocket = types.has(ROW_BONUS_CHIP_IDX)
 	var has_bomb = types.has(BOMB_CHIP_IDX)
-	
 	if has_rainbow and has_rocket and has_bomb:
 		await _combo_mega_blast()
 	elif has_rainbow and has_bomb:
@@ -2306,11 +2322,15 @@ func _check_and_execute_bonus_combine(x: int, y: int) -> bool:
 	elif has_bomb and has_rocket:
 		await _combo_bomb_plus_rocket(x, y)
 	else:
-		# Если спец-комбо нет, просто активируем эффекты присутствующих типов
-		if has_rocket: _apply_row_blast(y)
-		if has_bomb: _activate_bomb(x, y)
-		if has_rainbow: _activate_rainbow_chip(x, y)
-
+		for p in combined_points:
+			var bonus_t = point_bonus_types[str(p.x) + "," + str(p.y)]
+			match bonus_t:
+				RAINBOW_CHIP_IDX:
+					_activate_rainbow_chip(p.x, p.y)
+				ROW_BONUS_CHIP_IDX:
+					_apply_row_blast(p.y)
+				BOMB_CHIP_IDX:
+					_activate_bomb(p.x, p.y)
 	_is_executing_combo = false
 	_apply_gravity_up()
 	queue_redraw()
