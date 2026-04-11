@@ -103,6 +103,9 @@ func setup() -> void:
 		LevelManager.golden_pass_state_changed.connect(_rebuild_rows)
 	_rebuild_all()
 
+func refresh_from_state() -> void:
+	_rebuild_all()
+
 func _exit_tree() -> void:
 	if LevelManager and LevelManager.golden_pass_state_changed.is_connected(_rebuild_rows):
 		LevelManager.golden_pass_state_changed.disconnect(_rebuild_rows)

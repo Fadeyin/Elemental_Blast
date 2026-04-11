@@ -69,8 +69,8 @@ func _on_golden_pass_state_changed():
 func _refresh_golden_pass_buy_button_if_visible():
 	if _golden_pass_dialog_open:
 		var dlg = find_child("GoldenPassOverlay", true, false)
-		if dlg and dlg.has_method("setup"):
-			dlg.setup()
+		if dlg and dlg.has_method("refresh_from_state"):
+			dlg.refresh_from_state()
 
 func _create_golden_pass_fab() -> void:
 	var fab := Button.new()
