@@ -597,7 +597,7 @@ func _update_booster_buttons_visual():
 			btn.modulate = Color(1, 1, 1)
 
 func _update_ui():
-	var moves_lbl = find_child("MovesCount", true, false)
+	var moves_lbl = get_node_or_null("CanvasUI/UIRoot/TopBar/MovesContainer/MovesCount")
 	if moves_lbl:
 		moves_lbl.text = str(_moves_left)
 	# Обновление жизней
@@ -2759,75 +2759,6 @@ func _horizontal_detour_direction_order(monster_x: int, monster_y: int) -> Array
 		return [1, -1]
 	return [-1, 1]
 
-# Нижняя свободная клетка в столбце (без препятствия и без монстра), с учётом уже запланированных занятий
-func _enemy_column_bottom_free_target_y(col_x: int, from_x: int, from_y: int, occupied_next: Array) -> int:
-	for ty in range(ENEMY_ROWS - 1, -1, -1):
-		if obstacles[ty][col_x] > 0:
-			continue
-		if occupied_next[ty][col_x]:
-			continue
-		if enemies[ty][col_x] > 0:
-			if ty == from_y and col_x == from_x:
-				continue
-			continue
-		return ty
-	return -1
-
-# Первый шаг кратчайшего пути (4-соседство) к цели; иначе невалидный шаг
-func _enemy_bfs_first_step(from_x: int, from_y: int, goal_x: int, goal_y: int, occupied_next: Array) -> Vector2i:
-	if from_x == goal_x and from_y == goal_y:
-		return Vector2i(999, 999)
-	var start_k := "%d,%d" % [from_x, from_y]
-	var goal_k := "%d,%d" % [goal_x, goal_y]
-	var visited := {}
-	var parent := {}
-	var q: Array = [Vector2i(from_x, from_y)]
-	visited[start_k] = true
-	var head := 0
-	var dirs := [Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0)]
-	while head < q.size():
-		var c: Vector2i = q[head]
-		head += 1
-		var ck := "%d,%d" % [c.x, c.y]
-		if ck == goal_k:
-			# От цели к старту по parent; первый сосед старта на пути — нужный шаг
-			var walk_k := goal_k
-			var max_hops := COLS * ENEMY_ROWS + 4
-			for _hop in range(max_hops):
-				if not parent.has(walk_k):
-					return Vector2i(999, 999)
-				var par_k := str(parent[walk_k])
-				if par_k.is_empty():
-					return Vector2i(999, 999)
-				if par_k == start_k:
-					var parts := walk_k.split(",")
-					if parts.size() != 2:
-						return Vector2i(999, 999)
-					var fx := int(parts[0])
-					var fy := int(parts[1])
-					return Vector2i(fx - from_x, fy - from_y)
-				walk_k = par_k
-			return Vector2i(999, 999)
-		for d in dirs:
-			var n := c + d
-			if n.x < 0 or n.x >= COLS or n.y < 0 or n.y >= ENEMY_ROWS:
-				continue
-			var nk := "%d,%d" % [n.x, n.y]
-			if visited.has(nk):
-				continue
-			if obstacles[n.y][n.x] > 0:
-				continue
-			if nk != goal_k:
-				if occupied_next[n.y][n.x]:
-					continue
-				if enemies[n.y][n.x] > 0:
-					if not (n.x == from_x and n.y == from_y):
-						continue
-			visited[nk] = true
-			parent[nk] = ck
-			q.append(n)
-	return Vector2i(999, 999)
-
 func _plan_enemy_moves() -> Array:
 	_enemy_move_anims.clear()
 	_cached_mixed_breach_priority = _enemy_mixed_columns_mode()
@@ -2875,35 +2806,17 @@ func _plan_enemy_moves() -> Array:
 						occupied_next[y][x] = false
 						moved = true
 					if not moved:
-						var target_y = _enemy_column_bottom_free_target_y(x, x, y, occupied_next)
-						if target_y >= 0:
-							var step = _enemy_bfs_first_step(x, y, x, target_y, occupied_next)
-							var sdx = int(step.x)
-							var sdy = int(step.y)
-							if sdx != 999 and sdy != 999:
-								var tx = x + sdx
-								var ty = y + sdy
-								if tx >= 0 and tx < COLS and ty >= 0 and ty < ENEMY_ROWS:
-									var blk = obstacles[ty][tx] > 0
-									var occ = occupied_next[ty][tx]
-									var enemy_here = enemies[ty][tx] > 0
-									if not blk and not occ and not enemy_here:
-										moves.append({"fx": x, "fy": y, "tx": tx, "ty": ty, "hp": hp, "init": init, "outcome": "normal"})
-										occupied_next[y][x] = false
-										occupied_next[ty][tx] = true
-										moved = true
-						if not moved:
-							var dirs = _horizontal_detour_direction_order(x, y)
-							for dx in dirs:
-								var nx = x + dx
-								if nx >= 0 and nx < COLS:
-									var has_obstacle_side = obstacles[y][nx] > 0
-									if not occupied_next[y][nx] and not has_obstacle_side:
-										moves.append({"fx": x, "fy": y, "tx": nx, "ty": y, "hp": hp, "init": init, "outcome": "normal"})
-										occupied_next[y][x] = false
-										occupied_next[y][nx] = true
-										moved = true
-										break
+						var dirs = _horizontal_detour_direction_order(x, y)
+						for dx in dirs:
+							var nx = x + dx
+							if nx >= 0 and nx < COLS:
+								var has_obstacle_side = obstacles[y][nx] > 0
+								if not occupied_next[y][nx] and not has_obstacle_side:
+									moves.append({"fx": x, "fy": y, "tx": nx, "ty": y, "hp": hp, "init": init, "outcome": "normal"})
+									occupied_next[y][x] = false
+									occupied_next[y][nx] = true
+									moved = true
+									break
 	return moves
 
 func _enemy_moves_include_last_row_attack(moves: Array) -> bool:
