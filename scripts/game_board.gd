@@ -92,6 +92,8 @@ var _cached_mixed_breach_priority: bool = false
 var _enemy_move_anims := [] # [{fx:int,fy:int,tx:int,ty:int,hp:int,init:int,t:float,d:float}]
 var _moves_total: int = 20
 var _moves_left: int = 20
+# Пока false — не засчитывать победу (избегаем ложного _check_level_completed до пересборки целей)
+var _level_ready_for_win: bool = false
 
 var _needs_ui_update: bool = false
 const COINS_PER_REMAINING_BONUS_CHIP := 10
@@ -348,9 +350,9 @@ func _init_ui():
 		tb.alignment = BoxContainer.ALIGNMENT_BEGIN
 		tb.add_theme_constant_override("separation", 30)
 		
-		# Удаляем старые контейнеры, чтобы создать их заново в нужном порядке
+		# Удаляем старые контейнеры жизней и монет; блок ходов (Moves*) оставляем из сцены
 		for child in tb.get_children():
-			if child.name.begins_with("Lives") or child.name.begins_with("Moves") or child.name.begins_with("Coins"):
+			if child.name.begins_with("Lives") or child.name.begins_with("Coins"):
 				child.name = "deleted_" + child.name
 				child.queue_free()
 		
@@ -595,6 +597,9 @@ func _update_booster_buttons_visual():
 			btn.modulate = Color(1, 1, 1)
 
 func _update_ui():
+	var moves_lbl = find_child("MovesCount", true, false)
+	if moves_lbl:
+		moves_lbl.text = str(_moves_left)
 	# Обновление жизней
 	var lc_lbl = find_child("LivesCount", true, false)
 	if lc_lbl:
@@ -700,6 +705,7 @@ func _init_chips():
 		chips.append(row)
 
 func _init_enemies_from_config(cfg: Dictionary):
+	_level_ready_for_win = false
 	enemies.clear()
 	enemies_initial_hp.clear()
 	_enemies_hit_this_turn.clear()
@@ -760,6 +766,8 @@ func _init_enemies_from_config(cfg: Dictionary):
 				_level_targets[hp] = int(_level_targets.get(hp, 0)) + 1
 
 	if _use_scheduled_spawns:
+		_rebuild_level_targets_from_field()
+		_level_ready_for_win = true
 		return
 
 	# Legacy режим: старая очередь монстров
@@ -804,6 +812,21 @@ func _init_enemies_from_config(cfg: Dictionary):
 				var hp = _monster_spawn_queue.pop_front()
 				enemies[y][x] = hp
 				enemies_initial_hp[y][x] = hp
+	_rebuild_level_targets_from_field()
+	_level_ready_for_win = true
+
+func _rebuild_level_targets_from_field() -> void:
+	_level_targets.clear()
+	for y in range(ENEMY_ROWS):
+		for x in range(COLS):
+			var init_hp = enemies_initial_hp[y][x]
+			if init_hp > 0:
+				_level_targets[init_hp] = int(_level_targets.get(init_hp, 0)) + 1
+	for item in _scheduled_spawns:
+		var hp = max(1, int(item.get("hp", 1)))
+		_level_targets[hp] = int(_level_targets.get(hp, 0)) + 1
+	for hp_val in _monster_spawn_queue:
+		_level_targets[hp_val] = int(_level_targets.get(hp_val, 0)) + 1
 
 func _decrement_level_target_for_init_hp(init_hp: int) -> void:
 	if _level_targets.has(init_hp):
@@ -2484,6 +2507,8 @@ func _activate_rainbow_chip(rx: int, ry: int, trigger_move: bool = true):
 		_apply_gravity_up()
 	queue_redraw()
 func _check_level_completed() -> bool:
+	if not _level_ready_for_win:
+		return false
 	# Нельзя засчитать победу, пока ожидается проигрыш по прорыву или открыт диалог поражения
 	if _defeat_pending_breach or _defeat_dialog_shown:
 		return false
