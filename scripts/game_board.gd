@@ -90,8 +90,6 @@ var _enemy_attack_warn_time_left: float = 0.0
 var _cached_enemy_moves: Array = []
 var _cached_mixed_breach_priority: bool = false
 var _enemy_move_anims := [] # [{fx:int,fy:int,tx:int,ty:int,hp:int,init:int,t:float,d:float}]
-var _moves_total: int = 20
-var _moves_left: int = 20
 # Пока false — не засчитывать победу (избегаем ложного _check_level_completed до пересборки целей)
 var _level_ready_for_win: bool = false
 
@@ -154,7 +152,6 @@ func _ready():
 	_init_chips()
 	_init_obstacles_from_config(cfg)
 	_init_enemies_from_config(cfg)
-	_init_moves_from_config(cfg)
 	_init_column_hearts()
 	_init_ui()
 	_update_ui()
@@ -597,9 +594,6 @@ func _update_booster_buttons_visual():
 			btn.modulate = Color(1, 1, 1)
 
 func _update_ui():
-	var moves_lbl = get_node_or_null("CanvasUI/UIRoot/TopBar/MovesContainer/MovesCount")
-	if moves_lbl:
-		moves_lbl.text = str(_moves_left)
 	# Обновление жизней
 	var lc_lbl = find_child("LivesCount", true, false)
 	if lc_lbl:
@@ -2025,11 +2019,6 @@ func _spawn_new_chips_with_fall():
 		_active_anims = _active_anims + new_anims
 		set_process(true)
 
-func _init_moves_from_config(cfg: Dictionary) -> void:
-	_moves_total = max(1, int(cfg.get("moves", 20)))
-	_moves_left = _moves_total
-
-
 func _unhandled_input(event):
 	if event is InputEventMouseMotion:
 		queue_redraw()
@@ -2049,7 +2038,6 @@ func _unhandled_input(event):
 			var popped = await _pop_cluster(cell.x, cell.y)
 			if popped > 0:
 				_player_turn_counter += 1
-				_moves_left = max(0, _moves_left - 1)
 				_update_ui()
 		# Проверку победы/поражения делаем после завершения анимаций в _process
 
