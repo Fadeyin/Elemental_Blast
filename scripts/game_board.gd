@@ -2733,19 +2733,111 @@ func _find_detour_exit_column_below_obstacle(monster_x: int, monster_y: int) -> 
 			best_col = cand
 	return best_col
 
-# Порядок проверки влево/вправо: сначала к ближайшему проходу под многоклеточным препятствием
+# Порядок проверки влево/вправо: сначала к ближайшему проходу под многоклеточным препятствием (без случайности — стабильный обход)
 func _horizontal_detour_direction_order(monster_x: int, monster_y: int) -> Array:
 	var exit_c = _find_detour_exit_column_below_obstacle(monster_x, monster_y)
 	if exit_c < 0:
-		var dirs_alt = [-1, 1]
-		if (monster_x + monster_y + int(Time.get_ticks_msec() * 0.001)) % 2 == 0:
-			dirs_alt.reverse()
-		return dirs_alt
+		return [-1, 1]
 	if exit_c < monster_x:
 		return [-1, 1]
 	if exit_c > monster_x:
 		return [1, -1]
 	return [-1, 1]
+
+func _enemy_cell_key(cx: int, cy: int) -> String:
+	return "%d,%d" % [cx, cy]
+
+func _enemy_cell_walkable(nx: int, ny: int, from_x: int, from_y: int, occupied_next: Array) -> bool:
+	if nx < 0 or nx >= COLS or ny < 0 or ny >= ENEMY_ROWS:
+		return false
+	if obstacles[ny][nx] > 0:
+		return false
+	if occupied_next[ny][nx]:
+		return false
+	if enemies[ny][nx] > 0:
+		if nx == from_x and ny == from_y:
+			return true
+		return false
+	return true
+
+# Один шаг по кратчайшему пути к максимально глубокой достижимой клетке (при равной глубине — меньше шагов, затем ближе по столбцу к монстру)
+func _enemy_bfs_first_step_toward_deepest(sx: int, sy: int, occupied_next: Array) -> Vector2i:
+	var start_k := _enemy_cell_key(sx, sy)
+	var dist_map := {}
+	dist_map[start_k] = 0
+	var parent := {}
+	var q: Array = [Vector2i(sx, sy)]
+	var head := 0
+	var dirs := [Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1)]
+	while head < q.size():
+		var c: Vector2i = q[head]
+		head += 1
+		var ck := _enemy_cell_key(int(c.x), int(c.y))
+		var base_d: int = int(dist_map[ck])
+		for d in dirs:
+			var n := c + d
+			var nx := int(n.x)
+			var ny := int(n.y)
+			if not _enemy_cell_walkable(nx, ny, sx, sy, occupied_next):
+				continue
+			var nk := _enemy_cell_key(nx, ny)
+			if dist_map.has(nk):
+				continue
+			dist_map[nk] = base_d + 1
+			parent[nk] = ck
+			q.append(n)
+	var best_k := ""
+	var best_y := -1
+	var best_d := 999999
+	var best_col_off := 999999
+	var best_x := 999999
+	for nk in dist_map:
+		if nk == start_k:
+			continue
+		var parts: PackedStringArray = nk.split(",")
+		if parts.size() != 2:
+			continue
+		var gy := int(parts[1])
+		var gx := int(parts[0])
+		var dd := int(dist_map[nk])
+		var col_off := abs(gx - sx)
+		if gy > best_y:
+			best_y = gy
+			best_d = dd
+			best_col_off = col_off
+			best_x = gx
+			best_k = nk
+		elif gy == best_y:
+			if dd < best_d:
+				best_d = dd
+				best_col_off = col_off
+				best_x = gx
+				best_k = nk
+			elif dd == best_d:
+				if col_off < best_col_off:
+					best_col_off = col_off
+					best_x = gx
+					best_k = nk
+				elif col_off == best_col_off and gx < best_x:
+					best_x = gx
+					best_k = nk
+	if best_k.is_empty():
+		return Vector2i(999, 999)
+	var walk_k := best_k
+	var max_back := COLS * ENEMY_ROWS + 4
+	for _i in range(max_back):
+		if not parent.has(walk_k):
+			return Vector2i(999, 999)
+		var par_k: String = str(parent[walk_k])
+		if par_k == start_k:
+			var fparts: PackedStringArray = walk_k.split(",")
+			if fparts.size() != 2:
+				return Vector2i(999, 999)
+			var fx := int(fparts[0])
+			var fy := int(fparts[1])
+			return Vector2i(fx - sx, fy - sy)
+		walk_k = par_k
+	return Vector2i(999, 999)
 
 func _plan_enemy_moves() -> Array:
 	_enemy_move_anims.clear()
@@ -2794,17 +2886,33 @@ func _plan_enemy_moves() -> Array:
 						occupied_next[y][x] = false
 						moved = true
 					if not moved:
-						var dirs = _horizontal_detour_direction_order(x, y)
-						for dx in dirs:
-							var nx = x + dx
-							if nx >= 0 and nx < COLS:
-								var has_obstacle_side = obstacles[y][nx] > 0
-								if not occupied_next[y][nx] and not has_obstacle_side:
-									moves.append({"fx": x, "fy": y, "tx": nx, "ty": y, "hp": hp, "init": init, "outcome": "normal"})
+						var step = _enemy_bfs_first_step_toward_deepest(x, y, occupied_next)
+						var sdx = int(step.x)
+						var sdy = int(step.y)
+						if sdx != 999 and sdy != 999:
+							var tx = x + sdx
+							var ty = y + sdy
+							if tx >= 0 and tx < COLS and ty >= 0 and ty < ENEMY_ROWS:
+								var blk = obstacles[ty][tx] > 0
+								var occ = occupied_next[ty][tx]
+								var enemy_here = enemies[ty][tx] > 0
+								if not blk and not occ and not enemy_here:
+									moves.append({"fx": x, "fy": y, "tx": tx, "ty": ty, "hp": hp, "init": init, "outcome": "normal"})
 									occupied_next[y][x] = false
-									occupied_next[y][nx] = true
+									occupied_next[ty][tx] = true
 									moved = true
-									break
+						if not moved:
+							var dirs = _horizontal_detour_direction_order(x, y)
+							for dx in dirs:
+								var nx = x + dx
+								if nx >= 0 and nx < COLS:
+									var has_obstacle_side = obstacles[y][nx] > 0
+									if not occupied_next[y][nx] and not has_obstacle_side:
+										moves.append({"fx": x, "fy": y, "tx": nx, "ty": y, "hp": hp, "init": init, "outcome": "normal"})
+										occupied_next[y][x] = false
+										occupied_next[y][nx] = true
+										moved = true
+										break
 	return moves
 
 func _enemy_moves_include_last_row_attack(moves: Array) -> bool:
