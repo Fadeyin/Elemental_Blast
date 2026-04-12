@@ -2765,20 +2765,24 @@ func _enemy_bfs_first_step(from_x: int, from_y: int, goal_x: int, goal_y: int, o
 		head += 1
 		var ck := "%d,%d" % [c.x, c.y]
 		if ck == goal_k:
-			var steps: Array = []
-			var cur_k := goal_k
-			while cur_k != start_k:
-				steps.append(cur_k)
-				cur_k = str(parent.get(cur_k, ""))
-			if steps.is_empty():
-				return Vector2i(999, 999)
-			var first_k: String = str(steps[steps.size() - 1])
-			var parts := first_k.split(",")
-			if parts.size() != 2:
-				return Vector2i(999, 999)
-			var fx := int(parts[0])
-			var fy := int(parts[1])
-			return Vector2i(fx - from_x, fy - from_y)
+			# От цели к старту по parent; первый сосед старта на пути — нужный шаг
+			var walk_k := goal_k
+			var max_hops := COLS * ENEMY_ROWS + 4
+			for _hop in range(max_hops):
+				if not parent.has(walk_k):
+					return Vector2i(999, 999)
+				var par_k := str(parent[walk_k])
+				if par_k.is_empty():
+					return Vector2i(999, 999)
+				if par_k == start_k:
+					var parts := walk_k.split(",")
+					if parts.size() != 2:
+						return Vector2i(999, 999)
+					var fx := int(parts[0])
+					var fy := int(parts[1])
+					return Vector2i(fx - from_x, fy - from_y)
+				walk_k = par_k
+			return Vector2i(999, 999)
 		for d in dirs:
 			var n := c + d
 			if n.x < 0 or n.x >= COLS or n.y < 0 or n.y >= ENEMY_ROWS:
