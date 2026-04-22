@@ -2791,10 +2791,10 @@ func _enemy_bfs_first_step_toward_deepest(sx: int, sy: int, occupied_next: Array
 	var best_d := 999999
 	var best_col_off := 999999
 	var best_x := 999999
-	for nk in dist_map:
+	for nk in dist_map.keys():
 		if nk == start_k:
 			continue
-		var parts: PackedStringArray = nk.split(",")
+		var parts: PackedStringArray = nk.split(",", false)
 		if parts.size() != 2:
 			continue
 		var gy := int(parts[1])
@@ -2830,7 +2830,7 @@ func _enemy_bfs_first_step_toward_deepest(sx: int, sy: int, occupied_next: Array
 			return Vector2i(999, 999)
 		var par_k: String = str(parent[walk_k])
 		if par_k == start_k:
-			var fparts: PackedStringArray = walk_k.split(",")
+			var fparts: PackedStringArray = walk_k.split(",", false)
 			if fparts.size() != 2:
 				return Vector2i(999, 999)
 			var fx := int(fparts[0])
