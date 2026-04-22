@@ -17,15 +17,15 @@ const CHIP_COLORS := [
 	Color(0.95, 0.95, 0.95)  # Чистый белый (вместо фиолетового)
 ]
 const CHIP_TEXTURES := [
-	preload("res://textures/Сhip_Base_Red.png"),
-	preload("res://textures/Сhip_Base_Blue.png"),
-	preload("res://textures/Сhip_Base_Green.png"),
-	preload("res://textures/Сhip_Base_White.png")
+	preload("res://textures/Chip_Base_Red.png"),
+	preload("res://textures/Chip_Base_Blue.png"),
+	preload("res://textures/Chip_Base_Green.png"),
+	preload("res://textures/Chip_Base_White.png")
 ]
 const BONUS_TEXTURES := {
-	RAINBOW_CHIP_IDX: preload("res://textures/Сhip_Bonus_Rainbow_Ball.png"),
-	ROW_BONUS_CHIP_IDX: preload("res://textures/Сhip_Bonus_Arrows.png"),
-	BOMB_CHIP_IDX: preload("res://textures/Сhip_Bonus_Bomb.png")
+	RAINBOW_CHIP_IDX: preload("res://textures/Chip_Bonus_Rainbow_Ball.png"),
+	ROW_BONUS_CHIP_IDX: preload("res://textures/Chip_Bonus_Arrows.png"),
+	BOMB_CHIP_IDX: preload("res://textures/Chip_Bonus_Bomb.png")
 }
 const MONSTER_TEXTURES := {
 	1: preload("res://textures/Monster_1_lvl.png"),
@@ -197,6 +197,12 @@ func _ready():
 		back_btn.focus_mode = Control.FOCUS_NONE
 	
 	call_deferred("_start_level1_tutorial_if_needed")
+	call_deferred("_request_board_redraw_after_layout")
+
+func _request_board_redraw_after_layout() -> void:
+	queue_redraw()
+	await get_tree().process_frame
+	queue_redraw()
 
 func _rect_global_to_overlay_local(overlay: Control, global_rect: Rect2) -> Rect2:
 	var inv: Transform2D = overlay.get_global_transform_with_canvas().affine_inverse()
@@ -1031,6 +1037,8 @@ func _on_viewport_size_changed():
 
 func _draw():
 	var vp_size = _get_layout_viewport_size()
+	# Подложка до текстур: на части сборок фон-текстура может не покрыть viewport в первый кадр
+	draw_rect(Rect2(Vector2.ZERO, vp_size), BG_COLOR)
 	var origin = _grid_origin(vp_size)
 	
 	# Применяем тряску экрана к началу координат

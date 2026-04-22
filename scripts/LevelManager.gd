@@ -166,9 +166,9 @@ func get_prelevel_boost_count(boost_type: String) -> int:
 func get_prelevel_boost_texture(boost_type: String) -> Texture2D:
 	# Возвращает текстуру для иконки усиления
 	match boost_type:
-		"bomb": return preload("res://textures/Сhip_Bonus_Bomb.png")
-		"arrow": return preload("res://textures/Сhip_Bonus_Arrows.png")
-		"rainbow": return preload("res://textures/Сhip_Bonus_Rainbow_Ball.png")
+		"bomb": return preload("res://textures/Chip_Bonus_Bomb.png")
+		"arrow": return preload("res://textures/Chip_Bonus_Arrows.png")
+		"rainbow": return preload("res://textures/Chip_Bonus_Rainbow_Ball.png")
 		_: return null
 
 func get_mort_helmet_level() -> int:
