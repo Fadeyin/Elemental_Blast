@@ -207,6 +207,8 @@ func _rect_global_to_overlay_local(overlay: Control, global_rect: Rect2) -> Rect
 func _start_level1_tutorial_if_needed() -> void:
 	if LevelManager.current_level != 1:
 		return
+	await get_tree().process_frame
+	await get_tree().process_frame
 	_level1_tutorial_phase = 1
 	var overlay = _attach_level1_tutorial_overlay()
 	var enemy_r = _rect_global_to_overlay_local(overlay, _get_enemy_field_rect_viewport())

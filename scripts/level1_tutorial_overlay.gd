@@ -39,6 +39,21 @@ func _ready() -> void:
 func set_board(board: Node) -> void:
 	_board = board
 
+# Если rect зоны поля ещё не совпал с размером оверлея (первый кадр / раскладка),
+# пересечение с viewport пустое — иначе рисуется сплошной DIM_COLOR поверх всего поля.
+func _sanitize_hole_rect() -> void:
+	var vp := Rect2(Vector2.ZERO, size)
+	var h := _hole_rect.intersection(vp)
+	const MIN_SIDE := 48.0
+	if h.size.x >= MIN_SIDE and h.size.y >= MIN_SIDE:
+		_hole_rect = h
+		return
+	var fw: float = clampf(minf(size.x * 0.88, 640.0), MIN_SIDE, maxf(MIN_SIDE, size.x))
+	var fh: float = clampf(minf(size.y * 0.42, 520.0), MIN_SIDE, maxf(MIN_SIDE, size.y))
+	var cx: float = size.x * 0.5
+	var cy: float = size.y * 0.36
+	_hole_rect = Rect2(cx - fw * 0.5, cy - fh * 0.5, fw, fh).intersection(vp)
+
 func _await_valid_size() -> void:
 	for _i in range(12):
 		if size.x > 32.0 and size.y > 32.0:
@@ -49,6 +64,7 @@ func begin_enemy_step(enemy_rect_viewport: Rect2, message: String) -> void:
 	await _await_valid_size()
 	_phase = Phase.ENEMY_INTRO
 	_hole_rect = enemy_rect_viewport
+	_sanitize_hole_rect()
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_enemy_intro_draw_text = message
 	await _layout_enemy_intro_text_band(enemy_rect_viewport, message)
@@ -58,7 +74,8 @@ func begin_chips_step(player_rect_viewport: Rect2, message: String) -> void:
 	await _await_valid_size()
 	_phase = Phase.CHIPS_HINT
 	_hole_rect = player_rect_viewport
-	_chips_step_hole_local = player_rect_viewport
+	_sanitize_hole_rect()
+	_chips_step_hole_local = _hole_rect
 	_chips_step_message = message
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	await _position_instruction_above_hole(player_rect_viewport, message)
@@ -68,6 +85,7 @@ func begin_goals_step(goals_rect_viewport: Rect2, center_message: String) -> voi
 	await _await_valid_size()
 	_phase = Phase.GOALS_HINT
 	_hole_rect = goals_rect_viewport
+	_sanitize_hole_rect()
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	await _center_instruction_label(center_message)
 	queue_redraw()
