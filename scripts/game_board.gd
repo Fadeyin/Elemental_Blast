@@ -233,7 +233,7 @@ func _attach_level1_tutorial_overlay() -> Control:
 	return overlay
 
 func _get_enemy_field_rect_viewport() -> Rect2:
-	var vp_size = get_viewport_rect().size
+	var vp_size = _get_layout_viewport_size()
 	var origin = _grid_origin(vp_size)
 	var sz = Vector2(float(COLS) * CELL_SIZE, float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT)
 	var tl = to_global(origin)
@@ -241,7 +241,7 @@ func _get_enemy_field_rect_viewport() -> Rect2:
 	return Rect2(tl, br - tl)
 
 func _get_player_field_rect_viewport() -> Rect2:
-	var vp_size = get_viewport_rect().size
+	var vp_size = _get_layout_viewport_size()
 	var origin = _grid_origin(vp_size)
 	var top_y = origin.y + float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + _field_gap_total
 	var sz = Vector2(float(COLS) * CELL_SIZE, float(PLAYER_ROWS) * CELL_SIZE)
@@ -1000,11 +1000,29 @@ func _clear_board_vfx_after_refill() -> void:
 	_monster_shakes.clear()
 	_needs_ui_update = true
 
+# На первом кадре после смены сцены или в WebGL размер из get_viewport_rect() иногда 0 или занижен;
+# без этого сетка уезжает за экран и поле не видно (кажется «пустым серым экраном»).
+func _get_layout_viewport_size() -> Vector2:
+	var s := get_viewport_rect().size
+	var vp := get_viewport()
+	if vp != null:
+		var vr := vp.get_visible_rect().size
+		s.x = maxf(s.x, vr.x)
+		s.y = maxf(s.y, vr.y)
+	if s.x < 32.0 or s.y < 32.0:
+		s.x = maxf(s.x, float(ProjectSettings.get_setting("display/window/size/viewport_width", 648)))
+		s.y = maxf(s.y, float(ProjectSettings.get_setting("display/window/size/viewport_height", 1200)))
+	return s
+
 func _grid_origin(vp_size: Vector2) -> Vector2:
-	var grid_size = Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT + PLAYER_ROWS * CELL_SIZE + _field_gap_total)
-	var ox = (vp_size.x - grid_size.x) * 0.5
-	var usable_h = vp_size.y - UI_TOP_MARGIN - UI_BOTTOM_MARGIN
-	var oy = ((usable_h - grid_size.y) * 0.95) + UI_TOP_MARGIN
+	var grid_size := Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT + PLAYER_ROWS * CELL_SIZE + _field_gap_total)
+	var ox := (vp_size.x - grid_size.x) * 0.5
+	var usable_h := vp_size.y - UI_TOP_MARGIN - UI_BOTTOM_MARGIN
+	var oy := ((usable_h - grid_size.y) * 0.95) + UI_TOP_MARGIN
+	var max_ox := maxf(0.0, vp_size.x - grid_size.x)
+	var max_oy := maxf(0.0, vp_size.y - grid_size.y)
+	ox = clampf(ox, 0.0, max_ox)
+	oy = clampf(oy, 0.0, max_oy)
 	return Vector2(ox, oy)
 
 func _on_viewport_size_changed():
@@ -1012,7 +1030,7 @@ func _on_viewport_size_changed():
 	queue_redraw()
 
 func _draw():
-	var vp_size = get_viewport_rect().size
+	var vp_size = _get_layout_viewport_size()
 	var origin = _grid_origin(vp_size)
 	
 	# Применяем тряску экрана к началу координат
@@ -1433,7 +1451,7 @@ func _draw():
 
 func _activate_bomb(bx: int, by: int, trigger_move: bool = true):
 	# VFX Бомбы
-	var vp_size = get_viewport_rect().size
+	var vp_size = _get_layout_viewport_size()
 	var origin = _grid_origin(vp_size)
 	var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (by - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 	var center_pos = origin + Vector2(bx * CELL_SIZE + CELL_SIZE * 0.5, y_pos + CELL_SIZE * 0.5)
@@ -1781,7 +1799,7 @@ func _draw_obstacle(top_left: Vector2, size: Vector2, hp: int, max_hp: int, is_u
 	_draw_monster_health_bar(top_left, size.x, hp, max_hp, 1.0)
 
 func _draw_player_zone_overlay():
-	var vp_size = get_viewport_rect().size
+	var vp_size = _get_layout_viewport_size()
 	var origin = _grid_origin(vp_size)
 	var player_rect = Rect2(Vector2(origin.x, origin.y + ENEMY_ROWS * ENEMY_CELL_HEIGHT + _field_gap_total), Vector2(COLS * CELL_SIZE, PLAYER_ROWS * CELL_SIZE))
 
@@ -1909,7 +1927,7 @@ func _process(delta: float) -> void:
 								obstacles[ty][tx] = 0
 								obstacles_initial_hp[ty][tx] = 0
 								# VFX разрушения препятствия
-								var vp_size = get_viewport_rect().size
+								var vp_size = _get_layout_viewport_size()
 								var origin = _grid_origin(vp_size)
 								var obs_center = origin + Vector2(float(tx) * CELL_SIZE + CELL_SIZE * 0.5, float(ty) * ENEMY_CELL_HEIGHT + ENEMY_CELL_HEIGHT * 0.5)
 								_board_vfx.append({
@@ -2071,7 +2089,7 @@ func _use_booster_on_cell(cell: Vector2i):
 func _apply_freeze():
 	_freeze_turns = 1 # Замораживаем на один ход
 	# Добавим VFX снежинок на все поле врагов
-	var vp_size = get_viewport_rect().size
+	var vp_size = _get_layout_viewport_size()
 	var origin = _grid_origin(vp_size)
 	for y in range(ENEMY_ROWS):
 		for x in range(COLS):
@@ -2093,7 +2111,7 @@ func _apply_hammer(cell: Vector2i):
 
 func _apply_row_blast(row_y: int, trigger_move: bool = true):
 	# VFX Ракеты
-	var vp_size = get_viewport_rect().size
+	var vp_size = _get_layout_viewport_size()
 	var origin = _grid_origin(vp_size)
 	var center_y = origin.y + row_y * CELL_SIZE + CELL_SIZE * 0.5
 	_board_vfx.append({"type": "beam", "pos": Vector2(vp_size.x * 0.5, center_y), "color": Color(0.4, 0.6, 1.0), "t": 0.0, "d": 0.3})
@@ -2124,7 +2142,7 @@ func _apply_booster_shuffle():
 	queue_redraw()
 
 func _point_to_cell(screen_pos: Vector2) -> Vector2i:
-	var vp_size = get_viewport_rect().size
+	var vp_size = _get_layout_viewport_size()
 	var origin = _grid_origin(vp_size)
 	var local = screen_pos - origin
 	
@@ -2380,7 +2398,7 @@ func _combo_bomb_plus_rocket(cx: int, cy: int):
 		var target_y = cy + i
 		if target_y >= ENEMY_ROWS and target_y < ROWS:
 			# VFX для каждого ряда
-			var vp_size = get_viewport_rect().size
+			var vp_size = _get_layout_viewport_size()
 			var origin = _grid_origin(vp_size)
 			var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (target_y - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 			var center_y = origin.y + y_pos + CELL_SIZE * 0.5
@@ -2396,7 +2414,7 @@ func _combo_bomb_plus_rocket(cx: int, cy: int):
 		var target_x = cx + i
 		if target_x >= 0 and target_x < COLS:
 			# VFX для каждого столбца (вертикальный луч)
-			var vp_size = get_viewport_rect().size
+			var vp_size = _get_layout_viewport_size()
 			var origin = _grid_origin(vp_size)
 			var center_x = origin.x + target_x * CELL_SIZE + CELL_SIZE * 0.5
 			var center_y = origin.y + ENEMY_ROWS * ENEMY_CELL_HEIGHT + (PLAYER_ROWS * 0.5) * CELL_SIZE + _field_gap_total
@@ -2459,7 +2477,7 @@ func _activate_rainbow_chip(rx: int, ry: int, trigger_move: bool = true):
 		return
 
 	# VFX Радуги
-	var vp_size = get_viewport_rect().size
+	var vp_size = _get_layout_viewport_size()
 	var origin = _grid_origin(vp_size)
 	var start_y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (ry - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 	var start_pos = origin + Vector2(rx * CELL_SIZE + CELL_SIZE * 0.5, start_y_pos + CELL_SIZE * 0.5)
@@ -2928,7 +2946,7 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 		enemies[m.fy][m.fx] = 0
 		enemies_initial_hp[m.fy][m.fx] = 0
 	
-	var vp_size_apply = get_viewport_rect().size
+	var vp_size_apply = _get_layout_viewport_size()
 	var origin_apply = _grid_origin(vp_size_apply)
 	
 	for m in moves:
@@ -3087,7 +3105,7 @@ func _apply_gravity_up():
 	_spawn_new_chips_with_fall()
 
 func _add_chip_pop_vfx(x: int, y: int, color_idx: int):
-	var vp_size = get_viewport_rect().size
+	var vp_size = _get_layout_viewport_size()
 	var origin = _grid_origin(vp_size)
 	var y_pos = 0.0
 	var cell_h = CELL_SIZE
