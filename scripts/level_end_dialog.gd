@@ -97,9 +97,9 @@ func _fill_defeat(refill_cost: int, player_coins: int, hearts_to_restore: int, c
 	vbox.add_child(title)
 	var body = Label.new()
 	if can_refill:
-		body.text = "Сердца в атакованных столбцах закончились.\n\nЗа %d монет восстановить %d сердец в этих столбцах; остальные монстры на один ход заморожены на каждое сердце.\n\nУ вас: %d монет" % [refill_cost, hearts_to_restore, player_coins]
+		body.text = "Жизни закончились.\n\nЗа %d монет восстановить %d жизней на шкале и отодвинуть всех монстров на три клетки назад.\n\nУ вас: %d монет" % [refill_cost, hearts_to_restore, player_coins]
 	else:
-		body.text = "Сердца закончились.\n\nНужно %d монет за восстановление %d сердец.\nУ вас: %d монет\n\nВернитесь в меню или попробуйте снова." % [refill_cost, hearts_to_restore, player_coins]
+		body.text = "Жизни закончились.\n\nДля следующего восстановления нужно %d монет (%d жизней).\nУ вас: %d монет\n\nВернитесь в меню или попробуйте снова." % [refill_cost, hearts_to_restore, player_coins]
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_theme_font_size_override("font_size", 32)

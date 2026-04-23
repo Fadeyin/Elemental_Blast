@@ -88,25 +88,25 @@ var _enemy_move_pending: bool = false
 var _enemy_attack_warn_pending: bool = false
 var _enemy_attack_warn_time_left: float = 0.0
 var _cached_enemy_moves: Array = []
-var _cached_mixed_breach_priority: bool = false
 var _enemy_move_anims := [] # [{fx:int,fy:int,tx:int,ty:int,hp:int,init:int,t:float,d:float}]
 # Пока false — не засчитывать победу (избегаем ложного _check_level_completed до пересборки целей)
 var _level_ready_for_win: bool = false
 
 var _needs_ui_update: bool = false
 const COINS_PER_REMAINING_BONUS_CHIP := 10
-const REFILL_GOLD_PER_HEART := 50
-# После оплаты восстановления сердец — сдвиг всех монстров к спавну на столько рядов
-const REFILL_ENEMY_SHIFT_ROWS := 1
+# Общий пул жизней на уровень (одна шкала на все столбцы)
+const TOTAL_LIVES_PER_LEVEL := 10
+# После оплаты восстановления — отодвинуть всех монстров на столько рядов к спавну
+const REFILL_ENEMY_SHIFT_ROWS := 3
+# Стоимость и объём восстановления по номеру попытки (0..3)
+const DEFEAT_REFILL_COSTS := [300, 600, 900, 1200]
+const DEFEAT_REFILL_LIVES := [3, 5, 7, 10]
 # Мигание красным перед атакой с переднего ряда (сердце / прорыв)
 const ENEMY_ATTACK_WARN_DURATION := 0.55
 const ENEMY_ATTACK_WARN_FLASH_HZ := 5.0
-# Уникальные столбцы атаки при прорыве (нет сердца в столбце) — для частичного восстановления
-var _last_breach_attack_columns: Array = []
-# Прорыв в пустой столбец — уровень проигран, нужно окно поражения (не только при 0 сердец везде)
-var _defeat_pending_breach: bool = false
-# Монстры прорыва по столбцу: после оплаты вернуть на линию сердец (column -> {hp, init})
-var _pending_breach_monsters: Dictionary = {}
+var _player_lives_remaining: int = TOTAL_LIVES_PER_LEVEL
+# Индекс следующего платного восстановления при поражении (сбрасывается на новом уровне)
+var _defeat_refill_index: int = 0
 
 enum BoosterType { NONE, HAMMER, ROW_BLAST, SHUFFLE, FREEZE }
 var _active_booster: BoosterType = BoosterType.NONE
@@ -135,9 +135,6 @@ var _level1_tutorial_overlay: Control = null
 # 0 — выкл; 1 — враги; 2 — фишки; 3 — полное затемнение, ожидание снарядов; 4 — цели (показ)
 var _level1_tutorial_phase: int = 0
 var _level1_tutorial_advancing_to_goals: bool = false
-# Сердца в столбцах на _heart_row_y: защита уровня; при старте true, если в клетке нет препятствия
-var _column_hearts: Array = []
-var _column_hearts_initial: Array = []
 # Высота зоны врагов совпадает с размером сетки ENEMY_ROWS (10 рядов); поле enemy_rows в JSON не укорачивает поле
 var _enemy_rows_effective: int = ENEMY_ROWS
 var _heart_row_y: int = ENEMY_ROWS - 1
@@ -152,7 +149,7 @@ func _ready():
 	_init_chips()
 	_init_obstacles_from_config(cfg)
 	_init_enemies_from_config(cfg)
-	_init_column_hearts()
+	_init_player_lives_for_level()
 	_init_ui()
 	_update_ui()
 	queue_redraw()
@@ -361,11 +358,11 @@ func _init_ui():
 				child.name = "deleted_" + child.name
 				child.queue_free()
 		
-		# 1. Жизни (крайний левый элемент)
+		# 1. Жизни — шкала из 10 делений (общий пул на уровень)
 		var lc = VBoxContainer.new()
 		lc.name = "LivesContainerNew"
-		lc.custom_minimum_size = Vector2(90, 0)
-		lc.add_theme_constant_override("separation", -8)
+		lc.custom_minimum_size = Vector2(160, 0)
+		lc.add_theme_constant_override("separation", 6)
 		lc.alignment = BoxContainer.ALIGNMENT_CENTER
 		tb.add_child(lc)
 		tb.move_child(lc, 0)
@@ -377,15 +374,37 @@ func _init_ui():
 		l_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		lc.add_child(l_title)
 		
-		var l_count = Label.new()
-		l_count.name = "LivesCount"
-		l_count.text = str(_count_column_hearts_remaining())
-		l_count.add_theme_font_size_override("font_size", 42)
-		l_count.add_theme_color_override("font_color", Color.WHITE)
-		l_count.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-		l_count.add_theme_constant_override("outline_size", 5)
-		l_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lc.add_child(l_count)
+		var seg_wrap = PanelContainer.new()
+		seg_wrap.name = "LivesBarWrap"
+		var wrap_sb = StyleBoxFlat.new()
+		wrap_sb.bg_color = Color(0.06, 0.07, 0.1, 1.0)
+		wrap_sb.set_corner_radius_all(6)
+		wrap_sb.border_width_left = 2
+		wrap_sb.border_width_top = 2
+		wrap_sb.border_width_right = 2
+		wrap_sb.border_width_bottom = 2
+		wrap_sb.border_color = Color(0.55, 0.48, 0.22, 1.0)
+		wrap_sb.content_margin_left = 4
+		wrap_sb.content_margin_top = 4
+		wrap_sb.content_margin_right = 4
+		wrap_sb.content_margin_bottom = 4
+		seg_wrap.add_theme_stylebox_override("panel", wrap_sb)
+		lc.add_child(seg_wrap)
+		
+		var seg_row = HBoxContainer.new()
+		seg_row.name = "LivesSegments"
+		seg_row.add_theme_constant_override("separation", 3)
+		seg_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		for i in TOTAL_LIVES_PER_LEVEL:
+			var seg = Panel.new()
+			seg.name = "LifeSeg_%d" % i
+			seg.custom_minimum_size = Vector2(11, 22)
+			var sb = StyleBoxFlat.new()
+			sb.bg_color = Color(0.85, 0.22, 0.28, 1.0)
+			sb.set_corner_radius_all(3)
+			seg.add_theme_stylebox_override("panel", sb)
+			seg_row.add_child(seg)
+		seg_wrap.add_child(seg_row)
 		
 		# 2. Монеты (после жизней)
 		var cc = VBoxContainer.new()
@@ -602,19 +621,22 @@ func _update_booster_buttons_visual():
 			btn.modulate = Color(1, 1, 1)
 
 func _update_ui():
-	# Обновление жизней
-	var lc_lbl = find_child("LivesCount", true, false)
-	if lc_lbl:
-		var hearts_left = _count_column_hearts_remaining()
-		lc_lbl.text = str(hearts_left)
-		lc_lbl.add_theme_font_size_override("font_size", 42)
-		lc_lbl.add_theme_color_override("font_color", Color.WHITE)
-		lc_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-		lc_lbl.add_theme_constant_override("outline_size", 5)
-		if hearts_left <= 1:
-			lc_lbl.modulate = Color(1.0, 0.2, 0.2)
-		else:
-			lc_lbl.modulate = Color(1, 1, 1)
+	# Обновление шкалы жизней (10 сегментов)
+	var seg_row = find_child("LivesSegments", true, false)
+	if seg_row:
+		for i in TOTAL_LIVES_PER_LEVEL:
+			var seg = seg_row.get_node_or_null("LifeSeg_%d" % i)
+			if seg == null:
+				continue
+			var filled = i < _player_lives_remaining
+			var sb = seg.get_theme_stylebox("panel")
+			if sb is StyleBoxFlat:
+				var sbf = (sb as StyleBoxFlat).duplicate() as StyleBoxFlat
+				if filled:
+					sbf.bg_color = Color(0.92, 0.28, 0.38, 1.0)
+				else:
+					sbf.bg_color = Color(0.22, 0.22, 0.26, 1.0)
+				seg.add_theme_stylebox_override("panel", sbf)
 
 	# Обновление монет
 	var coins_lbl = find_child("CoinsCount", true, false)
@@ -879,58 +901,21 @@ func _init_obstacles_from_config(cfg: Dictionary):
 						var scnt = max(1, int(sp.get("count", 1)))
 						_obstacle_spawn_on_destroy["%d:%d" % [ox, oy]] = {"hp": shp, "count": scnt}
 
-func _count_column_hearts_remaining() -> int:
-	var n = 0
-	for x in range(min(COLS, _column_hearts.size())):
-		if _column_hearts[x]:
-			n += 1
-	return n
+func _init_player_lives_for_level() -> void:
+	_player_lives_remaining = TOTAL_LIVES_PER_LEVEL
+	_defeat_refill_index = 0
 
-func _init_column_hearts() -> void:
-	_column_hearts.clear()
-	_column_hearts_initial.clear()
-	_last_breach_attack_columns.clear()
-	_pending_breach_monsters.clear()
-	_defeat_pending_breach = false
-	for x in range(COLS):
-		var blocked = obstacles.size() > _heart_row_y and obstacles[_heart_row_y].size() > x and obstacles[_heart_row_y][x] > 0
-		var has_heart = not blocked
-		_column_hearts.append(has_heart)
-		_column_hearts_initial.append(has_heart)
-
-func _hearts_lost_in_attack_columns() -> int:
-	var n = 0
-	for cx in _last_breach_attack_columns:
-		var x = int(cx)
-		if x >= 0 and x < _column_hearts_initial.size() and _column_hearts_initial[x]:
-			if not _column_hearts[x]:
-				n += 1
-	return n
-
-func _breach_refill_unit_count() -> int:
-	if _last_breach_attack_columns.is_empty():
+func _get_defeat_refill_cost() -> int:
+	if DEFEAT_REFILL_COSTS.is_empty():
 		return 0
-	var lost = _hearts_lost_in_attack_columns()
-	if lost > 0:
-		return lost
-	return _last_breach_attack_columns.size()
+	var idx = clampi(_defeat_refill_index, 0, DEFEAT_REFILL_COSTS.size() - 1)
+	return int(DEFEAT_REFILL_COSTS[idx])
 
-func _compute_refill_cost_after_breach() -> int:
-	var k = _breach_refill_unit_count()
-	if k <= 0:
+func _get_defeat_refill_lives_amount() -> int:
+	if DEFEAT_REFILL_LIVES.is_empty():
 		return 0
-	return REFILL_GOLD_PER_HEART * k
-
-func _find_free_enemy_cell_in_column_from(x: int, start_y: int) -> int:
-	var y = clampi(start_y, 0, ENEMY_ROWS - 1)
-	while y < ENEMY_ROWS:
-		if enemies.size() > y and enemies[y].size() > x and enemies[y][x] == 0:
-			if obstacles.size() > y and obstacles[y].size() > x and obstacles[y][x] > 0:
-				y += 1
-				continue
-			return y
-		y += 1
-	return -1
+	var idx = clampi(_defeat_refill_index, 0, DEFEAT_REFILL_LIVES.size() - 1)
+	return int(DEFEAT_REFILL_LIVES[idx])
 
 func _shift_all_enemies_toward_spawn(rows: int) -> void:
 	if rows <= 0:
@@ -964,36 +949,13 @@ func _shift_all_enemies_toward_spawn(rows: int) -> void:
 			enemies[y][x] = new_hp[y][x]
 			enemies_initial_hp[y][x] = new_init[y][x]
 
-func _apply_partial_refill_after_breach_paid() -> void:
-	_defeat_pending_breach = false
-	for cx in _last_breach_attack_columns:
-		var x = int(cx)
-		if x >= 0 and x < _column_hearts.size():
-			_column_hearts[x] = true
-	_last_breach_attack_columns.clear()
-	var pending_copy: Dictionary = {}
-	for k in _pending_breach_monsters.keys():
-		pending_copy[k] = _pending_breach_monsters[k]
-	_pending_breach_monsters.clear()
-	for k in pending_copy.keys():
-		var dat = pending_copy[k]
-		_increment_level_target_for_init_hp(int(dat.get("init", 1)))
-	for k in pending_copy.keys():
-		var cx = int(k)
-		var dat = pending_copy[k]
-		var mhp = int(dat.get("hp", 1))
-		var ihp = int(dat.get("init", mhp))
-		if cx < 0 or cx >= COLS:
-			continue
-		var place_y = _heart_row_y
-		var blocked_here = obstacles.size() > place_y and obstacles[place_y].size() > cx and obstacles[place_y][cx] > 0
-		if enemies[place_y][cx] > 0 or blocked_here:
-			var alt = _find_free_enemy_cell_in_column_from(cx, _heart_row_y)
-			if alt >= 0:
-				place_y = alt
-		if enemies[place_y][cx] == 0:
-			enemies[place_y][cx] = mhp
-			enemies_initial_hp[place_y][cx] = ihp
+func _apply_defeat_refill_paid() -> void:
+	var amount = _get_defeat_refill_lives_amount()
+	if amount <= 0:
+		return
+	_player_lives_remaining = mini(TOTAL_LIVES_PER_LEVEL, _player_lives_remaining + amount)
+	if not DEFEAT_REFILL_COSTS.is_empty():
+		_defeat_refill_index = mini(_defeat_refill_index + 1, DEFEAT_REFILL_COSTS.size() - 1)
 	_shift_all_enemies_toward_spawn(REFILL_ENEMY_SHIFT_ROWS)
 	_defeat_dialog_shown = false
 	_needs_ui_update = true
@@ -1082,10 +1044,7 @@ func _draw():
 	strip_sb.border_color = Color(0.5, 0.42, 0.2, 0.85)
 	draw_style_box(strip_sb, heart_strip_rect)
 	var hearts_center_y = heart_strip_top + HEART_STRIP_HEIGHT * 0.5
-	for hx in range(min(COLS, _column_hearts.size())):
-		if _column_hearts[hx]:
-			var cx = origin.x + float(hx) * CELL_SIZE + CELL_SIZE * 0.5
-			_draw_column_heart(Vector2(cx, hearts_center_y), min(CELL_SIZE, HEART_STRIP_HEIGHT) * 0.38)
+	_draw_global_lives_bar_strip(origin.x, hearts_center_y, float(COLS) * CELL_SIZE)
 	
 	# Рисуем зону игрока (черная заливка)
 	var player_sb = StyleBoxFlat.new()
@@ -1592,26 +1551,38 @@ func _get_monster_color(hp: int) -> Color:
 		return Color(0.95, 0.85, 0.25, 1) # жёлтый
 	return Color(1.00, 0.60, 0.20, 1) # запасной (янтарный)
 
-func _draw_column_heart(center: Vector2, radius: float) -> void:
-	var r = radius
-	var top = center + Vector2(0, -r * 0.35)
-	var left = center + Vector2(-r * 0.55, -r * 0.1)
-	var right = center + Vector2(r * 0.55, -r * 0.1)
-	var bottom = center + Vector2(0, r * 0.75)
-	var fill = Color(0.95, 0.2, 0.28, 1.0)
-	var edge = Color(0.55, 0.05, 0.12, 1.0)
-	draw_circle(left, r * 0.48, fill)
-	draw_circle(right, r * 0.48, fill)
-	var poly = PackedVector2Array([
-		top,
-		center + Vector2(-r * 0.95, r * 0.15),
-		bottom,
-		center + Vector2(r * 0.95, r * 0.15)
-	])
-	draw_colored_polygon(poly, fill)
-	draw_arc(left, r * 0.48, 0, TAU, 24, edge, 2.0)
-	draw_arc(right, r * 0.48, 0, TAU, 24, edge, 2.0)
-	draw_polyline(poly, edge, 2.0)
+func _draw_global_lives_bar_strip(origin_x: float, center_y: float, total_width: float) -> void:
+	var pad_x = CELL_SIZE * 0.08
+	var bar_w = total_width - pad_x * 2.0
+	var bar_h = HEART_STRIP_HEIGHT * 0.42
+	var bx = origin_x + pad_x
+	var by = center_y - bar_h * 0.5
+	var frame = Rect2(Vector2(bx, by), Vector2(bar_w, bar_h))
+	var bg = StyleBoxFlat.new()
+	bg.bg_color = Color(0.12, 0.13, 0.18, 1.0)
+	bg.set_corner_radius_all(8.0)
+	bg.border_width_left = 2
+	bg.border_width_top = 2
+	bg.border_width_right = 2
+	bg.border_width_bottom = 2
+	bg.border_color = Color(0.42, 0.36, 0.18, 0.95)
+	draw_style_box(bg, frame)
+	var inner_margin = 5.0
+	var seg_area_w = bar_w - inner_margin * 2.0
+	var gap = 3.0
+	var seg_w = (seg_area_w - gap * float(TOTAL_LIVES_PER_LEVEL - 1)) / float(TOTAL_LIVES_PER_LEVEL)
+	var ix = bx + inner_margin
+	var iy = by + inner_margin * 0.35
+	var seg_h = bar_h - inner_margin * 1.5
+	for i in TOTAL_LIVES_PER_LEVEL:
+		var seg_rect = Rect2(Vector2(ix + float(i) * (seg_w + gap), iy), Vector2(seg_w, seg_h))
+		var sb = StyleBoxFlat.new()
+		sb.set_corner_radius_all(4.0)
+		if i < _player_lives_remaining:
+			sb.bg_color = Color(0.92, 0.28, 0.42, 1.0)
+		else:
+			sb.bg_color = Color(0.28, 0.28, 0.34, 1.0)
+		draw_style_box(sb, seg_rect)
 
 func _draw_monster_health_bar(top_left: Vector2, width: float, hp: int, max_hp: int, alpha: float = 1.0):
 	if max_hp <= 0:
@@ -2005,8 +1976,7 @@ func _process(delta: float) -> void:
 			_process_scheduled_spawns()
 			if _enemy_move_anims.size() > anim_count_before_spawn:
 				set_process(true)
-		if not _defeat_dialog_shown and (_count_column_hearts_remaining() == 0 or _defeat_pending_breach):
-			_defeat_pending_breach = false
+		if not _defeat_dialog_shown and _player_lives_remaining <= 0:
 			_on_level_failed()
 		elif _check_level_completed() and not _victory_dialog_shown:
 			_on_level_completed()
@@ -2525,8 +2495,8 @@ func _activate_rainbow_chip(rx: int, ry: int, trigger_move: bool = true):
 func _check_level_completed() -> bool:
 	if not _level_ready_for_win:
 		return false
-	# Нельзя засчитать победу, пока ожидается проигрыш по прорыву или открыт диалог поражения
-	if _defeat_pending_breach or _defeat_dialog_shown:
+	# Нельзя засчитать победу, пока открыт диалог поражения
+	if _defeat_dialog_shown:
 		return false
 	# Победа: выполнены все цели; живые враги и препятствия на поле не отменяют победу
 	if _level_targets.is_empty():
@@ -2606,9 +2576,9 @@ func _show_level_end_defeat_no_lives() -> void:
 	if overlay.refill_lives_pressed.is_connected(_on_defeat_refill_lives):
 		overlay.refill_lives_pressed.disconnect(_on_defeat_refill_lives)
 	var player_coins = LevelManager.get_coins()
-	var cost = _compute_refill_cost_after_breach()
-	var k_restore = _breach_refill_unit_count()
-	var can_refill = k_restore > 0 and player_coins >= cost
+	var cost = _get_defeat_refill_cost()
+	var k_restore = _get_defeat_refill_lives_amount()
+	var can_refill = cost > 0 and k_restore > 0 and player_coins >= cost
 	overlay.setup_defeat_no_lives(cost, player_coins, k_restore, can_refill)
 	if not overlay.to_menu_pressed.is_connected(_on_defeat_no_lives_to_menu):
 		overlay.to_menu_pressed.connect(_on_defeat_no_lives_to_menu)
@@ -2629,10 +2599,10 @@ func _on_defeat_refill_lives() -> void:
 	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
 		_level_end_overlay.queue_free()
 		_level_end_overlay = null
-	var cost = _compute_refill_cost_after_breach()
+	var cost = _get_defeat_refill_cost()
 	if cost > 0 and LevelManager.spend_coins(cost):
 		_clear_board_vfx_after_refill()
-		_apply_partial_refill_after_breach_paid()
+		_apply_defeat_refill_paid()
 		_update_ui()
 		queue_redraw()
 	else:
@@ -2699,18 +2669,6 @@ func _enqueue_projectiles(col_x: int, from_y: int, count: int, base_delay: float
 	if trigger_move:
 		_enemy_move_pending = true
 
-func _enemy_mixed_columns_mode() -> bool:
-	var has_heart = false
-	var has_no_heart = false
-	for x in range(min(COLS, _column_hearts.size())):
-		if _column_hearts[x]:
-			has_heart = true
-		else:
-			has_no_heart = true
-		if has_heart and has_no_heart:
-			return true
-	return false
-
 # Колонка клетки сразу под связной группой препятствий (проход для обхода сбоку)
 func _find_detour_exit_column_below_obstacle(monster_x: int, monster_y: int) -> int:
 	var ty_down = monster_y + 1
@@ -2774,7 +2732,6 @@ func _horizontal_detour_direction_order(monster_x: int, monster_y: int) -> Array
 
 func _plan_enemy_moves() -> Array:
 	_enemy_move_anims.clear()
-	_cached_mixed_breach_priority = _enemy_mixed_columns_mode()
 	var moves: Array = []
 	var occupied_next = []
 	for yy in range(ENEMY_ROWS):
@@ -2792,10 +2749,7 @@ func _plan_enemy_moves() -> Array:
 				else:
 					var moved = false
 					if y == _heart_row_y:
-						if x < _column_hearts.size() and _column_hearts[x]:
-							moves.append({"fx": x, "fy": y, "tx": x, "ty": y, "hp": hp, "init": init, "outcome": "heart_kill"})
-						else:
-							moves.append({"fx": x, "fy": y, "tx": x, "ty": y, "hp": hp, "init": init, "outcome": "breach"})
+						moves.append({"fx": x, "fy": y, "tx": x, "ty": y, "hp": hp, "init": init, "outcome": "attack_player_life"})
 						occupied_next[y][x] = false
 						moved = true
 					elif y + 1 < _enemy_rows_effective:
@@ -2815,7 +2769,7 @@ func _plan_enemy_moves() -> Array:
 							occupied_next[tyb][x] = true
 							moved = true
 					else:
-						moves.append({"fx": x, "fy": y, "tx": x, "ty": y+1, "hp": hp, "init": init, "outcome": "breach"})
+						moves.append({"fx": x, "fy": y, "tx": x, "ty": _heart_row_y, "hp": hp, "init": init, "outcome": "attack_player_life"})
 						occupied_next[y][x] = false
 						moved = true
 					if not moved:
@@ -2837,7 +2791,7 @@ func _enemy_moves_include_last_row_attack(moves: Array) -> bool:
 		if int(m.fy) != _heart_row_y:
 			continue
 		var outcome = str(m.get("outcome", "normal"))
-		if outcome == "heart_kill" or outcome == "breach":
+		if outcome == "attack_player_life":
 			return true
 	return false
 
@@ -2856,11 +2810,10 @@ func _is_last_row_attack_warn_cell(x: int, y: int) -> bool:
 		if int(m.fx) != x or int(m.fy) != y:
 			continue
 		var outcome = str(m.get("outcome", "normal"))
-		return outcome == "heart_kill" or outcome == "breach"
+		return outcome == "attack_player_life"
 	return false
 
 func _apply_enemy_moves_from_plan(moves: Array) -> void:
-	var mixed_breach_priority = _cached_mixed_breach_priority
 	for yy in range(ENEMY_ROWS):
 		for xx in range(COLS):
 			_enemies_hit_this_turn[yy][xx] = false
@@ -2874,50 +2827,39 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 	for m in moves:
 		var outcome = str(m.get("outcome", "normal"))
 		var ax = int(m.fx)
-		var init_hp_i = int(m.init)
-		if outcome == "breach":
-			_defeat_pending_breach = true
-			_decrement_level_target_for_init_hp(init_hp_i)
-			if not ax in _last_breach_attack_columns:
-				_last_breach_attack_columns.append(ax)
-			_pending_breach_monsters[ax] = {"hp": m.hp, "init": m.init}
+		if outcome == "attack_player_life":
+			if _player_lives_remaining > 0:
+				_player_lives_remaining -= 1
 			_needs_ui_update = true
-			var y_pos_b = float(m.fy) * ENEMY_CELL_HEIGHT
+			var ty_attack = clampi(int(m.ty), 0, ENEMY_ROWS - 1)
+			var y_pos_b = float(ty_attack) * ENEMY_CELL_HEIGHT
 			var center_pos = origin_apply + Vector2(float(ax) * CELL_SIZE + CELL_SIZE * 0.5, y_pos_b + ENEMY_CELL_HEIGHT * 0.5)
 			_board_vfx.append({
 				"type": "shockwave",
 				"pos": center_pos,
-				"color": Color(1.0, 0.2, 0.2),
+				"color": Color(1.0, 0.25, 0.28),
 				"t": 0.0,
-				"d": 0.4
+				"d": 0.38
 			})
 			_board_vfx.append({
 				"type": "shake",
 				"t": 0.0,
-				"d": 0.2,
-				"intensity": 8.0
+				"d": 0.18,
+				"intensity": 7.0
 			})
-		elif outcome == "heart_kill":
-			if m.tx < _column_hearts.size() and _column_hearts[m.tx]:
-				_column_hearts[m.tx] = false
-			_decrement_level_target_for_init_hp(init_hp_i)
-			_needs_ui_update = true
-			var mid_h = m.tx + m.ty * 10
-			_enemy_death_anims.append({
-				"x": m.tx, "y": m.ty, "t": 0.0, "d": 0.35,
-				"hp": 0, "init": m.init, "id": mid_h,
-				"in_heart_strip": true
-			})
-			_monster_shakes[mid_h] = {"t": 0.0, "d": 0.35, "intensity": 15.0}
 			var strip_mid_apply = float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + HEART_STRIP_HEIGHT * 0.5
-			var center_h = origin_apply + Vector2(float(m.tx) * CELL_SIZE + CELL_SIZE * 0.5, strip_mid_apply)
+			var center_strip = origin_apply + Vector2(float(ax) * CELL_SIZE + CELL_SIZE * 0.5, strip_mid_apply)
 			_board_vfx.append({
 				"type": "shockwave",
-				"pos": center_h,
+				"pos": center_strip,
 				"color": Color(1.0, 0.35, 0.45),
 				"t": 0.0,
-				"d": 0.35
+				"d": 0.32
 			})
+			enemies[m.ty][m.tx] = m.hp
+			enemies_initial_hp[m.ty][m.tx] = m.init
+			var mid_attack = ax + ty_attack * 10
+			_monster_shakes[mid_attack] = {"t": 0.0, "d": 0.35, "intensity": 14.0}
 		else:
 			enemies[m.ty][m.tx] = m.hp
 			enemies_initial_hp[m.ty][m.tx] = m.init
@@ -2934,8 +2876,6 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 	else:
 		# Legacy-логика: появление новых врагов в верхнем ряду (row 0)
 		for x in range(COLS):
-			if mixed_breach_priority and x < _column_hearts.size() and _column_hearts[x]:
-				continue
 			# Проверяем, что нет препятствия в этой клетке
 			if enemies[0][x] == 0 and obstacles[0][x] == 0 and not _monster_spawn_queue.is_empty():
 				var hp = _monster_spawn_queue.pop_front()
