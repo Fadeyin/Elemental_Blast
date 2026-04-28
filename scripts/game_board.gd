@@ -2751,6 +2751,9 @@ func _plan_enemy_moves() -> Array:
 					if y == _heart_row_y:
 						moves.append({"fx": x, "fy": y, "tx": x, "ty": y, "hp": hp, "init": init, "outcome": "attack_player_life"})
 						occupied_next[y][x] = false
+						# Клетка остаётся занятой стоящим там атакующим — иначе монстр с ряда выше
+						# запланирует сход в ту же клетку и перезапишет врага при применении плана
+						occupied_next[_heart_row_y][x] = true
 						moved = true
 					elif y + 1 < _enemy_rows_effective:
 						var ty = y + 1
