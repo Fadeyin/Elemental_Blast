@@ -21,8 +21,16 @@ var booster_counts := {
 var starter_pack_purchased: bool = false
 
 # Шлем Морта (win streak система)
+# GDD 4.0: фича открывается ПОСЛЕ победы на 10 уровне.
+# До открытия — плашка Шлема не отображается. После открытия —
+# плашка видна всегда, на стадии 0 бонусы не выдаются.
+const MORT_HELMET_UNLOCK_LEVEL := 10
+const MORT_HELMET_MAX_STAGE := 3
+
+var mort_helmet_unlocked: bool = false
+var mort_helmet_tutorial_shown: bool = false
 var mort_helmet_level: int = 0 # 0, 1, 2, 3
-var win_streak: int = 0 # Количество побед подряд
+var win_streak: int = 0 # Количество побед подряд (после открытия фичи)
 
 # Предуровневые усиления (Pre-level Boosters)
 var prelevel_boosts := {
@@ -65,6 +73,8 @@ signal level_completed(level: int)
 signal coins_changed(new_amount: int)
 signal boosters_changed()
 signal golden_pass_state_changed()
+# Шлем Морта: open_event=="unlocked"|"stage_up"|"reset", stage_before/stage_after — стадии до/после
+signal mort_helmet_event(open_event: String, stage_before: int, stage_after: int)
 
 func _ready():
 	_load_progress()
@@ -91,11 +101,26 @@ func restart_current_level():
 	_emit_start()
 
 func mark_level_completed():
+	var stage_before: int = mort_helmet_level
+	var was_unlocked: bool = mort_helmet_unlocked
 	max_unlocked_level = max(max_unlocked_level, current_level)
 	
-	# Увеличиваем win streak при победе
-	win_streak += 1
-	_update_mort_helmet_level()
+	# Логика Шлема Морта: фича открывается после победы на 10 уровне и сразу ставит стадию 1.
+	# До открытия победы не увеличивают серию.
+	if not was_unlocked:
+		if current_level >= MORT_HELMET_UNLOCK_LEVEL:
+			mort_helmet_unlocked = true
+			win_streak = 1
+			_update_mort_helmet_level()
+			_log_analytics_event("mort_helmet_unlocked", {"level": current_level})
+			emit_signal("mort_helmet_event", "unlocked", stage_before, mort_helmet_level)
+	else:
+		var stage_was: int = mort_helmet_level
+		win_streak = min(win_streak + 1, MORT_HELMET_MAX_STAGE)
+		_update_mort_helmet_level()
+		if mort_helmet_level != stage_was:
+			_log_analytics_event("mort_helmet_stage_up", {"stage_before": stage_was, "stage_after": mort_helmet_level})
+			emit_signal("mort_helmet_event", "stage_up", stage_was, mort_helmet_level)
 	
 	# Сбрасываем выбранные усиления для следующего уровня
 	selected_prelevel_boosts = {"bomb": false, "arrow": false, "rainbow": false}
@@ -107,19 +132,43 @@ func mark_level_completed():
 	_save_progress()
 
 func mark_level_failed():
-	# При поражении обнуляем win streak и шлем Морта
-	win_streak = 0
-	mort_helmet_level = 0
-	
+	# При поражении обнуляем win streak и шлем Морта (стадия → 0).
+	# Флаг открытия фичи НЕ сбрасывается: плашка остаётся видимой.
+	_reset_mort_helmet_streak("defeat")
 	# Сбрасываем выбранные усиления
 	selected_prelevel_boosts = {"bomb": false, "arrow": false, "rainbow": false}
-	
 	_save_progress()
 
+func mark_level_exited_after_valid_move():
+	# Игрок вручную вышел из уровня, успев совершить валидный ход — серия сбрасывается.
+	# Прогресс по выбранным усилениям не возвращается, как и при поражении.
+	_reset_mort_helmet_streak("exit_after_move")
+	selected_prelevel_boosts = {"bomb": false, "arrow": false, "rainbow": false}
+	_save_progress()
+
+func mark_level_exited_without_move():
+	# Выход без валидного хода — серия сохраняется.
+	if mort_helmet_unlocked:
+		_log_analytics_event("mort_helmet_exit_without_loss", {"stage": mort_helmet_level})
+
+func _reset_mort_helmet_streak(reason: String) -> void:
+	if not mort_helmet_unlocked:
+		win_streak = 0
+		mort_helmet_level = 0
+		return
+	var stage_before: int = mort_helmet_level
+	if win_streak == 0 and mort_helmet_level == 0:
+		return
+	win_streak = 0
+	mort_helmet_level = 0
+	_log_analytics_event("mort_helmet_progress_lost", {"reason": reason, "stage_before": stage_before})
+	emit_signal("mort_helmet_event", "reset", stage_before, mort_helmet_level)
+
 func _update_mort_helmet_level():
-	# Обновляем уровень шлема Морта на основе win streak
-	if win_streak >= 3:
-		mort_helmet_level = 3
+	# Обновляем уровень шлема Морта на основе win streak.
+	# Стадия 0 возможна только до начала серии или после её сброса.
+	if win_streak >= MORT_HELMET_MAX_STAGE:
+		mort_helmet_level = MORT_HELMET_MAX_STAGE
 	elif win_streak >= 2:
 		mort_helmet_level = 2
 	elif win_streak >= 1:
@@ -127,13 +176,43 @@ func _update_mort_helmet_level():
 	else:
 		mort_helmet_level = 0
 
+func is_mort_helmet_unlocked() -> bool:
+	return mort_helmet_unlocked
+
+func is_mort_helmet_tutorial_shown() -> bool:
+	return mort_helmet_tutorial_shown
+
+func mark_mort_helmet_tutorial_shown() -> void:
+	if mort_helmet_tutorial_shown:
+		return
+	mort_helmet_tutorial_shown = true
+	_log_analytics_event("mort_helmet_tutorial_shown", {})
+	_save_progress()
+
+func log_mort_helmet_rules_opened() -> void:
+	_log_analytics_event("mort_helmet_rules_opened", {"stage": mort_helmet_level})
+
+func log_mort_helmet_bonus_spawned(arrow: int, bomb: int) -> void:
+	_log_analytics_event("mort_helmet_bonus_spawned", {"arrow": arrow, "bomb": bomb, "stage": mort_helmet_level})
+
+func log_mort_helmet_bonus_delayed(arrow: int, bomb: int) -> void:
+	_log_analytics_event("mort_helmet_bonus_delayed", {"arrow": arrow, "bomb": bomb, "stage": mort_helmet_level})
+
 func get_mort_helmet_bonus_chips() -> Dictionary:
-	# Возвращает количество бонусных фишек от Шлема Морта
+	# Возвращает количество бонусных фишек от Шлема Морта.
+	# До открытия фичи бонусы не выдаются никогда.
+	if not mort_helmet_unlocked:
+		return {}
 	match mort_helmet_level:
 		1: return {"arrow": 1, "bomb": 1}         # 2 усиления: 1 стрела, 1 бомба
 		2: return {"arrow": 2, "bomb": 2}         # 4 усиления: 2 стрелы, 2 бомбы
 		3: return {"arrow": 3, "bomb": 3}         # 6 усилений: 3 стрелы, 3 бомбы
 		_: return {}
+
+func _log_analytics_event(event_name: String, payload: Dictionary) -> void:
+	# Лёгкая «аналитика» через лог: реальная отправка делегируется внешним системам.
+	# Сохраняем единый формат, чтобы было удобно подцеплять реальный трекер.
+	print("[Analytics] %s %s" % [event_name, str(payload)])
 
 func can_purchase_prelevel_boosts(boost_type: String) -> bool:
 	if not prelevel_boosts.has(boost_type):
@@ -643,6 +722,8 @@ func _save_progress():
 	# Сохранение win streak и шлема Морта
 	cfg.set_value("mort_helmet", "level", mort_helmet_level)
 	cfg.set_value("mort_helmet", "win_streak", win_streak)
+	cfg.set_value("mort_helmet", "unlocked", mort_helmet_unlocked)
+	cfg.set_value("mort_helmet", "tutorial_shown", mort_helmet_tutorial_shown)
 	
 	# Сохранение предуровневых усилений
 	cfg.set_value("prelevel_boosts", "bomb", prelevel_boosts["bomb"])
@@ -676,6 +757,13 @@ func _load_progress():
 		# Загрузка win streak и шлема Морта
 		mort_helmet_level = int(cfg.get_value("mort_helmet", "level", 0))
 		win_streak = int(cfg.get_value("mort_helmet", "win_streak", 0))
+		mort_helmet_unlocked = bool(cfg.get_value("mort_helmet", "unlocked", false))
+		mort_helmet_tutorial_shown = bool(cfg.get_value("mort_helmet", "tutorial_shown", false))
+		# Защита от рассинхрона: если фича не открыта, но в save оказался win_streak,
+		# обнуляем серию, чтобы не выдавать бонусы до 11 уровня.
+		if not mort_helmet_unlocked:
+			win_streak = 0
+			mort_helmet_level = 0
 		
 		# Загрузка предуровневых усилений
 		prelevel_boosts["bomb"] = int(cfg.get_value("prelevel_boosts", "bomb", 3))

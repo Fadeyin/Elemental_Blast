@@ -122,6 +122,14 @@ var _selected_prelevel_boosts := {
 
 # Бонусные фишки от Шлема Морта для текущего уровня
 var _mort_helmet_bonus_chips := {}
+# Стадия Шлема Морта на старте уровня (для аналитики/UX, фиксируем на момент старта)
+var _mort_helmet_stage_at_start: int = 0
+# Невыданные бонусы Шлема Морта (отложенная выдача, GDD §6.2).
+# Массив идентификаторов фишек: ROW_BONUS_CHIP_IDX / BOMB_CHIP_IDX
+var _pending_mort_helmet_bonuses: Array = []
+# Флаг: игрок совершил хотя бы один валидный ход на этом уровне.
+# Нужен для корректного сброса/сохранения серии Шлема Морта при ручном выходе (GDD §5).
+var _player_made_valid_move: bool = false
 
 # Флаги защиты от повторного показа диалогов
 var _victory_dialog_shown: bool = false
@@ -160,6 +168,8 @@ func _ready():
 	# Получаем предуровневые усиления из LevelManager (переданные из главного меню)
 	_selected_prelevel_boosts = LevelManager.selected_prelevel_boosts
 	_mort_helmet_bonus_chips = LevelManager.get_mort_helmet_bonus_chips()
+	_mort_helmet_stage_at_start = LevelManager.get_mort_helmet_level()
+	_player_made_valid_move = false
 	
 	# Спавним бонусные фишки на старте уровня
 	_spawn_bonus_chips_at_start()
@@ -171,7 +181,7 @@ func _ready():
 			if LevelManager.is_editor_test_mode():
 				_return_to_editor_after_test()
 			else:
-				get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+				_handle_manual_exit_to_menu()
 		)
 		# Стилизация кнопки "Назад"
 		back_btn.add_theme_font_size_override("font_size", 40)
@@ -2036,6 +2046,8 @@ func _unhandled_input(event):
 			var popped = await _pop_cluster(cell.x, cell.y)
 			if popped > 0:
 				_player_turn_counter += 1
+				_register_valid_player_move()
+				_try_deliver_pending_mort_helmet_bonuses()
 				_update_ui()
 		# Проверку победы/поражения делаем после завершения анимаций в _process
 
@@ -2058,6 +2070,8 @@ func _use_booster_on_cell(cell: Vector2i):
 	if type_used != BoosterType.NONE:
 		var lm_type = _convert_to_lm_booster_type(type_used)
 		LevelManager.use_booster(lm_type)
+		_register_valid_player_move()
+		_try_deliver_pending_mort_helmet_bonuses()
 		_update_ui()
 	
 	_active_booster = BoosterType.NONE
@@ -2533,8 +2547,17 @@ func _on_level_completed():
 	var chips_bonus = bonus_chips * COINS_PER_REMAINING_BONUS_CHIP
 	var total_reward = base_reward + chips_bonus
 	
+	# Снимаем состояние Шлема ДО mark_level_completed, чтобы экран победы знал,
+	# что показать (открытие фичи или повышение стадии).
+	var helmet_stage_before: int = LevelManager.get_mort_helmet_level()
+	var helmet_was_unlocked: bool = LevelManager.is_mort_helmet_unlocked()
+	
 	LevelManager.add_coins(total_reward)
 	LevelManager.mark_level_completed()
+	
+	var helmet_unlocked_now: bool = (not helmet_was_unlocked) and LevelManager.is_mort_helmet_unlocked()
+	LevelManager.set_meta("mort_helmet_stage_before", helmet_stage_before)
+	LevelManager.set_meta("mort_helmet_unlocked_now", helmet_unlocked_now)
 	
 	_show_level_end_victory(total_reward, base_reward, chips_bonus, bonus_chips)
 
@@ -3042,44 +3065,143 @@ func _add_chip_pop_vfx(x: int, y: int, color_idx: int):
 	
 	set_process(true)
 
+func _handle_manual_exit_to_menu() -> void:
+	# Ручной выход в меню: GDD §5 — сбрасываем серию только если был валидный ход.
+	if _victory_dialog_shown or _defeat_dialog_shown:
+		# При уже показанном итоговом окне сброс/начисление сделают соответствующие хендлеры.
+		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+		return
+	if _player_made_valid_move:
+		LevelManager.mark_level_exited_after_valid_move()
+	else:
+		LevelManager.mark_level_exited_without_move()
+	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+
+func _register_valid_player_move() -> void:
+	# Любое действие, которое реально влияет на поле/врагов/жизни/ходы.
+	if _player_made_valid_move:
+		return
+	_player_made_valid_move = true
+
 func _spawn_bonus_chips_at_start():
-	# Собираем все бонусные фишки для спавна (предуровневые + шлем морта)
-	var bonus_chips_to_spawn := []
+	# GDD §6: сначала размещаются предуровневые усиления, затем — бонусы Шлема Морта.
+	# Бонусные фишки от разных фич не наслаиваются друг на друга.
+	_pending_mort_helmet_bonuses.clear()
 	
-	# Бонусы от Шлема Морта
-	var arrow_count = _mort_helmet_bonus_chips.get("arrow", 0)
-	var bomb_count = _mort_helmet_bonus_chips.get("bomb", 0)
-	
-	for i in range(arrow_count):
-		bonus_chips_to_spawn.append(ROW_BONUS_CHIP_IDX)
-	for i in range(bomb_count):
-		bonus_chips_to_spawn.append(BOMB_CHIP_IDX)
-	
-	# Предуровневые усиления
+	var prelevel_bonus_chips: Array = []
 	if _selected_prelevel_boosts.get("arrow", false):
-		bonus_chips_to_spawn.append(ROW_BONUS_CHIP_IDX)
+		prelevel_bonus_chips.append(ROW_BONUS_CHIP_IDX)
 	if _selected_prelevel_boosts.get("bomb", false):
-		bonus_chips_to_spawn.append(BOMB_CHIP_IDX)
+		prelevel_bonus_chips.append(BOMB_CHIP_IDX)
 	if _selected_prelevel_boosts.get("rainbow", false):
-		bonus_chips_to_spawn.append(RAINBOW_CHIP_IDX)
+		prelevel_bonus_chips.append(RAINBOW_CHIP_IDX)
 	
-	if bonus_chips_to_spawn.is_empty():
+	var arrow_count: int = int(_mort_helmet_bonus_chips.get("arrow", 0))
+	var bomb_count: int = int(_mort_helmet_bonus_chips.get("bomb", 0))
+	var helmet_bonus_chips: Array = []
+	for i in range(arrow_count):
+		helmet_bonus_chips.append(ROW_BONUS_CHIP_IDX)
+	for i in range(bomb_count):
+		helmet_bonus_chips.append(BOMB_CHIP_IDX)
+	
+	# Шаг 1. Размещаем предуровневые усиления.
+	if not prelevel_bonus_chips.is_empty():
+		_place_bonus_chips_in_valid_cells(prelevel_bonus_chips, true)
+	
+	# Шаг 2. Размещаем бонусы Шлема Морта в оставшихся валидных клетках.
+	if helmet_bonus_chips.is_empty():
+		queue_redraw()
 		return
 	
-	# Получаем список всех пустых клеток в зоне игрока
-	var empty_cells := []
-	for y in range(ENEMY_ROWS, ROWS):
-		for x in range(COLS):
-			if chips[y][x] >= 0: # Обычная фишка (не пустая и не бонус)
-				empty_cells.append(Vector2i(x, y))
+	var placed: Array = _place_bonus_chips_in_valid_cells(helmet_bonus_chips, true)
+	var placed_count: int = placed.size()
+	var pending_count: int = helmet_bonus_chips.size() - placed_count
+	if pending_count > 0:
+		# GDD §6.2: бонусы не пропадают, ждут появления валидных клеток.
+		for i in range(placed_count, helmet_bonus_chips.size()):
+			_pending_mort_helmet_bonuses.append(helmet_bonus_chips[i])
+		LevelManager.log_mort_helmet_bonus_delayed(
+			_count_chip_kind(_pending_mort_helmet_bonuses, ROW_BONUS_CHIP_IDX),
+			_count_chip_kind(_pending_mort_helmet_bonuses, BOMB_CHIP_IDX)
+		)
 	
-	# Перемешиваем и выбираем рандомные позиции
-	empty_cells.shuffle()
-	
-	var spawn_count = min(bonus_chips_to_spawn.size(), empty_cells.size())
-	for i in range(spawn_count):
-		var cell = empty_cells[i]
-		var bonus_type = bonus_chips_to_spawn[i]
-		chips[cell.y][cell.x] = bonus_type
+	if placed_count > 0:
+		LevelManager.log_mort_helmet_bonus_spawned(
+			_count_chip_kind(placed, ROW_BONUS_CHIP_IDX),
+			_count_chip_kind(placed, BOMB_CHIP_IDX)
+		)
 	
 	queue_redraw()
+
+func _is_valid_mort_helmet_cell(x: int, y: int) -> bool:
+	# GDD §6.1: валидная клетка для бонуса.
+	if y < ENEMY_ROWS or y >= ROWS:
+		return false
+	if x < 0 or x >= COLS:
+		return false
+	if chips.size() <= y or chips[y].size() <= x:
+		return false
+	# Должна стоять обычная цветная фишка (не бонус, не пустая клетка).
+	if chips[y][x] < 0:
+		return false
+	# Клетка не должна участвовать в активной анимации.
+	for a in _active_anims:
+		if int(a.get("x", -1)) == x and int(a.get("end_y", -1)) == y:
+			return false
+	return true
+
+func _place_bonus_chips_in_valid_cells(bonus_list: Array, with_anim: bool) -> Array:
+	# Возвращает массив фактически размещённых типов фишек.
+	if bonus_list.is_empty():
+		return []
+	var valid_cells: Array = []
+	for y in range(ENEMY_ROWS, ROWS):
+		for x in range(COLS):
+			if _is_valid_mort_helmet_cell(x, y):
+				valid_cells.append(Vector2i(x, y))
+	valid_cells.shuffle()
+	var placed: Array = []
+	var n: int = min(bonus_list.size(), valid_cells.size())
+	for i in range(n):
+		var cell: Vector2i = valid_cells[i]
+		var bonus_type: int = int(bonus_list[i])
+		chips[cell.y][cell.x] = bonus_type
+		placed.append(bonus_type)
+		if with_anim:
+			_active_anims.append({
+				"x": cell.x,
+				"start_y": cell.y,
+				"end_y": cell.y,
+				"color": bonus_type,
+				"t": 0.0,
+				"d": 0.32,
+				"delay": 0.05 * float(i),
+				"type": "scale"
+			})
+	if not placed.is_empty() and with_anim:
+		set_process(true)
+	return placed
+
+func _count_chip_kind(arr: Array, kind: int) -> int:
+	var n := 0
+	for v in arr:
+		if int(v) == kind:
+			n += 1
+	return n
+
+func _try_deliver_pending_mort_helmet_bonuses() -> void:
+	# GDD §6.2: после хода проверяем валидные клетки и подменяем их на отложенные бонусы.
+	if _pending_mort_helmet_bonuses.is_empty():
+		return
+	var placed: Array = _place_bonus_chips_in_valid_cells(_pending_mort_helmet_bonuses.duplicate(), true)
+	if placed.is_empty():
+		return
+	# Удаляем из очереди те, что реально размещены.
+	for kind in placed:
+		var idx: int = _pending_mort_helmet_bonuses.find(kind)
+		if idx >= 0:
+			_pending_mort_helmet_bonuses.remove_at(idx)
+	LevelManager.log_mort_helmet_bonus_spawned(
+		_count_chip_kind(placed, ROW_BONUS_CHIP_IDX),
+		_count_chip_kind(placed, BOMB_CHIP_IDX)
+	)

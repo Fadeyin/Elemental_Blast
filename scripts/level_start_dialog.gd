@@ -18,9 +18,14 @@ const PRELEVEL_PURCHASE_OVERLAY_SCRIPT := preload("res://scripts/ingame_booster_
 
 var _prelevel_boosts_row: HBoxContainer = null
 var _prelevel_purchase_overlay: Control = null
+var _mort_helmet_section: Control = null
+var _mort_helmet_info_button: Button = null
+var _mort_helmet_rules_overlay: Control = null
+var _mort_helmet_tutorial_overlay: Control = null
 
 func setup():
 	_build_dialog()
+	_maybe_show_mort_helmet_tutorial()
 
 func _build_dialog():
 	# Полупрозрачный фон (клик вне панели — закрыть без старта)
@@ -101,8 +106,9 @@ func _build_dialog():
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 	
-	# Шлем Морта (Win Streak прогресс)
-	_add_mort_helmet_section(vbox)
+	# Шлем Морта (Win Streak прогресс) — показываем только после открытия фичи (GDD §2,§7)
+	if LevelManager and LevelManager.is_mort_helmet_unlocked():
+		_add_mort_helmet_section(vbox)
 	
 	# Предуровневые усиления
 	_add_prelevel_boosts_section(vbox)
@@ -146,38 +152,90 @@ func _add_mort_helmet_section(vbox: VBoxContainer):
 	if not LevelManager:
 		return
 	
-	var helmet_level = LevelManager.mort_helmet_level
-	var win_streak = LevelManager.win_streak
+	var helmet_level: int = LevelManager.mort_helmet_level
 	
-	# Заголовок секции
-	var helmet_title = Label.new()
+	# Контейнер всей секции — нужен, чтобы туториал мог подсветить именно её.
+	var section := PanelContainer.new()
+	var section_style := StyleBoxFlat.new()
+	section_style.bg_color = Color(0.18, 0.2, 0.28, 0.6)
+	section_style.set_corner_radius_all(12)
+	section_style.border_width_left = 2
+	section_style.border_width_top = 2
+	section_style.border_width_right = 2
+	section_style.border_width_bottom = 2
+	section_style.border_color = Color(0.55, 0.45, 0.7, 0.8)
+	section.add_theme_stylebox_override("panel", section_style)
+	section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(section)
+	_mort_helmet_section = section
+	
+	var inner := VBoxContainer.new()
+	inner.add_theme_constant_override("separation", 8)
+	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	section.add_child(inner)
+	
+	# Шапка с заголовком и кнопкой "i"
+	var header_row := HBoxContainer.new()
+	header_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	inner.add_child(header_row)
+	
+	var left_spacer := Control.new()
+	left_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header_row.add_child(left_spacer)
+	
+	var helmet_title := Label.new()
 	helmet_title.text = "ШЛЕМ МОРТА"
 	helmet_title.add_theme_font_size_override("font_size", 32)
 	helmet_title.add_theme_color_override("font_color", Color(0.9, 0.8, 1.0))
 	helmet_title.add_theme_color_override("font_outline_color", Color.BLACK)
 	helmet_title.add_theme_constant_override("outline_size", 4)
 	helmet_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(helmet_title)
+	header_row.add_child(helmet_title)
+	
+	var right_spacer := Control.new()
+	right_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header_row.add_child(right_spacer)
+	
+	var info_btn := Button.new()
+	info_btn.text = "i"
+	info_btn.custom_minimum_size = Vector2(44, 44)
+	info_btn.focus_mode = Control.FOCUS_NONE
+	var info_style := StyleBoxFlat.new()
+	info_style.bg_color = Color(0.25, 0.4, 0.6, 0.9)
+	info_style.set_corner_radius_all(22)
+	info_style.border_width_left = 2
+	info_style.border_width_top = 2
+	info_style.border_width_right = 2
+	info_style.border_width_bottom = 2
+	info_style.border_color = Color(0.6, 0.8, 1.0, 1.0)
+	info_btn.add_theme_stylebox_override("normal", info_style)
+	info_btn.add_theme_stylebox_override("hover", info_style)
+	info_btn.add_theme_stylebox_override("pressed", info_style)
+	info_btn.add_theme_font_size_override("font_size", 26)
+	info_btn.add_theme_color_override("font_color", Color.WHITE)
+	info_btn.add_theme_color_override("font_outline_color", Color.BLACK)
+	info_btn.add_theme_constant_override("outline_size", 3)
+	info_btn.pressed.connect(_show_mort_helmet_rules)
+	header_row.add_child(info_btn)
+	_mort_helmet_info_button = info_btn
 	
 	# Визуальное отображение уровня шлема (3 этапа)
-	var helmet_progress = HBoxContainer.new()
+	var helmet_progress := HBoxContainer.new()
 	helmet_progress.alignment = BoxContainer.ALIGNMENT_CENTER
 	helmet_progress.add_theme_constant_override("separation", 15)
 	
 	for i in range(1, 4):
-		var stage = Panel.new()
+		var stage := Panel.new()
 		stage.custom_minimum_size = Vector2(60, 60)
 		
-		var stage_style = StyleBoxFlat.new()
+		var stage_style := StyleBoxFlat.new()
 		if i <= helmet_level:
-			# Активный этап - золотой
 			stage_style.bg_color = Color(0.9, 0.7, 0.2, 1.0)
 			stage_style.border_color = Color(1.0, 0.9, 0.5, 1.0)
 		else:
-			# Неактивный этап - серый
 			stage_style.bg_color = Color(0.3, 0.3, 0.35, 0.5)
 			stage_style.border_color = Color(0.5, 0.5, 0.55, 1.0)
-		
 		stage_style.set_corner_radius_all(10)
 		stage_style.border_width_left = 3
 		stage_style.border_width_top = 3
@@ -185,8 +243,7 @@ func _add_mort_helmet_section(vbox: VBoxContainer):
 		stage_style.border_width_bottom = 3
 		stage.add_theme_stylebox_override("panel", stage_style)
 		
-		# Номер этапа
-		var stage_label = Label.new()
+		var stage_label := Label.new()
 		stage_label.text = str(i)
 		stage_label.add_theme_font_size_override("font_size", 28)
 		stage_label.add_theme_color_override("font_color", Color.WHITE if i <= helmet_level else Color(0.6, 0.6, 0.6))
@@ -198,29 +255,247 @@ func _add_mort_helmet_section(vbox: VBoxContainer):
 		stage.add_child(stage_label)
 		
 		helmet_progress.add_child(stage)
+	inner.add_child(helmet_progress)
 	
-	vbox.add_child(helmet_progress)
-	
-	# Описание текущего бонуса
-	var bonus_chips = LevelManager.get_mort_helmet_bonus_chips()
+	# Описание текущего бонуса (на стадии 0 — поясняем как получить бонусы)
+	var bonus_chips: Dictionary = LevelManager.get_mort_helmet_bonus_chips()
+	var bonus_desc := Label.new()
+	bonus_desc.add_theme_font_size_override("font_size", 22)
+	bonus_desc.add_theme_color_override("font_outline_color", Color.BLACK)
+	bonus_desc.add_theme_constant_override("outline_size", 3)
+	bonus_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if not bonus_chips.is_empty():
-		var bonus_desc = Label.new()
-		var arrow_count = bonus_chips.get("arrow", 0)
-		var bomb_count = bonus_chips.get("bomb", 0)
-		bonus_desc.text = "Бонус: %d стрел + %d бомб" % [arrow_count, bomb_count]
-		bonus_desc.add_theme_font_size_override("font_size", 24)
+		var arrow_count: int = int(bonus_chips.get("arrow", 0))
+		var bomb_count: int = int(bonus_chips.get("bomb", 0))
+		bonus_desc.text = "Бонус: %d %s + %d %s" % [arrow_count, _decline_arrows(arrow_count), bomb_count, _decline_bombs(bomb_count)]
 		bonus_desc.add_theme_color_override("font_color", Color(0.4, 1.0, 0.4))
-		bonus_desc.add_theme_color_override("font_outline_color", Color.BLACK)
-		bonus_desc.add_theme_constant_override("outline_size", 3)
-		bonus_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		vbox.add_child(bonus_desc)
 	else:
-		var no_bonus = Label.new()
-		no_bonus.text = "Победите уровни подряд для усиления!"
-		no_bonus.add_theme_font_size_override("font_size", 20)
-		no_bonus.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-		no_bonus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		vbox.add_child(no_bonus)
+		bonus_desc.text = "Победите уровень, чтобы получить бонусы Шлема"
+		bonus_desc.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9))
+	inner.add_child(bonus_desc)
+
+func _decline_arrows(n: int) -> String:
+	# Грубое русское склонение для UI: 1 стрела / 2-4 стрелы / 5+ стрел.
+	var mod_100 := n % 100
+	var mod_10 := n % 10
+	if mod_100 >= 11 and mod_100 <= 14:
+		return "стрел"
+	if mod_10 == 1:
+		return "стрела"
+	if mod_10 >= 2 and mod_10 <= 4:
+		return "стрелы"
+	return "стрел"
+
+func _decline_bombs(n: int) -> String:
+	var mod_100 := n % 100
+	var mod_10 := n % 10
+	if mod_100 >= 11 and mod_100 <= 14:
+		return "бомб"
+	if mod_10 == 1:
+		return "бомба"
+	if mod_10 >= 2 and mod_10 <= 4:
+		return "бомбы"
+	return "бомб"
+
+func _show_mort_helmet_rules() -> void:
+	if _mort_helmet_rules_overlay != null and is_instance_valid(_mort_helmet_rules_overlay):
+		return
+	if LevelManager:
+		LevelManager.log_mort_helmet_rules_opened()
+	var overlay := Control.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.z_index = 220
+	add_child(overlay)
+	_mort_helmet_rules_overlay = overlay
+	
+	var bg := ColorRect.new()
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0, 0, 0, 0.7)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	bg.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			_close_mort_helmet_rules()
+	)
+	overlay.add_child(bg)
+	
+	var panel := Panel.new()
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	panel.offset_left = -260
+	panel.offset_right = 260
+	panel.offset_top = -240
+	panel.offset_bottom = 240
+	var ps := StyleBoxFlat.new()
+	ps.bg_color = Color(0.12, 0.15, 0.2, 0.98)
+	ps.set_corner_radius_all(18)
+	ps.border_width_left = 4
+	ps.border_width_top = 4
+	ps.border_width_right = 4
+	ps.border_width_bottom = 4
+	ps.border_color = Color(0.85, 0.72, 0.28, 1.0)
+	panel.add_theme_stylebox_override("panel", ps)
+	overlay.add_child(panel)
+	
+	var box := VBoxContainer.new()
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	box.offset_left = 20
+	box.offset_top = 20
+	box.offset_right = -20
+	box.offset_bottom = -20
+	box.add_theme_constant_override("separation", 14)
+	panel.add_child(box)
+	
+	var title := Label.new()
+	title.text = "ШЛЕМ МОРТА"
+	title.add_theme_font_size_override("font_size", 32)
+	title.add_theme_color_override("font_color", Color(1.0, 0.92, 0.4))
+	title.add_theme_color_override("font_outline_color", Color.BLACK)
+	title.add_theme_constant_override("outline_size", 4)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(title)
+	
+	var desc := Label.new()
+	desc.text = "Побеждайте уровни подряд — стадия Шлема будет расти, а на старт следующего уровня вы получите больше бонусов на поле."
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.add_theme_font_size_override("font_size", 20)
+	desc.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
+	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(desc)
+	
+	for stage_data in [
+		{"stage": 1, "text": "1 победа подряд → 1 стрела + 1 бомба"},
+		{"stage": 2, "text": "2 победы подряд → 2 стрелы + 2 бомбы"},
+		{"stage": 3, "text": "3+ побед подряд → 3 стрелы + 3 бомбы"}
+	]:
+		var row := Label.new()
+		row.text = stage_data["text"]
+		row.add_theme_font_size_override("font_size", 22)
+		row.add_theme_color_override("font_color", Color(0.95, 0.85, 0.5))
+		row.add_theme_color_override("font_outline_color", Color.BLACK)
+		row.add_theme_constant_override("outline_size", 3)
+		row.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(row)
+	
+	var hint := Label.new()
+	hint.text = "Поражение или выход после хода сбрасывают серию."
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.add_theme_font_size_override("font_size", 18)
+	hint.add_theme_color_override("font_color", Color(0.85, 0.65, 0.65))
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(hint)
+	
+	var close_btn := Button.new()
+	close_btn.text = "ПОНЯТНО"
+	close_btn.custom_minimum_size = Vector2(220, 64)
+	close_btn.focus_mode = Control.FOCUS_NONE
+	var cs := StyleBoxFlat.new()
+	cs.bg_color = Color(0.25, 0.5, 0.3, 1.0)
+	cs.set_corner_radius_all(12)
+	cs.border_color = Color(0.4, 0.8, 0.5, 1.0)
+	cs.border_width_left = 3
+	cs.border_width_top = 3
+	cs.border_width_right = 3
+	cs.border_width_bottom = 3
+	close_btn.add_theme_stylebox_override("normal", cs)
+	close_btn.add_theme_font_size_override("font_size", 28)
+	close_btn.add_theme_color_override("font_color", Color.WHITE)
+	close_btn.pressed.connect(_close_mort_helmet_rules)
+	var wrap := CenterContainer.new()
+	wrap.add_child(close_btn)
+	box.add_child(wrap)
+
+func _close_mort_helmet_rules() -> void:
+	if _mort_helmet_rules_overlay != null and is_instance_valid(_mort_helmet_rules_overlay):
+		_mort_helmet_rules_overlay.queue_free()
+	_mort_helmet_rules_overlay = null
+
+func _maybe_show_mort_helmet_tutorial() -> void:
+	# GDD §8: при первом открытии фичи показывается короткий нежесткий туториал.
+	if not LevelManager:
+		return
+	if not LevelManager.is_mort_helmet_unlocked():
+		return
+	if LevelManager.is_mort_helmet_tutorial_shown():
+		return
+	if _mort_helmet_section == null or not is_instance_valid(_mort_helmet_section):
+		return
+	if _mort_helmet_info_button == null or not is_instance_valid(_mort_helmet_info_button):
+		return
+	# Запускаем после раскладки, чтобы получить корректные глобальные прямоугольники.
+	call_deferred("_build_mort_helmet_tutorial_overlay")
+
+func _build_mort_helmet_tutorial_overlay() -> void:
+	if _mort_helmet_section == null or not is_instance_valid(_mort_helmet_section):
+		return
+	if _mort_helmet_info_button == null or not is_instance_valid(_mort_helmet_info_button):
+		return
+	var overlay := Control.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.z_index = 230
+	add_child(overlay)
+	_mort_helmet_tutorial_overlay = overlay
+	
+	var dim := ColorRect.new()
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(0, 0, 0, 0.65)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			_close_mort_helmet_tutorial()
+	)
+	overlay.add_child(dim)
+	
+	# Подсветка плашки Шлема: рамка вокруг секции.
+	var section_rect: Rect2 = _mort_helmet_section.get_global_rect()
+	section_rect = section_rect.grow(8.0)
+	var highlight := Panel.new()
+	highlight.position = section_rect.position
+	highlight.size = section_rect.size
+	var hs := StyleBoxFlat.new()
+	hs.bg_color = Color(1.0, 0.95, 0.45, 0.12)
+	hs.set_corner_radius_all(14)
+	hs.border_color = Color(1.0, 0.95, 0.45, 1.0)
+	hs.border_width_left = 4
+	hs.border_width_top = 4
+	hs.border_width_right = 4
+	hs.border_width_bottom = 4
+	highlight.add_theme_stylebox_override("panel", hs)
+	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(highlight)
+	
+	# Стрелка-указатель на кнопку "i".
+	var info_rect: Rect2 = _mort_helmet_info_button.get_global_rect()
+	var arrow := Label.new()
+	arrow.text = "▲"
+	arrow.add_theme_font_size_override("font_size", 36)
+	arrow.add_theme_color_override("font_color", Color(1.0, 0.92, 0.4))
+	arrow.add_theme_color_override("font_outline_color", Color.BLACK)
+	arrow.add_theme_constant_override("outline_size", 3)
+	arrow.position = Vector2(info_rect.position.x + info_rect.size.x * 0.5 - 14, info_rect.position.y + info_rect.size.y + 6)
+	arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(arrow)
+	
+	var hint := Label.new()
+	hint.text = "Это Шлем Морта. Побеждайте уровни подряд, чтобы получать бонусы. Нажмите «i», чтобы узнать подробности."
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.add_theme_font_size_override("font_size", 22)
+	hint.add_theme_color_override("font_color", Color.WHITE)
+	hint.add_theme_color_override("font_outline_color", Color.BLACK)
+	hint.add_theme_constant_override("outline_size", 4)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.position = Vector2(info_rect.position.x - 280, info_rect.position.y + info_rect.size.y + 60)
+	hint.size = Vector2(560, 140)
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(hint)
+	
+	if LevelManager:
+		LevelManager.mark_mort_helmet_tutorial_shown()
+
+func _close_mort_helmet_tutorial() -> void:
+	if _mort_helmet_tutorial_overlay != null and is_instance_valid(_mort_helmet_tutorial_overlay):
+		_mort_helmet_tutorial_overlay.queue_free()
+	_mort_helmet_tutorial_overlay = null
 
 func _add_prelevel_boosts_section(vbox: VBoxContainer):
 	if not LevelManager:

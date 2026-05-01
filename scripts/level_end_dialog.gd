@@ -82,8 +82,65 @@ func _fill_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_c
 	body.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
 	body.add_theme_constant_override("outline_size", 5)
 	vbox.add_child(body)
+	_append_mort_helmet_progress_panel(vbox)
 	vbox.add_child(_spacer())
 	vbox.add_child(_wrap_big_button("В МЕНЮ", _on_to_menu))
+
+func _append_mort_helmet_progress_panel(vbox: VBoxContainer) -> void:
+	# GDD §7: на экране победы показываем открытие/повышение стадии Шлема Морта.
+	if not LevelManager:
+		return
+	var stage_before: int = int(LevelManager.get_meta("mort_helmet_stage_before", -1)) if LevelManager.has_meta("mort_helmet_stage_before") else -1
+	var unlocked_now: bool = bool(LevelManager.get_meta("mort_helmet_unlocked_now", false)) if LevelManager.has_meta("mort_helmet_unlocked_now") else false
+	var stage_after: int = LevelManager.get_mort_helmet_level()
+	if stage_before < 0:
+		return
+	var panel := PanelContainer.new()
+	var ps := StyleBoxFlat.new()
+	ps.bg_color = Color(0.18, 0.16, 0.28, 0.85)
+	ps.set_corner_radius_all(12)
+	ps.border_width_left = 3
+	ps.border_width_top = 3
+	ps.border_width_right = 3
+	ps.border_width_bottom = 3
+	ps.border_color = Color(0.85, 0.72, 0.28, 1.0)
+	panel.add_theme_stylebox_override("panel", ps)
+	vbox.add_child(panel)
+	var inner := VBoxContainer.new()
+	inner.add_theme_constant_override("separation", 6)
+	panel.add_child(inner)
+	var lbl := Label.new()
+	lbl.add_theme_font_size_override("font_size", 28)
+	lbl.add_theme_color_override("font_color", Color(1.0, 0.92, 0.4))
+	lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+	lbl.add_theme_constant_override("outline_size", 4)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if unlocked_now:
+		lbl.text = "ШЛЕМ МОРТА ОТКРЫТ!"
+	elif stage_after > stage_before:
+		lbl.text = "ШЛЕМ МОРТА: СТАДИЯ %d → %d" % [stage_before, stage_after]
+	else:
+		# На стадии 3 не показываем рост, по GDD это допустимо.
+		return
+	inner.add_child(lbl)
+	var hint := Label.new()
+	hint.add_theme_font_size_override("font_size", 22)
+	hint.add_theme_color_override("font_color", Color(0.95, 0.9, 0.95))
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var bonuses: Dictionary = LevelManager.get_mort_helmet_bonus_chips()
+	var arrows: int = int(bonuses.get("arrow", 0))
+	var bombs: int = int(bonuses.get("bomb", 0))
+	hint.text = "На старте следующего уровня: %d стрел + %d бомб" % [arrows, bombs]
+	inner.add_child(hint)
+	# Анимация: лёгкое всплытие/масштабирование.
+	panel.modulate.a = 0.0
+	panel.scale = Vector2(0.92, 0.92)
+	panel.pivot_offset = Vector2(panel.custom_minimum_size.x * 0.5, panel.custom_minimum_size.y * 0.5)
+	var tween := panel.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(panel, "modulate:a", 1.0, 0.35).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(panel, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _fill_defeat(refill_cost: int, player_coins: int, hearts_to_restore: int, can_refill: bool) -> void:
 	var vbox = _main_vbox()
