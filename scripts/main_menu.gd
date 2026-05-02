@@ -25,6 +25,10 @@ var _level_start_dialog_shown: bool = false
 var _golden_pass_dialog_open: bool = false
 
 const GOLDEN_PASS_DIALOG_SCRIPT := preload("res://scripts/golden_pass_dialog.gd")
+# Текстуры вместо эмодзи в шрифте: на Android системный шрифт часто без цветных глифов — вместо иконок «квадраты» с кодами
+const TEX_UI_AVATAR := preload("res://textures/Monster_1_lvl.png")
+const TEX_UI_SETTINGS := preload("res://textures/Booster_Hummer.png")
+const TEX_UI_GOLDEN_PASS := preload("res://textures/Chip_Bonus_Rainbow_Ball.png")
 
 var _syncing_ranks_level_edit: bool = false
 
@@ -87,8 +91,18 @@ func _create_golden_pass_fab() -> void:
 	fab.offset_bottom = 152.0
 	fab.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	fab.grow_vertical = Control.GROW_DIRECTION_END
-	fab.text = "★"
-	fab.add_theme_font_size_override("font_size", 32)
+	fab.text = ""
+	var fab_icon_wrap := CenterContainer.new()
+	fab_icon_wrap.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fab_icon_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fab_icon := TextureRect.new()
+	fab_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fab_icon.texture = TEX_UI_GOLDEN_PASS
+	fab_icon.custom_minimum_size = Vector2(36, 36)
+	fab_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	fab_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	fab_icon_wrap.add_child(fab_icon)
+	fab.add_child(fab_icon_wrap)
 	var r := 32
 	var n := StyleBoxFlat.new()
 	n.bg_color = Color(0.78, 0.55, 0.12, 1.0)
@@ -108,9 +122,6 @@ func _create_golden_pass_fab() -> void:
 	fab.add_theme_stylebox_override("normal", n)
 	fab.add_theme_stylebox_override("hover", h)
 	fab.add_theme_stylebox_override("pressed", p)
-	fab.add_theme_color_override("font_color", Color(1.0, 0.98, 0.75))
-	fab.add_theme_color_override("font_outline_color", Color(0.2, 0.1, 0.0, 0.9))
-	fab.add_theme_constant_override("outline_size", 4)
 	fab.z_index = 5
 	fab.tooltip_text = "Золотой пропуск"
 	fab.pressed.connect(_show_golden_pass_dialog)
@@ -196,12 +207,14 @@ func _create_avatar() -> Control:
 	bg_style.border_color = Color(0.5, 0.6, 0.7, 1.0)
 	container.add_theme_stylebox_override("panel", bg_style)
 	
-	var avatar_label = Label.new()
-	avatar_label.text = "👤"
-	avatar_label.add_theme_font_size_override("font_size", 42)
-	avatar_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	avatar_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	container.add_child(avatar_label)
+	var avatar_center = CenterContainer.new()
+	var avatar_icon := TextureRect.new()
+	avatar_icon.texture = TEX_UI_AVATAR
+	avatar_icon.custom_minimum_size = Vector2(52, 52)
+	avatar_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	avatar_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	avatar_center.add_child(avatar_icon)
+	container.add_child(avatar_center)
 	
 	return container
 
@@ -268,8 +281,19 @@ func _create_buy_coins_button() -> Button:
 
 func _create_settings_button() -> Button:
 	var btn = Button.new()
-	btn.text = "⚙"
+	btn.text = ""
 	btn.custom_minimum_size = Vector2(60, 60)
+	var settings_icon_wrap := CenterContainer.new()
+	settings_icon_wrap.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	settings_icon_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var settings_icon := TextureRect.new()
+	settings_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	settings_icon.texture = TEX_UI_SETTINGS
+	settings_icon.custom_minimum_size = Vector2(40, 40)
+	settings_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	settings_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	settings_icon_wrap.add_child(settings_icon)
+	btn.add_child(settings_icon_wrap)
 	
 	var normal_style = StyleBoxFlat.new()
 	normal_style.bg_color = Color(0.25, 0.3, 0.35, 1.0)
@@ -292,8 +316,6 @@ func _create_settings_button() -> Button:
 	btn.add_theme_stylebox_override("normal", normal_style)
 	btn.add_theme_stylebox_override("hover", hover_style)
 	btn.add_theme_stylebox_override("pressed", pressed_style)
-	btn.add_theme_font_size_override("font_size", 40)
-	btn.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
 	
 	btn.pressed.connect(_on_settings_pressed)
 	
