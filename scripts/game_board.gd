@@ -1,7 +1,7 @@
-extends Control
+extends Node2D
 
-# Игровое поле: корневой Control на весь viewport — раскладка по size (надёжно на Web/iOS);
-# раньше Node2D + эвристики visible_rect давали сдвиг сетки за экран.
+# Игровое поле: корень Node2D — отрисовка в координатах viewport (как до перехода на Control).
+# Корневой Control на Web/iOS часто получает size = 0 / битый layout — поле не рисуется, CanvasLayer остаётся.
 const COLS := 8
 const ROWS := 16
 const CELL_SIZE := 80
@@ -161,9 +161,10 @@ func _ready():
 	_boot_async()
 
 func _boot_async() -> void:
-	# Пока корень не получил layout, size может быть 0 — без поля не инициализируем.
+	# Ждём осмысленный размер области (viewport/window), не свойство Control.size.
 	for _i in range(48):
-		if size.x >= 32.0 and size.y >= 32.0:
+		var sz: Vector2 = _get_layout_viewport_size()
+		if sz.x >= 32.0 and sz.y >= 32.0:
 			break
 		await get_tree().process_frame
 	await get_tree().process_frame
@@ -1234,15 +1235,57 @@ func _clear_board_vfx_after_refill() -> void:
 	_monster_shakes.clear()
 	_needs_ui_update = true
 
-# Размер области раскладки: фактический rect корневого Control (совпадает с игровой областью после stretch).
-func _get_layout_viewport_size() -> Vector2:
-	var sz: Vector2 = size
-	if sz.x >= 32.0 and sz.y >= 32.0:
-		return sz
+func _fallback_project_viewport_size() -> Vector2:
 	return Vector2(
 		float(ProjectSettings.get_setting("display/window/size/viewport_width", 648)),
 		float(ProjectSettings.get_setting("display/window/size/viewport_height", 1200))
 	)
+
+# Размер области раскладки: несколько источников + отбор «похоже на портрет телефона», чтобы отсечь раздутые метрики HTML/WebKit.
+func _get_layout_viewport_size() -> Vector2:
+	var vp := get_viewport()
+	var vis := Vector2.ZERO
+	var win := Vector2.ZERO
+	if vp != null:
+		vis = vp.get_visible_rect().size
+		var ws: Vector2i = DisplayServer.window_get_size(vp.get_window_id())
+		win = Vector2(float(ws.x), float(ws.y))
+	var fb := _fallback_project_viewport_size()
+	var cands: Array[Vector2] = []
+	for c in [vis, win, fb]:
+		if c.x >= 32.0 and c.y >= 32.0:
+			cands.append(c)
+	if cands.is_empty():
+		return fb
+	var playable: Array[Vector2] = []
+	for c in cands:
+		var short_side: float = minf(c.x, c.y)
+		var long_side: float = maxf(c.x, c.y)
+		var asp: float = long_side / maxf(short_side, 1.0)
+		if short_side >= 260.0 and long_side >= 520.0 and asp >= 1.15 and asp <= 4.2:
+			playable.append(c)
+	if playable.size() > 0:
+		var best: Vector2 = playable[0]
+		var best_area: float = best.x * best.y
+		for i in range(1, playable.size()):
+			var p: Vector2 = playable[i]
+			var a: float = p.x * p.y
+			if a < best_area:
+				best = p
+				best_area = a
+		return best
+	if vis.x >= 32.0 and vis.y >= 32.0 and win.x >= 32.0 and win.y >= 32.0:
+		if vis.x < win.x * 0.82 and vis.y < win.y * 0.82:
+			return win
+	var fallback_pick: Vector2 = cands[0]
+	var fa: float = fallback_pick.x * fallback_pick.y
+	for i in range(1, cands.size()):
+		var q: Vector2 = cands[i]
+		var qa: float = q.x * q.y
+		if qa < fa:
+			fallback_pick = q
+			fa = qa
+	return fallback_pick
 
 func _grid_origin(vp_size: Vector2) -> Vector2:
 	var grid_size := Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT + PLAYER_ROWS * CELL_SIZE + _field_gap_total)
