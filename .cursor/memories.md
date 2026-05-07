@@ -34,6 +34,9 @@
 - Автозагрузка:
   - LevelManager: res://scripts/LevelManager.gd
 
+### Загрузка уровней (2026-05)
+- Зависание при старте уровня: завышенный `current_level` в `user://progress.cfg` и fallback JSON без файла давали огромный `strong_monsters` → миллионы итераций в legacy-ветке `game_board.gd`. Исправление: clamp в `LevelManager._load_progress`, cap в `_normalize_level_config` / `game_board`, git только в редакторе в `VersionManager`.
+
 ### Важные файлы
 - `project.godot` - конфигурация проекта
 - `.gitignore` - настроен для игнорирования файлов сборки
