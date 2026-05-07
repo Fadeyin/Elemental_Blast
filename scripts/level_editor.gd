@@ -70,6 +70,7 @@ func _new_level_template() -> Dictionary:
 		"moves": 20,
 		"start_monsters": [],
 		"scheduled_spawns": [],
+		"boss_units": [],
 		"obstacles": [],
 		"seed": int(Time.get_unix_time_from_system())
 	}
@@ -281,6 +282,7 @@ func _load_level_by_number(level_num: int) -> void:
 	_current_file_path = path
 	_level_data["start_monsters"] = _level_data.get("start_monsters", [])
 	_level_data["scheduled_spawns"] = _level_data.get("scheduled_spawns", [])
+	_level_data["boss_units"] = _level_data.get("boss_units", [])
 	_level_data["obstacles"] = _level_data.get("obstacles", [])
 	_level_data["moves"] = int(_level_data.get("moves", 20))
 	_moves_spin.value = _level_data["moves"]
@@ -306,6 +308,7 @@ func _on_load_pressed() -> void:
 				_current_file_path = path
 				_level_data["start_monsters"] = _level_data.get("start_monsters", [])
 				_level_data["scheduled_spawns"] = _level_data.get("scheduled_spawns", [])
+				_level_data["boss_units"] = _level_data.get("boss_units", [])
 				_level_data["obstacles"] = _level_data.get("obstacles", [])
 				_level_data["moves"] = int(_level_data.get("moves", 20))
 				_moves_spin.value = _level_data["moves"]

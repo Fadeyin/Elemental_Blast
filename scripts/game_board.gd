@@ -32,8 +32,11 @@ const MONSTER_TEXTURES := {
 	2: preload("res://textures/Monster_2_lvl.png"),
 	3: preload("res://textures/Monster_3_lvl.png"),
 	4: preload("res://textures/Monster_4_lvl.png"),
-	5: preload("res://textures/Monster_5_lvl.png")
+	5: preload("res://textures/Monster_5_lvl.png"),
+	# Цель уровня для многоячеечного босса (иконка как у монстра 1 уровня)
+	50: preload("res://textures/Monster_1_lvl.png")
 }
+const BOSS_GOAL_VISUAL_HP := 50
 const CHIP_SIZE_FACTOR := 1.02
 const CHIP_EDGE_WIDTH := 3.0
 const CHIP_SHADOW_OFFSET := Vector2(0, 6)
@@ -82,6 +85,9 @@ var _projectiles := [] # [{x:int, start_y:float, end_y:float, t:float, d:float, 
 var _active_anims := [] # [{x:int, start_y:int, end_y:int, color:int, t:float, d:float}]
 var _enemy_death_anims := [] # [{x:int, y:int, t:float, d:float, hp:int, init:int, id:int}]
 var _monster_shakes := {} # monster_id -> {t:float, d:float, intensity:float}
+# Многоячеечные боссы: якорь верхнего левого угла, общий пул HP в _boss_registry
+var _boss_anchor_of := [] # [y][x] -> Vector2i(anchor_x, anchor_y) или (-1,-1)
+var _boss_registry := {} # "ax:ay" -> {cells: Array, hp: int, max_hp: int, sprite: int}
 var _board_vfx := [] # [{type:str, pos:Vector2, color:Color, t:float, d:float, scale:float}]
 var _level_targets := {} # hp -> required count
 var _enemy_move_pending: bool = false
@@ -761,6 +767,7 @@ func _init_enemies_from_config(cfg: Dictionary):
 		enemies.append(row)
 		enemies_initial_hp.append(row0)
 		_enemies_hit_this_turn.append(row_hit)
+	_reset_boss_grids()
 
 	# Новый режим: стартовые монстры + управляемые отложенные спавны
 	if cfg.has("start_monsters") and typeof(cfg.start_monsters) == TYPE_ARRAY:
@@ -800,6 +807,7 @@ func _init_enemies_from_config(cfg: Dictionary):
 				_level_targets[hp] = int(_level_targets.get(hp, 0)) + 1
 
 	if _use_scheduled_spawns:
+		_load_boss_units_from_config(cfg)
 		_rebuild_level_targets_from_field()
 		_level_ready_for_win = true
 		return
@@ -846,8 +854,161 @@ func _init_enemies_from_config(cfg: Dictionary):
 				var hp = _monster_spawn_queue.pop_front()
 				enemies[y][x] = hp
 				enemies_initial_hp[y][x] = hp
+	_load_boss_units_from_config(cfg)
 	_rebuild_level_targets_from_field()
 	_level_ready_for_win = true
+
+func _reset_boss_grids() -> void:
+	_boss_registry.clear()
+	_boss_anchor_of.clear()
+	for _by in range(ENEMY_ROWS):
+		var row_a: Array = []
+		for _bx in range(COLS):
+			row_a.append(Vector2i(-1, -1))
+		_boss_anchor_of.append(row_a)
+
+func _boss_registry_key(ax: int, ay: int) -> String:
+	return "%d:%d" % [ax, ay]
+
+func _boss_sync_display(boss_key: String) -> void:
+	if not _boss_registry.has(boss_key):
+		return
+	var g: Dictionary = _boss_registry[boss_key]
+	var parts: PackedStringArray = boss_key.split(":")
+	var ax := int(parts[0])
+	var ay := int(parts[1])
+	var h: int = maxi(0, int(g.get("hp", 0)))
+	var cells: Array = g.get("cells", [])
+	for c in cells:
+		var cx := int(c.x)
+		var cy := int(c.y)
+		if cy < 0 or cy >= ENEMY_ROWS or cx < 0 or cx >= COLS:
+			continue
+		enemies[cy][cx] = h
+		if cx == ax and cy == ay:
+			enemies_initial_hp[cy][cx] = BOSS_GOAL_VISUAL_HP
+		else:
+			enemies_initial_hp[cy][cx] = 0
+
+func _load_boss_units_from_config(cfg: Dictionary) -> void:
+	if not cfg.has("boss_units") or typeof(cfg.boss_units) != TYPE_ARRAY:
+		return
+	for bu in cfg.boss_units:
+		if typeof(bu) != TYPE_DICTIONARY:
+			continue
+		var ax := int(bu.get("anchor_x", 0))
+		var ay := int(bu.get("anchor_y", 0))
+		var bw := maxi(1, int(bu.get("width", 1)))
+		var bh := maxi(1, int(bu.get("height", 1)))
+		var bhp := maxi(1, int(bu.get("hp", 1)))
+		var spr := maxi(1, int(bu.get("sprite", 1)))
+		if ax < 0 or ay < 0 or ax + bw > COLS or ay + bh > ENEMY_ROWS:
+			push_warning("boss_units: прямоугольник вне поля, пропуск")
+			continue
+		var cells: Array = []
+		var blocked := false
+		for dy in range(bh):
+			for dx in range(bw):
+				var cx := ax + dx
+				var cy := ay + dy
+				if obstacles[cy][cx] > 0:
+					blocked = true
+					break
+				cells.append(Vector2i(cx, cy))
+			if blocked:
+				break
+		if blocked:
+			push_warning("boss_units: пересечение с препятствием, пропуск")
+			continue
+		for c in cells:
+			var cx := int(c.x)
+			var cy := int(c.y)
+			enemies[cy][cx] = 0
+			enemies_initial_hp[cy][cx] = 0
+		var key := _boss_registry_key(ax, ay)
+		_boss_registry[key] = {"cells": cells.duplicate(), "hp": bhp, "max_hp": bhp, "sprite": spr}
+		for c in cells:
+			var cx := int(c.x)
+			var cy := int(c.y)
+			_boss_anchor_of[cy][cx] = Vector2i(ax, ay)
+		_boss_sync_display(key)
+
+func _enemy_hp_for_projectile_column(col_x: int, row_y: int) -> int:
+	if obstacles.size() <= row_y or obstacles[row_y].size() <= col_x:
+		return 0
+	if obstacles[row_y][col_x] > 0:
+		return obstacles[row_y][col_x]
+	if enemies.size() <= row_y or enemies[row_y].size() <= col_x:
+		return 0
+	if enemies[row_y][col_x] <= 0:
+		return 0
+	var anc: Vector2i = _boss_anchor_of[row_y][col_x]
+	if anc.x < 0:
+		return enemies[row_y][col_x]
+	var key := _boss_registry_key(anc.x, anc.y)
+	if not _boss_registry.has(key):
+		return enemies[row_y][col_x]
+	var g: Dictionary = _boss_registry[key]
+	var bottom_y := -1
+	for c in g.get("cells", []):
+		if int(c.x) != col_x:
+			continue
+		bottom_y = maxi(bottom_y, int(c.y))
+	if bottom_y != row_y:
+		return 0
+	return maxi(0, int(g.get("hp", 0)))
+
+func _apply_damage_to_enemy_cell(tx: int, ty: int) -> void:
+	if ty < 0 or ty >= ENEMY_ROWS or tx < 0 or tx >= COLS:
+		return
+	if enemies[ty][tx] <= 0:
+		return
+	var anc: Vector2i = _boss_anchor_of[ty][tx]
+	if anc.x >= 0:
+		var key := _boss_registry_key(anc.x, anc.y)
+		if _boss_registry.has(key):
+			var g: Dictionary = _boss_registry[key]
+			g["hp"] = maxi(0, int(g.get("hp", 0)) - 1)
+			_boss_registry[key] = g
+			_boss_sync_display(key)
+			var mid := anc.x + anc.y * 100
+			for c in g.get("cells", []):
+				var cx := int(c.x)
+				var cy := int(c.y)
+				if cy >= 0 and cy < ENEMY_ROWS and cx >= 0 and cx < COLS:
+					_enemies_hit_this_turn[cy][cx] = true
+			_monster_shakes[mid] = {"t": 0.0, "d": 0.2, "intensity": 10.0}
+			if int(g.get("hp", 0)) <= 0:
+				for c in g.get("cells", []):
+					var cx := int(c.x)
+					var cy := int(c.y)
+					if cy >= 0 and cy < ENEMY_ROWS and cx >= 0 and cx < COLS:
+						enemies[cy][cx] = 0
+						enemies_initial_hp[cy][cx] = 0
+						_boss_anchor_of[cy][cx] = Vector2i(-1, -1)
+				_boss_registry.erase(key)
+				_decrement_level_target_for_init_hp(BOSS_GOAL_VISUAL_HP)
+				_needs_ui_update = true
+				_enemy_death_anims.append({
+					"x": anc.x, "y": anc.y, "t": 0.0, "d": 0.35,
+					"hp": 0, "init": BOSS_GOAL_VISUAL_HP, "id": mid
+				})
+				_monster_shakes[mid] = {"t": 0.0, "d": 0.35, "intensity": 15.0}
+			return
+	enemies[ty][tx] -= 1
+	_enemies_hit_this_turn[ty][tx] = true
+	var mid2 := tx + ty * 10
+	_monster_shakes[mid2] = {"t": 0.0, "d": 0.2, "intensity": 10.0}
+	if enemies[ty][tx] <= 0:
+		enemies[ty][tx] = 0
+		var init_hp := enemies_initial_hp[ty][tx]
+		_decrement_level_target_for_init_hp(int(init_hp))
+		_needs_ui_update = true
+		_enemy_death_anims.append({
+			"x": tx, "y": ty, "t": 0.0, "d": 0.35,
+			"hp": 0, "init": init_hp, "id": mid2
+		})
+		_monster_shakes[mid2] = {"t": 0.0, "d": 0.35, "intensity": 15.0}
 
 func _rebuild_level_targets_from_field() -> void:
 	_level_targets.clear()
@@ -1134,19 +1295,64 @@ func _draw():
 	var monsters_to_draw := []
 	
 	# Сначала движущиеся
+	var ma_boss_done := {}
 	for ma in _enemy_move_anims:
-		var k = clamp(ma.t / ma.d, 0.0, 1.0)
-		k = pow(k, 0.8)
-		var ix = lerp(float(ma.fx), float(ma.tx), k)
-		var iy = lerp(float(ma.fy), float(ma.ty), k)
-		
+		if ma.has("boss_key"):
+			var bk_m := str(ma.get("boss_key", ""))
+			if bk_m.is_empty() or ma_boss_done.has(bk_m):
+				continue
+			var parts_m: PackedStringArray = bk_m.split(":")
+			if parts_m.size() < 2:
+				continue
+			var bax := int(parts_m[0])
+			var bay := int(parts_m[1])
+			var anchor_ma = ma
+			for ma2 in _enemy_move_anims:
+				if str(ma2.get("boss_key", "")) != bk_m:
+					continue
+				if int(ma2.fx) == bax and int(ma2.fy) == bay:
+					anchor_ma = ma2
+					break
+			var k = clamp(anchor_ma.t / anchor_ma.d, 0.0, 1.0)
+			k = pow(k, 0.8)
+			var ix = lerp(float(anchor_ma.fx), float(anchor_ma.tx), k)
+			var iy = lerp(float(anchor_ma.fy), float(anchor_ma.ty), k)
+			var span_mv := Vector2i(1, 1)
+			var tex_mv := -1
+			if _boss_registry.has(bk_m):
+				var g_mv: Dictionary = _boss_registry[bk_m]
+				span_mv = _boss_cell_span_from_cells(g_mv.get("cells", []))
+				tex_mv = int(g_mv.get("sprite", 1))
+			else:
+				tex_mv = int(anchor_ma.get("boss_tex", 1))
+			var dw := float(span_mv.x) * CELL_SIZE * CHIP_SIZE_FACTOR - 8.0
+			var dh := float(span_mv.y) * ENEMY_CELL_HEIGHT - 6.0
+			ma_boss_done[bk_m] = true
+			monsters_to_draw.append({
+				"x": ix,
+				"y": iy,
+				"hp": int(anchor_ma.hp),
+				"init_hp": int(anchor_ma.init),
+				"id": bax + bay * 100,
+				"sort_y": iy + float(span_mv.y - 1),
+				"alpha": 1.0,
+				"attack_warn": 0.0,
+				"draw_size": Vector2(dw, dh),
+				"texture_tier": tex_mv,
+				"boss_span_h": float(span_mv.y)
+			})
+			continue
+		var k0 = clamp(ma.t / ma.d, 0.0, 1.0)
+		k0 = pow(k0, 0.8)
+		var ix0 = lerp(float(ma.fx), float(ma.tx), k0)
+		var iy0 = lerp(float(ma.fy), float(ma.ty), k0)
 		monsters_to_draw.append({
-			"x": ix,
-			"y": iy,
+			"x": ix0,
+			"y": iy0,
 			"hp": int(ma.hp),
 			"init_hp": int(ma.init),
 			"id": ma.fx + ma.fy * 10,
-			"sort_y": iy,
+			"sort_y": iy0,
 			"alpha": 1.0,
 			"attack_warn": 0.0
 		})
@@ -1184,6 +1390,32 @@ func _draw():
 				var warn_flash = 0.0
 				if _is_last_row_attack_warn_cell(x, y):
 					warn_flash = _get_last_row_attack_warn_flash_strength()
+				var bkey_st := _boss_registry_key(x, y)
+				if _boss_registry.has(bkey_st):
+					var g_st: Dictionary = _boss_registry[bkey_st]
+					var span_st := _boss_cell_span_from_cells(g_st.get("cells", []))
+					var dw_st := float(span_st.x) * CELL_SIZE * CHIP_SIZE_FACTOR - 8.0
+					var dh_st := float(span_st.y) * ENEMY_CELL_HEIGHT - 6.0
+					var max_y_b := 0
+					for c_b in g_st.get("cells", []):
+						max_y_b = maxi(max_y_b, int(c_b.y))
+					monsters_to_draw.append({
+						"x": float(x),
+						"y": float(y),
+						"hp": enemies[y][x],
+						"init_hp": int(g_st.get("max_hp", enemies[y][x])),
+						"id": x + y * 100,
+						"sort_y": float(max_y_b),
+						"alpha": 1.0,
+						"attack_warn": warn_flash,
+						"draw_size": Vector2(dw_st, dh_st),
+						"texture_tier": int(g_st.get("sprite", 1)),
+						"boss_span_h": float(span_st.y)
+					})
+					continue
+				var ba_st: Vector2i = _boss_anchor_of[y][x]
+				if ba_st.x >= 0 and (ba_st.x != x or ba_st.y != y):
+					continue
 				monsters_to_draw.append({
 					"x": float(x),
 					"y": float(y),
@@ -1218,20 +1450,26 @@ func _draw():
 			var s = _monster_shakes[m.id]
 			var k_s = 1.0 - (s.t / s.d)
 			shake_off = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * s.intensity * k_s
-			
+		var sz_use: Vector2 = e_chip_size
+		if m.has("draw_size"):
+			sz_use = m.draw_size
 		var e_top_left: Vector2
 		if m.get("heart_strip_death", false):
 			var strip_mid_y = float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + HEART_STRIP_HEIGHT * 0.5
 			e_top_left = Vector2(
-				origin.x + m.x * CELL_SIZE + e_pad_x,
-				origin.y + strip_mid_y - e_chip_size.y * 0.5
+				origin.x + m.x * CELL_SIZE + (CELL_SIZE - sz_use.x) * 0.5,
+				origin.y + strip_mid_y - sz_use.y * 0.5
 			) + shake_off
 		else:
+			var span_h := float(m.get("boss_span_h", 1.0))
 			e_top_left = Vector2(
-				origin.x + m.x * CELL_SIZE + e_pad_x,
-				origin.y + m.y * ENEMY_CELL_HEIGHT + (ENEMY_CELL_HEIGHT - e_chip_size.y) - 6
+				origin.x + m.x * CELL_SIZE + (CELL_SIZE - sz_use.x) * 0.5,
+				origin.y + m.y * ENEMY_CELL_HEIGHT + (span_h * ENEMY_CELL_HEIGHT - sz_use.y) - 4.0
 			) + shake_off
-		_draw_enemy_monster(e_top_left, e_chip_size, m.hp, m.init_hp, m.id, m.alpha, float(m.get("attack_warn", 0.0)))
+		var tex_ov := -1
+		if m.has("texture_tier"):
+			tex_ov = int(m.get("texture_tier", -1))
+		_draw_enemy_monster(e_top_left, sz_use, m.hp, m.init_hp, m.id, m.alpha, float(m.get("attack_warn", 0.0)), tex_ov)
 
 	for y in range(ENEMY_ROWS, ROWS):
 		for x in range(COLS):
@@ -1622,7 +1860,7 @@ func _draw_monster_health_bar(top_left: Vector2, width: float, hp: int, max_hp: 
 		red_color.a *= alpha
 		draw_rect(Rect2(bar_x + bar_width * health_ratio, bar_y, damage_width, HEALTH_BAR_HEIGHT), red_color)
 
-func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp: int, monster_id: int, alpha: float = 1.0, attack_warn_strength: float = 0.0):
+func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp: int, monster_id: int, alpha: float = 1.0, attack_warn_strength: float = 0.0, texture_tier_override: int = -1) -> void:
 	# Idle-анимация: "дыхание" и легкое покачивание на месте
 	var time = Time.get_ticks_msec() * 0.001
 	var phase = monster_id * 0.5
@@ -1639,7 +1877,8 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 	# Легкое горизонтальное покачивание (микро-смещение)
 	anim_top_left.x += sin(time * 1.8 + phase) * 1.5
 	
-	var tex = MONSTER_TEXTURES.get(initial_hp)
+	var tex_tier := texture_tier_override if texture_tier_override >= 0 else initial_hp
+	var tex = MONSTER_TEXTURES.get(tex_tier)
 	if tex:
 		# Отрисовка текстуры монстра
 		var rect = Rect2(anim_top_left, anim_size)
@@ -1942,26 +2181,7 @@ func _process(delta: float) -> void:
 						queue_redraw()
 					# Проверяем монстра (только если нет препятствия)
 					elif enemies[ty][tx] > 0:
-						enemies[ty][tx] -= 1
-						_enemies_hit_this_turn[ty][tx] = true
-						
-						# Добавляем шейк при попадании
-						var mid = tx + ty * 10
-						_monster_shakes[mid] = {"t": 0.0, "d": 0.2, "intensity": 10.0}
-						
-						if enemies[ty][tx] <= 0:
-							enemies[ty][tx] = 0
-							# Уменьшаем цели по исходному HP этой клетки
-							var init_hp = enemies_initial_hp[ty][tx]
-							_decrement_level_target_for_init_hp(int(init_hp))
-							_needs_ui_update = true
-							# Запускаем анимацию смерти с сохранением данных монстра для отрисовки
-							_enemy_death_anims.append({
-								"x": tx, "y": ty, "t": 0.0, "d": 0.35,
-								"hp": 0, "init": init_hp, "id": mid
-							})
-							# При смерти шейк сильнее и дольше
-							_monster_shakes[mid] = {"t": 0.0, "d": 0.35, "intensity": 15.0}
+						_apply_damage_to_enemy_cell(tx, ty)
 			_projectiles[j].hit_applied = true
 		if tt >= _projectiles[j].d + 0.05:
 			_projectiles.remove_at(j)
@@ -2655,7 +2875,7 @@ func _enqueue_projectiles(col_x: int, from_y: int, count: int, base_delay: float
 			# Препятствие блокирует — снаряд попадёт в него
 			row_hp = obstacles[yy][col_x]
 		elif enemies.size() > yy and enemies[yy].size() > col_x:
-			row_hp = enemies[yy][col_x]
+			row_hp = _enemy_hp_for_projectile_column(col_x, yy)
 		# Учитываем снаряды, которые уже летят в эту цель, чтобы не было "оверкилла"
 		for p in _projectiles:
 			if not p.hit_applied and p.has_target and p.x == col_x and int(p.end_y) == yy:
@@ -2759,64 +2979,172 @@ func _plan_enemy_moves() -> Array:
 	var occupied_next = []
 	for yy in range(ENEMY_ROWS):
 		var row = []
-		for xx in range(COLS): row.append(enemies[yy][xx] > 0)
+		for xx in range(COLS):
+			row.append(enemies[yy][xx] > 0)
 		occupied_next.append(row)
 	for y in range(ENEMY_ROWS - 1, -1, -1):
 		for x in range(COLS):
-			if enemies[y][x] > 0:
-				var hp = enemies[y][x]
-				var init = enemies_initial_hp[y][x]
-				var was_hit_this_turn = _enemies_hit_this_turn[y][x]
-				if was_hit_this_turn:
-					pass
+			if enemies[y][x] <= 0:
+				continue
+			var anc: Vector2i = _boss_anchor_of[y][x]
+			if anc.x >= 0 and (anc.x != x or anc.y != y):
+				continue
+			if anc.x >= 0 and _boss_registry.has(_boss_registry_key(anc.x, anc.y)):
+				_plan_boss_group_moves(anc.x, anc.y, moves, occupied_next)
+				continue
+			var hp = enemies[y][x]
+			var init = enemies_initial_hp[y][x]
+			var was_hit_this_turn = _enemies_hit_this_turn[y][x]
+			if was_hit_this_turn:
+				pass
+			else:
+				var moved = false
+				if y == _heart_row_y:
+					moves.append({"fx": x, "fy": y, "tx": x, "ty": y, "hp": hp, "init": init, "outcome": "attack_player_life"})
+					occupied_next[y][x] = false
+					occupied_next[_heart_row_y][x] = true
+					moved = true
+				elif y + 1 < _enemy_rows_effective:
+					var ty = y + 1
+					var has_obstacle = obstacles[ty][x] > 0
+					if not occupied_next[ty][x] and not has_obstacle:
+						moves.append({"fx": x, "fy": y, "tx": x, "ty": ty, "hp": hp, "init": init, "outcome": "normal"})
+						occupied_next[y][x] = false
+						occupied_next[ty][x] = true
+						moved = true
+				elif y + 1 < ENEMY_ROWS:
+					var tyb = y + 1
+					var has_obstacle_b = obstacles[tyb][x] > 0
+					if not occupied_next[tyb][x] and not has_obstacle_b:
+						moves.append({"fx": x, "fy": y, "tx": x, "ty": tyb, "hp": hp, "init": init, "outcome": "normal"})
+						occupied_next[y][x] = false
+						occupied_next[tyb][x] = true
+						moved = true
 				else:
-					var moved = false
-					if y == _heart_row_y:
-						moves.append({"fx": x, "fy": y, "tx": x, "ty": y, "hp": hp, "init": init, "outcome": "attack_player_life"})
-						occupied_next[y][x] = false
-						# Клетка остаётся занятой стоящим там атакующим — иначе монстр с ряда выше
-						# запланирует сход в ту же клетку и перезапишет врага при применении плана
-						occupied_next[_heart_row_y][x] = true
-						moved = true
-					elif y + 1 < _enemy_rows_effective:
-						var ty = y + 1
-						var has_obstacle = obstacles[ty][x] > 0
-						if not occupied_next[ty][x] and not has_obstacle:
-							moves.append({"fx": x, "fy": y, "tx": x, "ty": ty, "hp": hp, "init": init, "outcome": "normal"})
-							occupied_next[y][x] = false
-							occupied_next[ty][x] = true
-							moved = true
-					elif y + 1 < ENEMY_ROWS:
-						var tyb = y + 1
-						var has_obstacle_b = obstacles[tyb][x] > 0
-						if not occupied_next[tyb][x] and not has_obstacle_b:
-							moves.append({"fx": x, "fy": y, "tx": x, "ty": tyb, "hp": hp, "init": init, "outcome": "normal"})
-							occupied_next[y][x] = false
-							occupied_next[tyb][x] = true
-							moved = true
-					else:
-						moves.append({"fx": x, "fy": y, "tx": x, "ty": _heart_row_y, "hp": hp, "init": init, "outcome": "attack_player_life"})
-						occupied_next[y][x] = false
-						moved = true
-					if not moved:
-						var dirs = _horizontal_detour_direction_order(x, y)
-						for dx in dirs:
-							var nx = x + dx
-							if nx >= 0 and nx < COLS:
-								var has_obstacle_side = obstacles[y][nx] > 0
-								if not occupied_next[y][nx] and not has_obstacle_side:
-									moves.append({"fx": x, "fy": y, "tx": nx, "ty": y, "hp": hp, "init": init, "outcome": "normal"})
-									occupied_next[y][x] = false
-									occupied_next[y][nx] = true
-									moved = true
-									break
+					moves.append({"fx": x, "fy": y, "tx": x, "ty": _heart_row_y, "hp": hp, "init": init, "outcome": "attack_player_life"})
+					occupied_next[y][x] = false
+					moved = true
+				if not moved:
+					var dirs = _horizontal_detour_direction_order(x, y)
+					for dx in dirs:
+						var nx = x + dx
+						if nx >= 0 and nx < COLS:
+							var has_obstacle_side = obstacles[y][nx] > 0
+							if not occupied_next[y][nx] and not has_obstacle_side:
+								moves.append({"fx": x, "fy": y, "tx": nx, "ty": y, "hp": hp, "init": init, "outcome": "normal"})
+								occupied_next[y][x] = false
+								occupied_next[y][nx] = true
+								moved = true
+								break
 	return moves
+
+func _plan_boss_group_moves(ax: int, ay: int, moves: Array, occupied_next: Array) -> void:
+	var key := _boss_registry_key(ax, ay)
+	if not _boss_registry.has(key):
+		return
+	var g: Dictionary = _boss_registry[key]
+	var cells: Array = g.get("cells", [])
+	for c in cells:
+		var cx := int(c.x)
+		var cy := int(c.y)
+		if _enemies_hit_this_turn[cy][cx]:
+			return
+	var cur_hp := maxi(0, int(g.get("hp", 0)))
+	var max_hp := maxi(1, int(g.get("max_hp", cur_hp)))
+	var spr := maxi(1, int(g.get("sprite", 1)))
+	var any_on_heart := false
+	for c in cells:
+		if int(c.y) == _heart_row_y:
+			any_on_heart = true
+			break
+	if any_on_heart:
+		moves.append({"outcome": "boss_attack_life", "boss_key": key})
+		return
+	var can_down := true
+	for c in cells:
+		var cx := int(c.x)
+		var cy := int(c.y)
+		var ty := cy + 1
+		if ty >= ENEMY_ROWS:
+			can_down = false
+			break
+		if obstacles[ty][cx] > 0:
+			can_down = false
+			break
+		if occupied_next[ty][cx]:
+			var oa: Vector2i = _boss_anchor_of[ty][cx]
+			if oa != Vector2i(ax, ay):
+				can_down = false
+				break
+	if can_down:
+		for c in cells:
+			var cx := int(c.x)
+			var cy := int(c.y)
+			moves.append({
+				"fx": cx, "fy": cy, "tx": cx, "ty": cy + 1,
+				"hp": cur_hp, "init": max_hp, "outcome": "normal",
+				"boss_key": key, "boss_tex": spr
+			})
+			occupied_next[cy][cx] = false
+			occupied_next[cy + 1][cx] = true
+		return
+	var boss_max_y := -1
+	for c in cells:
+		boss_max_y = maxi(boss_max_y, int(c.y))
+	var dirs: Array = _horizontal_detour_direction_order(ax, boss_max_y)
+	for dx in dirs:
+		var can_side := true
+		for c in cells:
+			var cx := int(c.x)
+			var cy := int(c.y)
+			var nx := cx + int(dx)
+			if nx < 0 or nx >= COLS:
+				can_side = false
+				break
+			if obstacles[cy][nx] > 0:
+				can_side = false
+				break
+			if occupied_next[cy][nx]:
+				var oa2: Vector2i = _boss_anchor_of[cy][nx]
+				if oa2 != Vector2i(ax, ay):
+					can_side = false
+					break
+		if not can_side:
+			continue
+		for c in cells:
+			var cx := int(c.x)
+			var cy := int(c.y)
+			var nx := cx + int(dx)
+			moves.append({
+				"fx": cx, "fy": cy, "tx": nx, "ty": cy,
+				"hp": cur_hp, "init": max_hp, "outcome": "normal",
+				"boss_key": key, "boss_tex": spr
+			})
+			occupied_next[cy][cx] = false
+			occupied_next[cy][nx] = true
+		return
+
+func _boss_cell_span_from_cells(cells: Array) -> Vector2i:
+	var min_x := 99
+	var max_x := -1
+	var min_y := 99
+	var max_y := -1
+	for c in cells:
+		var cx := int(c.x)
+		var cy := int(c.y)
+		min_x = mini(min_x, cx)
+		max_x = maxi(max_x, cx)
+		min_y = mini(min_y, cy)
+		max_y = maxi(max_y, cy)
+	return Vector2i(max_x - min_x + 1, max_y - min_y + 1)
 
 func _enemy_moves_include_last_row_attack(moves: Array) -> bool:
 	for m in moves:
+		var outcome := str(m.get("outcome", "normal"))
+		if outcome == "boss_attack_life":
+			return true
 		if int(m.fy) != _heart_row_y:
 			continue
-		var outcome = str(m.get("outcome", "normal"))
 		if outcome == "attack_player_life":
 			return true
 	return false
@@ -2833,9 +3161,18 @@ func _is_last_row_attack_warn_cell(x: int, y: int) -> bool:
 	if y != _heart_row_y:
 		return false
 	for m in _cached_enemy_moves:
+		var outcome := str(m.get("outcome", "normal"))
+		if outcome == "boss_attack_life":
+			var bk := str(m.get("boss_key", ""))
+			if bk.is_empty() or not _boss_registry.has(bk):
+				continue
+			var g_warn: Dictionary = _boss_registry[bk]
+			for c in g_warn.get("cells", []):
+				if int(c.x) == x and int(c.y) == y:
+					return true
+			continue
 		if int(m.fx) != x or int(m.fy) != y:
 			continue
-		var outcome = str(m.get("outcome", "normal"))
 		return outcome == "attack_player_life"
 	return false
 
@@ -2844,14 +3181,53 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 		for xx in range(COLS):
 			_enemies_hit_this_turn[yy][xx] = false
 	for m in moves:
+		var oc0 := str(m.get("outcome", "normal"))
+		if oc0 == "boss_attack_life":
+			continue
 		enemies[m.fy][m.fx] = 0
 		enemies_initial_hp[m.fy][m.fx] = 0
-	
 	var vp_size_apply = _get_layout_viewport_size()
 	var origin_apply = _grid_origin(vp_size_apply)
-	
+	var boss_keys_to_sync := {}
 	for m in moves:
-		var outcome = str(m.get("outcome", "normal"))
+		var outcome := str(m.get("outcome", "normal"))
+		if outcome == "boss_attack_life":
+			if _player_lives_remaining > 0:
+				_player_lives_remaining -= 1
+			_needs_ui_update = true
+			var bk := str(m.get("boss_key", ""))
+			if not bk.is_empty() and _boss_registry.has(bk):
+				var parts0: PackedStringArray = bk.split(":")
+				var ax0 := int(parts0[0])
+				var ay0 := int(parts0[1])
+				var y_pos_b0 = float(ay0) * ENEMY_CELL_HEIGHT
+				var center_pos0 = origin_apply + Vector2(float(ax0) * CELL_SIZE + CELL_SIZE * 0.5, y_pos_b0 + ENEMY_CELL_HEIGHT * 0.5)
+				_board_vfx.append({
+					"type": "shockwave",
+					"pos": center_pos0,
+					"color": Color(1.0, 0.25, 0.28),
+					"t": 0.0,
+					"d": 0.38
+				})
+				_board_vfx.append({
+					"type": "shake",
+					"t": 0.0,
+					"d": 0.18,
+					"intensity": 7.0
+				})
+				var strip_mid0 = float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + HEART_STRIP_HEIGHT * 0.5
+				var center_strip0 = origin_apply + Vector2(float(ax0) * CELL_SIZE + CELL_SIZE * 0.5, strip_mid0)
+				_board_vfx.append({
+					"type": "shockwave",
+					"pos": center_strip0,
+					"color": Color(1.0, 0.35, 0.45),
+					"t": 0.0,
+					"d": 0.32
+				})
+				var mid_b := ax0 + ay0 * 100
+				_monster_shakes[mid_b] = {"t": 0.0, "d": 0.35, "intensity": 14.0}
+				_boss_sync_display(bk)
+			continue
 		var ax = int(m.fx)
 		if outcome == "attack_player_life":
 			if _player_lives_remaining > 0:
@@ -2888,14 +3264,27 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 			_monster_shakes[mid_attack] = {"t": 0.0, "d": 0.35, "intensity": 14.0}
 		else:
 			enemies[m.ty][m.tx] = m.hp
-			enemies_initial_hp[m.ty][m.tx] = m.init
-			_enemy_move_anims.append({
-				"fx": m.fx, "fy": m.fy, 
-				"tx": m.tx, "ty": m.ty, 
-				"hp": m.hp, 
-				"init": m.init, 
+			if m.has("boss_key"):
+				var bk2 := str(m.get("boss_key", ""))
+				if not bk2.is_empty():
+					boss_keys_to_sync[bk2] = true
+				enemies_initial_hp[m.ty][m.tx] = 0
+			else:
+				enemies_initial_hp[m.ty][m.tx] = m.init
+			var anim := {
+				"fx": m.fx, "fy": m.fy,
+				"tx": m.tx, "ty": m.ty,
+				"hp": m.hp,
+				"init": m.init,
 				"t": 0.0, "d": 0.25
-			})
+			}
+			if m.has("boss_key"):
+				anim["boss_key"] = str(m.get("boss_key", ""))
+			if m.has("boss_tex"):
+				anim["boss_tex"] = int(m.get("boss_tex", 1))
+			_enemy_move_anims.append(anim)
+	for bk3 in boss_keys_to_sync.keys():
+		_boss_sync_display(str(bk3))
 
 	if _use_scheduled_spawns:
 		_process_scheduled_spawns()

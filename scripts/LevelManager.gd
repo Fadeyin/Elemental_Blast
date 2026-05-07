@@ -371,7 +371,8 @@ func _normalize_level_config(data: Dictionary, level: int) -> Dictionary:
 				}
 			normalized_obstacles.append(obstacle_data)
 	out["obstacles"] = normalized_obstacles
-
+	if data.has("boss_units") and typeof(data.boss_units) == TYPE_ARRAY:
+		out["boss_units"] = data.boss_units.duplicate(true)
 	return out
 
 func _emit_start():
