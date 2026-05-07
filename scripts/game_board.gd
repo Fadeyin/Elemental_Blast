@@ -335,7 +335,7 @@ func _attach_level1_tutorial_overlay() -> Control:
 
 func _get_enemy_field_rect_viewport() -> Rect2:
 	var vp_size = _get_layout_viewport_size()
-	var origin = _grid_origin(vp_size)
+	var origin = _board_pixel_origin()
 	var sz = Vector2(float(COLS) * CELL_SIZE, float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT)
 	var tl = to_global(origin)
 	var br = to_global(origin + sz)
@@ -343,7 +343,7 @@ func _get_enemy_field_rect_viewport() -> Rect2:
 
 func _get_player_field_rect_viewport() -> Rect2:
 	var vp_size = _get_layout_viewport_size()
-	var origin = _grid_origin(vp_size)
+	var origin = _board_pixel_origin()
 	var top_y = origin.y + float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + _field_gap_total
 	var sz = Vector2(float(COLS) * CELL_SIZE, float(PLAYER_ROWS) * CELL_SIZE)
 	var tl = to_global(Vector2(origin.x, top_y))
@@ -1241,51 +1241,24 @@ func _fallback_project_viewport_size() -> Vector2:
 		float(ProjectSettings.get_setting("display/window/size/viewport_height", 1200))
 	)
 
-# Размер области раскладки: несколько источников + отбор «похоже на портрет телефона», чтобы отсечь раздутые метрики HTML/WebKit.
-func _get_layout_viewport_size() -> Vector2:
+# Прямоугольник видимой области viewport (в координатах канвы). На HTML5/iOS position часто не (0,0) из‑за letterbox / полос браузера — без учёта смещения сетка рисуется вне экрана.
+func _get_viewport_visible_rect_for_board() -> Rect2:
 	var vp := get_viewport()
-	var vis := Vector2.ZERO
-	var win := Vector2.ZERO
-	if vp != null:
-		vis = vp.get_visible_rect().size
-		var ws: Vector2i = DisplayServer.window_get_size(vp.get_window_id())
-		win = Vector2(float(ws.x), float(ws.y))
-	var fb := _fallback_project_viewport_size()
-	var cands: Array[Vector2] = []
-	for c in [vis, win, fb]:
-		if c.x >= 32.0 and c.y >= 32.0:
-			cands.append(c)
-	if cands.is_empty():
-		return fb
-	var playable: Array[Vector2] = []
-	for c in cands:
-		var short_side: float = minf(c.x, c.y)
-		var long_side: float = maxf(c.x, c.y)
-		var asp: float = long_side / maxf(short_side, 1.0)
-		if short_side >= 260.0 and long_side >= 520.0 and asp >= 1.15 and asp <= 4.2:
-			playable.append(c)
-	if playable.size() > 0:
-		var best: Vector2 = playable[0]
-		var best_area: float = best.x * best.y
-		for i in range(1, playable.size()):
-			var p: Vector2 = playable[i]
-			var a: float = p.x * p.y
-			if a < best_area:
-				best = p
-				best_area = a
-		return best
-	if vis.x >= 32.0 and vis.y >= 32.0 and win.x >= 32.0 and win.y >= 32.0:
-		if vis.x < win.x * 0.82 and vis.y < win.y * 0.82:
-			return win
-	var fallback_pick: Vector2 = cands[0]
-	var fa: float = fallback_pick.x * fallback_pick.y
-	for i in range(1, cands.size()):
-		var q: Vector2 = cands[i]
-		var qa: float = q.x * q.y
-		if qa < fa:
-			fallback_pick = q
-			fa = qa
-	return fallback_pick
+	if vp == null:
+		return Rect2(Vector2.ZERO, _fallback_project_viewport_size())
+	var vr: Rect2 = vp.get_visible_rect()
+	if vr.size.x < 32.0 or vr.size.y < 32.0:
+		return Rect2(Vector2.ZERO, _fallback_project_viewport_size())
+	return vr
+
+func _get_layout_viewport_size() -> Vector2:
+	return _get_viewport_visible_rect_for_board().size
+
+func _get_canvas_origin_offset() -> Vector2:
+	return _get_viewport_visible_rect_for_board().position
+
+func _board_pixel_origin() -> Vector2:
+	return _grid_origin(_get_layout_viewport_size()) + _get_canvas_origin_offset()
 
 func _grid_origin(vp_size: Vector2) -> Vector2:
 	var grid_size := Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT + PLAYER_ROWS * CELL_SIZE + _field_gap_total)
@@ -1307,10 +1280,10 @@ func _notification(what: int) -> void:
 		queue_redraw()
 
 func _draw():
-	var vp_size = _get_layout_viewport_size()
-	# Подложка до текстур: на части сборок фон-текстура может не покрыть viewport в первый кадр
-	draw_rect(Rect2(Vector2.ZERO, vp_size), BG_COLOR)
-	var origin = _grid_origin(vp_size)
+	var vr := _get_viewport_visible_rect_for_board()
+	# Подложка и фон по реальному видимому прямоугольнику (учёт vr.position на Web / мобильных).
+	draw_rect(vr, BG_COLOR)
+	var origin = _board_pixel_origin()
 	
 	# Применяем тряску экрана к началу координат
 	for vfx in _board_vfx:
@@ -1320,9 +1293,9 @@ func _draw():
 	
 	var grid_size = Vector2(COLS * CELL_SIZE, ROWS * CELL_SIZE + _field_gap_total)
 
-	# Рисуем текстурный фон самым первым слоем
+	# Рисуем текстурный фон по видимой области канвы
 	if GAME_BG_TEXTURE:
-		draw_texture_rect(GAME_BG_TEXTURE, Rect2(Vector2.ZERO, vp_size), false)
+		draw_texture_rect(GAME_BG_TEXTURE, vr, false)
 
 	# Заливка зон
 	var enemy_rect = Rect2(origin, Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT))
@@ -1805,7 +1778,7 @@ func _draw():
 func _activate_bomb(bx: int, by: int, trigger_move: bool = true):
 	# VFX Бомбы
 	var vp_size = _get_layout_viewport_size()
-	var origin = _grid_origin(vp_size)
+	var origin = _board_pixel_origin()
 	var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (by - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 	var center_pos = origin + Vector2(bx * CELL_SIZE + CELL_SIZE * 0.5, y_pos + CELL_SIZE * 0.5)
 	_board_vfx.append({"type": "bomb_explosion", "pos": center_pos, "color": Color(1, 0.6, 0.2), "t": 0.0, "d": 0.3})
@@ -2166,7 +2139,7 @@ func _draw_obstacle(top_left: Vector2, size: Vector2, hp: int, max_hp: int, is_u
 
 func _draw_player_zone_overlay():
 	var vp_size = _get_layout_viewport_size()
-	var origin = _grid_origin(vp_size)
+	var origin = _board_pixel_origin()
 	var player_rect = Rect2(Vector2(origin.x, origin.y + ENEMY_ROWS * ENEMY_CELL_HEIGHT + _field_gap_total), Vector2(COLS * CELL_SIZE, PLAYER_ROWS * CELL_SIZE))
 
 	# 1. РИСУЕМ ГРАДИЕНТНУЮ ВНУТРЕННЮЮ ТЕНЬ (сначала, чтобы она была под рамкой)
@@ -2294,7 +2267,7 @@ func _process(delta: float) -> void:
 								obstacles_initial_hp[ty][tx] = 0
 								# VFX разрушения препятствия
 								var vp_size = _get_layout_viewport_size()
-								var origin = _grid_origin(vp_size)
+								var origin = _board_pixel_origin()
 								var obs_center = origin + Vector2(float(tx) * CELL_SIZE + CELL_SIZE * 0.5, float(ty) * ENEMY_CELL_HEIGHT + ENEMY_CELL_HEIGHT * 0.5)
 								_board_vfx.append({
 									"type": "explosion",
@@ -2440,7 +2413,7 @@ func _apply_freeze():
 	_freeze_turns = 1 # Замораживаем на один ход
 	# Добавим VFX снежинок на все поле врагов
 	var vp_size = _get_layout_viewport_size()
-	var origin = _grid_origin(vp_size)
+	var origin = _board_pixel_origin()
 	for y in range(ENEMY_ROWS):
 		for x in range(COLS):
 			if enemies[y][x] > 0:
@@ -2461,10 +2434,10 @@ func _apply_hammer(cell: Vector2i):
 
 func _apply_row_blast(row_y: int, trigger_move: bool = true):
 	# VFX Ракеты
-	var vp_size = _get_layout_viewport_size()
-	var origin = _grid_origin(vp_size)
+	var origin = _board_pixel_origin()
 	var center_y = origin.y + row_y * CELL_SIZE + CELL_SIZE * 0.5
-	_board_vfx.append({"type": "beam", "pos": Vector2(vp_size.x * 0.5, center_y), "color": Color(0.4, 0.6, 1.0), "t": 0.0, "d": 0.3})
+	var beam_x: float = origin.x + float(COLS) * CELL_SIZE * 0.5
+	_board_vfx.append({"type": "beam", "pos": Vector2(beam_x, center_y), "color": Color(0.4, 0.6, 1.0), "t": 0.0, "d": 0.3})
 	set_process(true)
 
 	for x in range(COLS):
@@ -2493,7 +2466,7 @@ func _apply_booster_shuffle():
 
 func _point_to_cell(screen_pos: Vector2) -> Vector2i:
 	var vp_size = _get_layout_viewport_size()
-	var origin = _grid_origin(vp_size)
+	var origin = _board_pixel_origin()
 	var local = screen_pos - origin
 	
 	if local.x < 0 or local.y < 0:
@@ -2748,11 +2721,11 @@ func _combo_bomb_plus_rocket(cx: int, cy: int):
 		var target_y = cy + i
 		if target_y >= ENEMY_ROWS and target_y < ROWS:
 			# VFX для каждого ряда
-			var vp_size = _get_layout_viewport_size()
-			var origin = _grid_origin(vp_size)
+			var origin = _board_pixel_origin()
 			var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (target_y - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 			var center_y = origin.y + y_pos + CELL_SIZE * 0.5
-			_board_vfx.append({"type": "beam", "pos": Vector2(vp_size.x * 0.5, center_y), "color": Color(0.4, 0.6, 1.0), "t": 0.0, "d": 0.3})
+			var beam_x: float = origin.x + float(COLS) * CELL_SIZE * 0.5
+			_board_vfx.append({"type": "beam", "pos": Vector2(beam_x, center_y), "color": Color(0.4, 0.6, 1.0), "t": 0.0, "d": 0.3})
 			set_process(true)
 			
 			for x in range(COLS):
@@ -2764,8 +2737,7 @@ func _combo_bomb_plus_rocket(cx: int, cy: int):
 		var target_x = cx + i
 		if target_x >= 0 and target_x < COLS:
 			# VFX для каждого столбца (вертикальный луч)
-			var vp_size = _get_layout_viewport_size()
-			var origin = _grid_origin(vp_size)
+			var origin = _board_pixel_origin()
 			var center_x = origin.x + target_x * CELL_SIZE + CELL_SIZE * 0.5
 			var center_y = origin.y + ENEMY_ROWS * ENEMY_CELL_HEIGHT + (PLAYER_ROWS * 0.5) * CELL_SIZE + _field_gap_total
 			_board_vfx.append({"type": "beam_vertical", "pos": Vector2(center_x, center_y), "color": Color(1.0, 0.6, 0.2), "t": 0.0, "d": 0.3})
@@ -2828,7 +2800,7 @@ func _activate_rainbow_chip(rx: int, ry: int, trigger_move: bool = true):
 
 	# VFX Радуги
 	var vp_size = _get_layout_viewport_size()
-	var origin = _grid_origin(vp_size)
+	var origin = _board_pixel_origin()
 	var start_y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (ry - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 	var start_pos = origin + Vector2(rx * CELL_SIZE + CELL_SIZE * 0.5, start_y_pos + CELL_SIZE * 0.5)
 	
@@ -3325,7 +3297,7 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 		enemies[m.fy][m.fx] = 0
 		enemies_initial_hp[m.fy][m.fx] = 0
 	var vp_size_apply = _get_layout_viewport_size()
-	var origin_apply = _grid_origin(vp_size_apply)
+	var origin_apply = _board_pixel_origin()
 	var boss_keys_to_sync := {}
 	for m in moves:
 		var outcome := str(m.get("outcome", "normal"))
@@ -3521,7 +3493,7 @@ func _apply_gravity_up():
 
 func _add_chip_pop_vfx(x: int, y: int, color_idx: int):
 	var vp_size = _get_layout_viewport_size()
-	var origin = _grid_origin(vp_size)
+	var origin = _board_pixel_origin()
 	var y_pos = 0.0
 	var cell_h = CELL_SIZE
 	if y < ENEMY_ROWS:
