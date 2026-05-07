@@ -1218,24 +1218,27 @@ func _clear_board_vfx_after_refill() -> void:
 	_monster_shakes.clear()
 	_needs_ui_update = true
 
-# На первом кадре после смены сцены или в WebGL размер из get_viewport_rect() иногда 0 или занижен;
-# без этого сетка уезжает за экран и поле не видно (кажется «пустым серым экраном»).
+# Размер области отрисовки: предпочитаем get_visible_rect() viewport — он совпадает с canvas
+# при stretch/canvas_items. Нельзя брать max() с DisplayServer.window_get_size: в Web и на части
+# мобильных оконо страница выше canvas — вертикальная центровка уводит всё поле вниз за экран.
 func _get_layout_viewport_size() -> Vector2:
-	var s := get_viewport_rect().size
+	var fallback := Vector2(
+		float(ProjectSettings.get_setting("display/window/size/viewport_width", 648)),
+		float(ProjectSettings.get_setting("display/window/size/viewport_height", 1200))
+	)
 	var vp := get_viewport()
 	if vp != null:
-		var vr := vp.get_visible_rect().size
-		s.x = maxf(s.x, vr.x)
-		s.y = maxf(s.y, vr.y)
+		var vis: Vector2 = vp.get_visible_rect().size
+		if vis.x >= 32.0 and vis.y >= 32.0:
+			return vis
+		var vr := get_viewport_rect().size
+		if vr.x >= 32.0 and vr.y >= 32.0:
+			return vr
 		var wid: int = vp.get_window_id()
 		var ws: Vector2i = DisplayServer.window_get_size(wid)
 		if ws.x > 32 and ws.y > 32:
-			s.x = maxf(s.x, float(ws.x))
-			s.y = maxf(s.y, float(ws.y))
-	if s.x < 32.0 or s.y < 32.0:
-		s.x = maxf(s.x, float(ProjectSettings.get_setting("display/window/size/viewport_width", 648)))
-		s.y = maxf(s.y, float(ProjectSettings.get_setting("display/window/size/viewport_height", 1200)))
-	return s
+			return Vector2(float(ws.x), float(ws.y))
+	return fallback
 
 func _grid_origin(vp_size: Vector2) -> Vector2:
 	var grid_size := Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT + PLAYER_ROWS * CELL_SIZE + _field_gap_total)
@@ -1251,6 +1254,10 @@ func _grid_origin(vp_size: Vector2) -> Vector2:
 func _on_viewport_size_changed():
 	_update_ui()
 	queue_redraw()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_WINDOW_RESIZE:
+		queue_redraw()
 
 func _draw():
 	var vp_size = _get_layout_viewport_size()
