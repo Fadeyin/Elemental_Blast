@@ -1246,47 +1246,17 @@ func _fallback_project_viewport_size() -> Vector2:
 	)
 
 func _get_layout_viewport_size() -> Vector2:
-	# HTML5: get_visible_rect() и get_viewport_rect() иногда расходятся; minf() по осям выбирал
-	# заниженную сторону, если один источник «сплюснут» — draw_rect и сетка ужимались в полоску,
-	# остальное канваса оставалось пустым (серый экран при живых CanvasLayer-панелях).
+	var s := get_viewport_rect().size
 	var vp := get_viewport()
-	if vp == null:
-		return _fallback_project_viewport_size()
-	var vis: Vector2 = vp.get_visible_rect().size
-	var vpr: Vector2 = get_viewport_rect().size
-	var design_w: float = float(ProjectSettings.get_setting("display/window/size/viewport_width", 648))
-	var design_h: float = float(ProjectSettings.get_setting("display/window/size/viewport_height", 1200))
-	var design_aspect: float = design_h / maxf(design_w, 1.0)
-	var out: Vector2 = vis
-	if out.x < 32.0 or out.y < 32.0:
-		out = vpr
-	if out.x < 32.0 or out.y < 32.0:
-		return Vector2(design_w, design_h)
-	var exp_h_from_w: float = out.x * design_aspect
-	var exp_w_from_h: float = out.y / maxf(design_aspect, 0.001)
-	if out.x >= 180.0 and out.y < exp_h_from_w * 0.72:
-		var alt_y: float = maxf(vis.y, vpr.y)
-		if alt_y >= exp_h_from_w * 0.78:
-			out.y = alt_y
-		else:
-			out.y = maxf(out.y, exp_h_from_w * 0.96)
-	if out.y >= 180.0 and out.x < exp_w_from_h * 0.72:
-		var alt_x: float = maxf(vis.x, vpr.x)
-		if alt_x >= exp_w_from_h * 0.78:
-			out.x = alt_x
-		else:
-			out.x = maxf(out.x, exp_w_from_h * 0.96)
-	const PORTRAIT_MIN_RATIO := 1.05
-	const HEIGHT_SLACK := 1.30
-	if out.y > out.x * PORTRAIT_MIN_RATIO:
-		var cap_h: float = out.x * design_aspect * HEIGHT_SLACK
-		if out.y > cap_h:
-			out.y = cap_h
-	elif out.x > out.y * PORTRAIT_MIN_RATIO:
-		var cap_w: float = out.y * design_aspect * HEIGHT_SLACK
-		if out.x > cap_w:
-			out.x = cap_w
-	return out
+	if vp != null:
+		var vr := vp.get_visible_rect().size
+		s.x = maxf(s.x, vr.x)
+		s.y = maxf(s.y, vr.y)
+	if s.x < 32.0 or s.y < 32.0:
+		var fallback := _fallback_project_viewport_size()
+		s.x = maxf(s.x, fallback.x)
+		s.y = maxf(s.y, fallback.y)
+	return s
 
 func _board_pixel_origin() -> Vector2:
 	return _grid_origin(_get_layout_viewport_size())
@@ -2027,8 +1997,8 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 	
 	# Легкое горизонтальное покачивание (микро-смещение)
 	anim_top_left.x += sin(time * 1.8 + phase) * 1.5
-	var health_bar_top_left := anim_top_left
-	var health_bar_width := anim_size.x
+	var health_bar_top_left: Vector2 = anim_top_left
+	var health_bar_width: float = anim_size.x
 	
 	var tex_tier := texture_tier_override if texture_tier_override >= 0 else initial_hp
 	var tex = MONSTER_TEXTURES.get(tex_tier)
@@ -2535,6 +2505,8 @@ func _point_to_cell(screen_pos: Vector2) -> Vector2i:
 func _collect_connected_bonus_component(x: int, y: int) -> Array:
 	if y < ENEMY_ROWS or y >= ROWS or x < 0 or x >= COLS:
 		return []
+	if y >= chips.size() or x >= chips[y].size():
+		return []
 	if chips[y][x] >= -1:
 		return []
 	var stack: Array = [Vector2i(x, y)]
@@ -2548,6 +2520,8 @@ func _collect_connected_bonus_component(x: int, y: int) -> Array:
 		visited[key] = true
 		if c.y < ENEMY_ROWS or c.y >= ROWS or c.x < 0 or c.x >= COLS:
 			continue
+		if c.y >= chips.size() or c.x >= chips[c.y].size():
+			continue
 		var cell_type = chips[c.y][c.x]
 		if cell_type >= -1:
 			continue
@@ -2560,6 +2534,7 @@ func _collect_connected_bonus_component(x: int, y: int) -> Array:
 
 func _get_cluster_at(x: int, y: int) -> Array:
 	if y < ENEMY_ROWS or y >= ROWS or x < 0 or x >= COLS: return []
+	if y >= chips.size() or x >= chips[y].size(): return []
 	var color_idx = chips[y][x]
 	if color_idx < 0: return []
 	
@@ -2573,6 +2548,7 @@ func _get_cluster_at(x: int, y: int) -> Array:
 		visited[key] = true
 		
 		if c.y < ENEMY_ROWS or c.y >= ROWS or c.x < 0 or c.x >= COLS: continue
+		if c.y >= chips.size() or c.x >= chips[c.y].size(): continue
 		if chips[c.y][c.x] != color_idx: continue
 		
 		cluster.append(c)

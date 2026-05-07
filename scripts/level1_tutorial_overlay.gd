@@ -117,7 +117,7 @@ func _sync_instruction_above_hole(hole: Rect2) -> void:
 	var max_w: float = minf(size.x - 32.0, 560.0)
 	_instruction_label.custom_minimum_size = Vector2(max_w, 0.0)
 	_instruction_label.size = Vector2(max_w, 0.0)
-	var label_h: float = _instruction_label.get_content_height()
+	var label_h: float = _get_instruction_label_content_height()
 	if label_h < 8.0:
 		label_h = 48.0
 	var cx: float = hole.position.x + hole.size.x * 0.5
@@ -153,12 +153,20 @@ func _layout_enemy_intro_text_band(hole: Rect2, text: String) -> void:
 	await get_tree().process_frame
 	var fs := 22
 	for _try in range(3):
-		var ch: float = _instruction_label.get_content_height()
+		var ch: float = _get_instruction_label_content_height()
 		if ch <= band_h + 2.0 or fs <= 14:
 			break
 		fs -= 2
 		_instruction_label.add_theme_font_size_override("font_size", fs)
 		await get_tree().process_frame
+
+func _get_instruction_label_content_height() -> float:
+	var content_height: float = _instruction_label.get_minimum_size().y
+	if content_height <= 0.0:
+		content_height = _instruction_label.get_combined_minimum_size().y
+	if content_height <= 0.0:
+		content_height = _instruction_label.size.y
+	return content_height
 
 func _position_instruction_below_hole(hole: Rect2, text: String) -> void:
 	_instruction_label.add_theme_font_size_override("font_size", 22)
@@ -170,7 +178,7 @@ func _position_instruction_below_hole(hole: Rect2, text: String) -> void:
 	_instruction_label.size = Vector2(max_w, 0.0)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	var label_h: float = _instruction_label.get_content_height() + 4.0
+	var label_h: float = _get_instruction_label_content_height() + 4.0
 	if label_h < 24.0:
 		label_h = _instruction_label.size.y
 	label_h = maxf(label_h, 40.0)
@@ -183,7 +191,7 @@ func _position_instruction_below_hole(hole: Rect2, text: String) -> void:
 	if top_y + label_h > size.y - 4.0:
 		_instruction_label.add_theme_font_size_override("font_size", 18)
 		await get_tree().process_frame
-		label_h = maxf(_instruction_label.get_content_height() + 4.0, 32.0)
+		label_h = maxf(_get_instruction_label_content_height() + 4.0, 32.0)
 		max_top = size.y - BOTTOM_UI_RESERVE - label_h - 8.0
 		if top_y > max_top:
 			top_y = maxf(8.0, max_top)
