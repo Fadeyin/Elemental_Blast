@@ -1246,25 +1246,38 @@ func _fallback_project_viewport_size() -> Vector2:
 	)
 
 func _get_layout_viewport_size() -> Vector2:
-	# На HTML5 (Chrome/Safari) один из источников размера часто даёт высоту «страницы», другой — канвас.
-	# maxf() между ними раздувает высоту: _grid_origin() сдвигает поле вниз за видимую область (серый экран).
+	# HTML5: get_visible_rect() и get_viewport_rect() иногда расходятся; minf() по осям выбирал
+	# заниженную сторону, если один источник «сплюснут» — draw_rect и сетка ужимались в полоску,
+	# остальное канваса оставалось пустым (серый экран при живых CanvasLayer-панелях).
 	var vp := get_viewport()
 	if vp == null:
 		return _fallback_project_viewport_size()
-	var ax: float = get_viewport_rect().size.x
-	var ay: float = get_viewport_rect().size.y
-	var bx: float = vp.get_visible_rect().size.x
-	var by: float = vp.get_visible_rect().size.y
-	var out_x: float = bx if ax < 1.0 else (ax if bx < 1.0 else minf(ax, bx))
-	var out_y: float = by if ay < 1.0 else (ay if by < 1.0 else minf(ay, by))
-	var out := Vector2(out_x, out_y)
-	if out.x < 32.0 or out.y < 32.0:
-		return _fallback_project_viewport_size()
+	var vis: Vector2 = vp.get_visible_rect().size
+	var vpr: Vector2 = get_viewport_rect().size
 	var design_w: float = float(ProjectSettings.get_setting("display/window/size/viewport_width", 648))
 	var design_h: float = float(ProjectSettings.get_setting("display/window/size/viewport_height", 1200))
 	var design_aspect: float = design_h / maxf(design_w, 1.0)
+	var out: Vector2 = vis
+	if out.x < 32.0 or out.y < 32.0:
+		out = vpr
+	if out.x < 32.0 or out.y < 32.0:
+		return Vector2(design_w, design_h)
+	var exp_h_from_w: float = out.x * design_aspect
+	var exp_w_from_h: float = out.y / maxf(design_aspect, 0.001)
+	if out.x >= 180.0 and out.y < exp_h_from_w * 0.72:
+		var alt_y: float = maxf(vis.y, vpr.y)
+		if alt_y >= exp_h_from_w * 0.78:
+			out.y = alt_y
+		else:
+			out.y = maxf(out.y, exp_h_from_w * 0.96)
+	if out.y >= 180.0 and out.x < exp_w_from_h * 0.72:
+		var alt_x: float = maxf(vis.x, vpr.x)
+		if alt_x >= exp_w_from_h * 0.78:
+			out.x = alt_x
+		else:
+			out.x = maxf(out.x, exp_w_from_h * 0.96)
 	const PORTRAIT_MIN_RATIO := 1.05
-	const HEIGHT_SLACK := 1.28
+	const HEIGHT_SLACK := 1.30
 	if out.y > out.x * PORTRAIT_MIN_RATIO:
 		var cap_h: float = out.x * design_aspect * HEIGHT_SLACK
 		if out.y > cap_h:
