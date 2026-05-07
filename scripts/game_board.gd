@@ -160,8 +160,18 @@ func _ready():
 	_boot_async()
 
 func _boot_async() -> void:
-	# Первые кадры на iOS/Web иногда отдают нулевой/ложный viewport — без ожидания поле «уезжает» и кажется пустым.
-	await get_tree().process_frame
+	# Первые кадры на iOS/WebKit часто отдают «широкий и низкий» visible_rect (огромная ширина, крошечная высота).
+	# Тогда срабатывала ветка «альбомная ориентация» в _get_layout_viewport_size и сетка уезжала за экран.
+	# Ждём, пока короткая сторона и длинная сторона выглядят как нормальный портрет телефона, либо таймаут кадров.
+	var vp_boot := get_viewport()
+	var waited_boot := 0
+	while waited_boot < 24:
+		if vp_boot != null:
+			var sb: Vector2 = vp_boot.get_visible_rect().size
+			if minf(sb.x, sb.y) >= 240.0 and maxf(sb.x, sb.y) >= 560.0:
+				break
+		await get_tree().process_frame
+		waited_boot += 1
 	await get_tree().process_frame
 	var init_err: String = _execute_board_initialization()
 	if init_err != "":
@@ -1247,9 +1257,9 @@ func _get_layout_viewport_size() -> Vector2:
 	var wid: int = vp.get_window_id()
 	var ws: Vector2i = DisplayServer.window_get_size(wid)
 	var win := Vector2(float(ws.x), float(ws.y))
-	if vis.x >= MIN_DIM and vis.y >= MIN_DIM:
+	if vis.x >= MIN_DIM and vis.y >= MIN_DIM and minf(vis.x, vis.y) >= 240.0:
 		var ar: float = vis.y / maxf(vis.x, 1.0)
-		if ar >= 1.55 and ar <= 2.65 and vis.y >= 520.0 and vis.y <= 1400.0 and vis.x >= 280.0 and vis.x <= 620.0:
+		if ar >= 1.55 and ar <= 2.65 and vis.y >= 520.0 and vis.y <= 1400.0 and vis.x >= 280.0 and vis.x <= 820.0:
 			var out_trust := vis
 			var ui_ctrl_t := find_child("UIRoot", true, false)
 			if ui_ctrl_t is Control:
@@ -1259,7 +1269,8 @@ func _get_layout_viewport_size() -> Vector2:
 					if uar >= 1.4 and uar <= 2.85 and absf(ust.x - vis.x) < vis.x * 0.14 and absf(ust.y - vis.y) < vis.y * 0.14:
 						out_trust = Vector2(ust.x, ust.y)
 			return out_trust
-	if vis.x >= MIN_DIM and vis.y >= MIN_DIM and vis.y < vis.x * 0.92:
+	# Только если обе стороны уже «взрослые»: иначе это битый первый кадр, а не реальный альбомный viewport.
+	if vis.x >= MIN_DIM and vis.y >= MIN_DIM and minf(vis.x, vis.y) >= 240.0 and vis.y < vis.x * 0.92:
 		var sx: float = mini(vis.x, vis.y)
 		var sy: float = maxi(vis.x, vis.y)
 		if sy / maxf(sx, 1.0) >= 1.45:
@@ -1274,6 +1285,8 @@ func _get_layout_viewport_size() -> Vector2:
 			var uar2: float = us.y / maxf(us.x, 1.0)
 			if uar2 >= 1.35 and uar2 <= 2.9:
 				out = Vector2(mini(out.x, us.x), mini(out.y, us.y))
+	if minf(out.x, out.y) < 200.0:
+		return fb
 	return out
 
 func _median_of_four(a: float, b: float, c: float, d: float, min_dim: float) -> float:
