@@ -1219,14 +1219,16 @@ func _clear_board_vfx_after_refill() -> void:
 	_needs_ui_update = true
 
 # Размер области отрисовки для раскладки поля.
-# На Web/iOS один из источников (visible_rect или window_get_size) иногда даёт высоту «страницы»
-# больше реального canvas — тогда центровка уводит сетку вниз и виден только однотонный фон.
-# При расхождении источников выбираем меньший по оси, если второй явно раздут; иначе min по оси.
-# Дополнительно ограничиваем портретное h/w на случай одинаково «битых» обоих значений.
+# Web/iOS: visible_rect иногда завышен (высота страницы) — тогда берём меньшую высоту с окном.
+# И наоборот: visible_rect иногда занижен до полного layout — при портретном окне берём высоту окна,
+# иначе сетка не влезает по высоте и остаётся «пустой» фон между панелями.
+# UIRoot не используем для поджима, пока его size не близок к расчёту (избегаем 0×0 до layout).
 func _get_layout_viewport_size() -> Vector2:
 	const MIN_DIM := 32.0
 	const RATIO := 1.09
 	const MAX_PORTRAIT_HEIGHT_OVER_WIDTH := 3.55
+	# Окно похоже на портрет телефона — тогда приоритетно чиним заниженный visible_rect (WebKit/iOS).
+	const WIN_LOOKS_PORTRAIT := 1.15
 	var fallback := Vector2(
 		float(ProjectSettings.get_setting("display/window/size/viewport_width", 648)),
 		float(ProjectSettings.get_setting("display/window/size/viewport_height", 1200))
@@ -1256,7 +1258,11 @@ func _get_layout_viewport_size() -> Vector2:
 			px = base.x
 		else:
 			px = mini(base.x, win.x)
-		if base.y > win.y * RATIO:
+		var win_portrait: bool = win.y >= win.x * WIN_LOOKS_PORTRAIT
+		# Заниженная высота visible_rect при нормальном портретном окне — брать высоту окна, иначе сетка «уезжает» / не влезает.
+		if win_portrait and base.y < win.y * 0.82:
+			py = float(win.y)
+		elif base.y > win.y * RATIO:
 			py = win.y
 		elif win.y > base.y * RATIO:
 			py = base.y
@@ -1271,8 +1277,10 @@ func _get_layout_viewport_size() -> Vector2:
 	if ui_ctrl is Control:
 		var us := (ui_ctrl as Control).size
 		if us.x >= MIN_DIM and us.y >= MIN_DIM:
-			if us.x < out.x * 0.98 or us.y < out.y * 0.98:
-				out = Vector2(mini(out.x, us.x), mini(out.y, us.y))
+			# Не поджимать к UIRoot до первого нормального layout (иначе 0×0 или полоска ломают раскладку).
+			if us.x >= out.x * 0.75 and us.y >= out.y * 0.75:
+				if us.x < out.x * 0.98 or us.y < out.y * 0.98:
+					out = Vector2(mini(out.x, us.x), mini(out.y, us.y))
 	return out
 
 func _grid_origin(vp_size: Vector2) -> Vector2:
