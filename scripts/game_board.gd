@@ -153,10 +153,33 @@ var _level1_tutorial_advancing_to_goals: bool = false
 var _enemy_rows_effective: int = ENEMY_ROWS
 var _heart_row_y: int = ENEMY_ROWS - 1
 var _field_gap_total: float = FIELD_GAP_BASE + HEART_STRIP_HEIGHT
+var _fatal_load_overlay_layer: CanvasLayer = null
 
 func _ready():
 	randomize()
-	var cfg = LevelManager.get_level_config(LevelManager.current_level)
+	_boot_async()
+
+func _boot_async() -> void:
+	# Первые кадры на iOS/Web иногда отдают нулевой/ложный viewport — без ожидания поле «уезжает» и кажется пустым.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var init_err: String = _execute_board_initialization()
+	if init_err != "":
+		push_error("[GameBoard] " + init_err)
+		_show_board_load_failure_overlay(init_err)
+		return
+	call_deferred("_start_level1_tutorial_if_needed")
+	call_deferred("_request_board_redraw_after_layout")
+
+func _execute_board_initialization() -> String:
+	if not is_instance_valid(LevelManager):
+		return "LevelManager (autoload) не загружен."
+	var cfg: Dictionary = LevelManager.get_level_config(LevelManager.current_level)
+	var load_err: String = LevelManager.get_level_config_load_error()
+	if load_err != "":
+		return load_err
+	if cfg.is_empty():
+		return "Конфиг уровня недоступен (пустой словарь после загрузки)."
 	_enemy_rows_effective = ENEMY_ROWS
 	_heart_row_y = ENEMY_ROWS - 1
 	_field_gap_total = FIELD_GAP_BASE + HEART_STRIP_HEIGHT
@@ -169,18 +192,12 @@ func _ready():
 	queue_redraw()
 	if get_viewport() != null:
 		get_viewport().size_changed.connect(_on_viewport_size_changed)
-	set_process(true) # Всегда активен для idle-анимаций монстров
-	
-	# Получаем предуровневые усиления из LevelManager (переданные из главного меню)
+	set_process(true)
 	_selected_prelevel_boosts = LevelManager.selected_prelevel_boosts
 	_mort_helmet_bonus_chips = LevelManager.get_mort_helmet_bonus_chips()
 	_mort_helmet_stage_at_start = LevelManager.get_mort_helmet_level()
 	_player_made_valid_move = false
-	
-	# Спавним бонусные фишки на старте уровня
 	_spawn_bonus_chips_at_start()
-	
-	# Кнопка "В меню"
 	var back_btn = find_child("BackToMenu", true, false)
 	if back_btn != null:
 		back_btn.pressed.connect(func():
@@ -189,28 +206,88 @@ func _ready():
 			else:
 				_handle_manual_exit_to_menu()
 		)
-		# Стилизация кнопки "Назад"
 		back_btn.add_theme_font_size_override("font_size", 40)
 		back_btn.add_theme_color_override("font_color", Color.WHITE)
 		back_btn.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 		back_btn.add_theme_constant_override("outline_size", 6)
-		
 		var back_style = StyleBoxFlat.new()
 		back_style.bg_color = Color(0.15, 0.2, 0.3, 0.9)
-		back_style.set_corner_radius_all(40) # Круглая кнопка
+		back_style.set_corner_radius_all(40)
 		back_style.border_width_left = 3
 		back_style.border_width_top = 3
 		back_style.border_width_right = 3
 		back_style.border_width_bottom = 3
-		back_style.border_color = Color(0.8, 0.7, 0.3, 1.0) # Золотая рамка
-		
+		back_style.border_color = Color(0.8, 0.7, 0.3, 1.0)
 		back_btn.add_theme_stylebox_override("normal", back_style)
 		back_btn.add_theme_stylebox_override("hover", back_style)
 		back_btn.add_theme_stylebox_override("pressed", back_style)
 		back_btn.focus_mode = Control.FOCUS_NONE
-	
-	call_deferred("_start_level1_tutorial_if_needed")
-	call_deferred("_request_board_redraw_after_layout")
+	return ""
+
+func _show_board_load_failure_overlay(message: String) -> void:
+	if _fatal_load_overlay_layer != null and is_instance_valid(_fatal_load_overlay_layer):
+		return
+	set_process(false)
+	var layer := CanvasLayer.new()
+	layer.layer = 200
+	layer.name = "FatalLevelLoadOverlay"
+	add_child(layer)
+	_fatal_load_overlay_layer = layer
+	var root := Control.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(root)
+	var bg := ColorRect.new()
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0.11, 0.12, 0.14, 0.98)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(bg)
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 20)
+	margin.add_theme_constant_override("margin_right", 20)
+	margin.add_theme_constant_override("margin_top", 40)
+	margin.add_theme_constant_override("margin_bottom", 40)
+	margin.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(margin)
+	var scroll := ScrollContainer.new()
+	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	margin.add_child(scroll)
+	var vbox := VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_theme_constant_override("separation", 14)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	scroll.add_child(vbox)
+	var title := Label.new()
+	title.text = "Не удалось загрузить уровень"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 26)
+	title.add_theme_color_override("font_color", Color(1.0, 0.52, 0.42))
+	vbox.add_child(title)
+	var body := Label.new()
+	body.text = message
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	body.add_theme_font_size_override("font_size", 17)
+	body.add_theme_color_override("font_color", Color(0.93, 0.94, 0.96))
+	vbox.add_child(body)
+	if is_instance_valid(LevelManager):
+		var meta := Label.new()
+		meta.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		meta.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		meta.add_theme_font_size_override("font_size", 15)
+		meta.add_theme_color_override("font_color", Color(0.72, 0.76, 0.82))
+		meta.text = "Уровень: %d\nПодсказка: при повторении очистите данные приложения или пришлите этот текст разработчику." % LevelManager.current_level
+		vbox.add_child(meta)
+	var btn := Button.new()
+	btn.text = "В меню"
+	btn.custom_minimum_size = Vector2(240, 52)
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.pressed.connect(func():
+		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	)
+	vbox.add_child(btn)
 
 func _request_board_redraw_after_layout() -> void:
 	queue_redraw()
@@ -630,7 +707,9 @@ func _on_ingame_booster_purchase_closed() -> void:
 
 func _update_booster_buttons_visual():
 	for i in range(1, 5): # Все 4 бустера
-		var btn = get_node("CanvasUI/UIRoot/BottomBar/Booster" + str(i))
+		var btn: Button = get_node_or_null("CanvasUI/UIRoot/BottomBar/Booster" + str(i))
+		if btn == null:
+			continue
 		if _active_booster != BoosterType.NONE and i == int(_active_booster):
 			btn.modulate = Color(1.5, 1.5, 1.0) # Подсветка активного
 		else:
@@ -1148,6 +1227,11 @@ func _get_layout_viewport_size() -> Vector2:
 		var vr := vp.get_visible_rect().size
 		s.x = maxf(s.x, vr.x)
 		s.y = maxf(s.y, vr.y)
+		var wid: int = vp.get_window_id()
+		var ws: Vector2i = DisplayServer.window_get_size(wid)
+		if ws.x > 32 and ws.y > 32:
+			s.x = maxf(s.x, float(ws.x))
+			s.y = maxf(s.y, float(ws.y))
 	if s.x < 32.0 or s.y < 32.0:
 		s.x = maxf(s.x, float(ProjectSettings.get_setting("display/window/size/viewport_width", 648)))
 		s.y = maxf(s.y, float(ProjectSettings.get_setting("display/window/size/viewport_height", 1200)))

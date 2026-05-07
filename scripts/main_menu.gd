@@ -587,9 +587,19 @@ func _on_level_start_dialog_completed(selected_boosts: Dictionary, mort_bonuses:
 	LevelManager.selected_prelevel_boosts = selected_boosts
 	
 	# Загружаем игровую сцену
-	var err = get_tree().change_scene_to_file(GAME_BOARD_SCENE_PATH)
+	var err := get_tree().change_scene_to_file(GAME_BOARD_SCENE_PATH)
 	if err != OK:
-		printerr("Не удалось загрузить сцену игрового поля: ", err)
+		push_error("Не удалось загрузить сцену игрового поля: код ", err)
+		_show_fatal_scene_switch_dialog(GAME_BOARD_SCENE_PATH, err)
+
+func _show_fatal_scene_switch_dialog(scene_path: String, err_code: int) -> void:
+	var dlg := AcceptDialog.new()
+	dlg.title = "Ошибка сцены"
+	dlg.dialog_text = "Не удалось открыть игру (%s).\nКод ошибки Godot: %s." % [scene_path, str(err_code)]
+	dlg.ok_button_text = "ОК"
+	add_child(dlg)
+	dlg.popup_centered_ratio(0.85)
+	dlg.confirmed.connect(func(): dlg.queue_free())
 
 func _build_shop_tab():
 	if not has_node("TabContent/ShopTab"):

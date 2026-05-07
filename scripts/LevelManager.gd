@@ -60,6 +60,14 @@ var golden_pass_premium_claimed: Array = []
 var _editor_level_override_path: String = ""
 var _editor_test_mode: bool = false
 var _editor_return_scene: String = "res://scenes/level_editor.tscn"
+# Текст ошибки последней попытки загрузить level JSON (битый файл, не объект и т.д.)
+var level_config_load_error: String = ""
+
+func get_level_config_load_error() -> String:
+	return level_config_load_error
+
+func clear_level_config_load_error() -> void:
+	level_config_load_error = ""
 
 func get_prelevel_boost_pack_cost(boost_type: String) -> int:
 	match boost_type:
@@ -279,10 +287,17 @@ func get_editor_return_scene() -> String:
 
 # Функции управления монетами
 func get_level_config(level: int) -> Dictionary:
-	if _editor_level_override_path != "" and FileAccess.file_exists(_editor_level_override_path):
+	level_config_load_error = ""
+	if _editor_level_override_path != "":
+		if not FileAccess.file_exists(_editor_level_override_path):
+			level_config_load_error = "Файл уровня редактора не найден: %s" % _editor_level_override_path
+			return {}
 		var override_data = _load_level_config_from_path(_editor_level_override_path)
 		if not override_data.is_empty():
 			return _normalize_level_config(override_data, level)
+		if level_config_load_error == "":
+			level_config_load_error = "Не удалось прочитать файл редактора: %s" % _editor_level_override_path
+		return {}
 
 	# Пытаемся загрузить JSON-конфиг уровня из res://levels/
 	var candidates := [
@@ -294,7 +309,9 @@ func get_level_config(level: int) -> Dictionary:
 			var data = _load_level_config_from_path(path)
 			if not data.is_empty():
 				return _normalize_level_config(data, level)
-	# Дефолтные параметры, если файл не найден (strong_monsters ограничен сеткой — иначе возможны минутные циклы в legacy-генерации).
+			if level_config_load_error == "":
+				level_config_load_error = "Файл уровня повреждён или пуст: %s" % path
+			return {}
 	var def_cols := 7
 	var def_er := 10
 	return _normalize_level_config({
@@ -308,14 +325,17 @@ func get_level_config(level: int) -> Dictionary:
 func _load_level_config_from_path(path: String) -> Dictionary:
 	var f := FileAccess.open(path, FileAccess.READ)
 	if not f:
+		level_config_load_error = "Не удалось открыть файл: %s (ошибка %s)" % [path, str(FileAccess.get_open_error())]
 		return {}
 	var txt := f.get_as_text()
 	f.close()
 	var j := JSON.new()
 	if j.parse(txt) != OK:
+		level_config_load_error = "JSON %s, строка %d: %s" % [path, j.get_error_line(), j.get_error_message()]
 		return {}
 	var data = j.get_data()
 	if typeof(data) != TYPE_DICTIONARY:
+		level_config_load_error = "Корень JSON не объект (Dictionary): %s" % path
 		return {}
 	return data
 
