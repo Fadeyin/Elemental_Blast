@@ -79,6 +79,19 @@ func _new_level_template() -> Dictionary:
 	}
 
 func _init_controls() -> void:
+	$Root/TopActions.columns = 4
+	$Root/TopActions/NewButton.text = "Новый"
+	$Root/TopActions/PrevLevelButton.text = "-"
+	$Root/TopActions/GoToLevelButton.text = "Откр."
+	$Root/TopActions/NextLevelButton.text = "+"
+	$Root/TopActions/LoadButton.text = "Импорт"
+	$Root/TopActions/SaveButton.text = "Сохр."
+	$Root/TopActions/ExportJsonButton.text = "JSON"
+	$Root/TopActions/TestButton.text = "Тест"
+	$Root/TopActions/BackButton.text = "Меню"
+	$Root/TopActions/ExportZipButton.visible = false
+	$Root/TopActions/CopyJsonButton.visible = false
+
 	_mode_option.clear()
 	_mode_option.add_item("Монстр на поле")
 	_mode_option.add_item("Портал / спавн")
@@ -109,6 +122,16 @@ func _init_controls() -> void:
 
 	_level_spin.min_value = 1
 	_level_spin.max_value = 999
+	_level_spin.custom_minimum_size.x = 100
+	_mode_option.custom_minimum_size.x = 150
+	_monster_hp_spin.custom_minimum_size.x = 104
+	_obstacle_hp_spin.custom_minimum_size.x = 104
+	_spawn_delay_spin.custom_minimum_size.x = 124
+	_spawn_count_spin.custom_minimum_size.x = 112
+	_moves_spin.custom_minimum_size.x = 108
+	_obstacle_type_option.custom_minimum_size.x = 142
+	_spawn_on_break_hp_spin.custom_minimum_size.x = 96
+	_spawn_on_break_count_spin.custom_minimum_size.x = 112
 
 	for s in [_level_spin, _monster_hp_spin, _obstacle_hp_spin, _spawn_delay_spin, _spawn_count_spin, _moves_spin, _spawn_on_break_hp_spin, _spawn_on_break_count_spin]:
 		s.editable = true
@@ -148,9 +171,9 @@ func _init_controls() -> void:
 		_spawn_on_break_count_spin
 	]:
 		if c is Control:
-			c.add_theme_font_size_override("font_size", 14)
+			c.add_theme_font_size_override("font_size", 13)
 			if c is BaseButton:
-				c.custom_minimum_size.y = 34
+				c.custom_minimum_size.y = 32
 
 	_confirm_switch.dialog_text = "Сохранить текущий уровень перед переходом?"
 	_confirm_switch.get_ok_button().text = "Сохранить и перейти"
@@ -246,7 +269,7 @@ func _connect_buttons() -> void:
 		$Root/TopActions/TestButton,
 		$Root/TopActions/BackButton
 	]:
-		b.custom_minimum_size = Vector2(0, 48)
+		b.custom_minimum_size = Vector2(0, 38)
 
 func _autoload_current_level() -> void:
 	_current_level_number = max(1, int(LevelManager.current_level))

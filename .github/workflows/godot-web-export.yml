@@ -129,6 +129,46 @@ jobs:
           
           echo "=== Modified index.html preview ==="
           head -30 build/web/index.html
+
+      - name: Add Build Cache Busting
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          build_dir = Path("build/web")
+          build_name = "index-" + os.environ["GITHUB_SHA"][:8]
+
+          for extension in ("js", "wasm", "pck"):
+              source = build_dir / f"index.{extension}"
+              target = build_dir / f"{build_name}.{extension}"
+              if source.exists():
+                  source.rename(target)
+
+          index_path = build_dir / "index.html"
+          html = index_path.read_text(encoding="utf-8")
+          html = html.replace('src="index.js"', f'src="{build_name}.js"')
+          html = html.replace('href="index.icon.png"', f'href="index.icon.png?v={build_name}"')
+          html = html.replace('href="index.apple-touch-icon.png"', f'href="index.apple-touch-icon.png?v={build_name}"')
+          html = html.replace('src="index.png"', f'src="index.png?v={build_name}"')
+
+          match = re.search(r"const GODOT_CONFIG = (\{.*?\});", html)
+          if not match:
+              raise SystemExit("GODOT_CONFIG not found in index.html")
+          config = json.loads(match.group(1))
+          config["executable"] = build_name
+          file_sizes = config.get("fileSizes", {})
+          if "index.pck" in file_sizes:
+              file_sizes[f"{build_name}.pck"] = file_sizes.pop("index.pck")
+          if "index.wasm" in file_sizes:
+              file_sizes[f"{build_name}.wasm"] = file_sizes.pop("index.wasm")
+          config["fileSizes"] = file_sizes
+          html = html[:match.start(1)] + json.dumps(config, separators=(",", ":")) + html[match.end(1):]
+          index_path.write_text(html, encoding="utf-8")
+          print(f"Cache-busted web build basename: {build_name}")
+          PY
       
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -150,8 +190,7 @@ jobs:
       
       - name: Deploy to Netlify
         if: |
-          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/cursor/godot-web-9125') ||
-          (github.event_name == 'workflow_dispatch' && inputs.deploy_to_netlify == true)
+          github.event_name == 'workflow_dispatch' && inputs.deploy_to_netlify == true
         uses: nwtgck/actions-netlify@v3
         with:
           publish-dir: './build/web'
