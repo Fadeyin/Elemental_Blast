@@ -1097,7 +1097,7 @@ func _apply_damage_to_enemy_cell(tx: int, ty: int) -> void:
 	_monster_shakes[mid2] = {"t": 0.0, "d": 0.2, "intensity": 10.0}
 	if enemies[ty][tx] <= 0:
 		enemies[ty][tx] = 0
-		var init_hp := enemies_initial_hp[ty][tx]
+		var init_hp: int = int(enemies_initial_hp[ty][tx])
 		_decrement_level_target_for_init_hp(int(init_hp))
 		_needs_ui_update = true
 		_enemy_death_anims.append({
@@ -1241,51 +1241,21 @@ func _fallback_project_viewport_size() -> Vector2:
 		float(ProjectSettings.get_setting("display/window/size/viewport_height", 1200))
 	)
 
-# Прямоугольник видимой области viewport (канва после stretch).
-func _get_viewport_visible_rect_for_board() -> Rect2:
-	var vp := get_viewport()
-	if vp == null:
-		return Rect2(Vector2.ZERO, _fallback_project_viewport_size())
-	var vr: Rect2 = vp.get_visible_rect()
-	if vr.size.x < 32.0 or vr.size.y < 32.0:
-		return Rect2(Vector2.ZERO, _fallback_project_viewport_size())
-	return vr
-
-# Перевод видимого прямоугольника viewport в локальные координаты этого узла для _draw().
-# Без этого на HTML5 координаты get_visible_rect() и локальная отрисовка расходятся — сетка уезжает, виден только фон.
-func _visible_viewport_rect_to_local_board_rect() -> Rect2:
-	var vr_c: Rect2 = _get_viewport_visible_rect_for_board()
-	var inv: Transform2D = get_global_transform_with_canvas().affine_inverse()
-	var p0: Vector2 = inv * vr_c.position
-	var p1: Vector2 = inv * (vr_c.position + vr_c.size)
-	var sz: Vector2 = p1 - p0
-	if absf(sz.x) < 0.5 or absf(sz.y) < 0.5:
-		return Rect2(Vector2.ZERO, _fallback_project_viewport_size())
-	return Rect2(p0, sz)
-
-# На мобильном Chrome высота visible_rect часто соответствует странице, а не канве — ограничиваем аспектом проекта.
-func _cap_layout_size_for_html5(sz: Vector2) -> Vector2:
-	if sz.x < 32.0 or sz.y < 32.0:
-		return _fallback_project_viewport_size()
-	var fb: Vector2 = _fallback_project_viewport_size()
-	var design_aspect: float = fb.y / fb.x
-	var w: float = sz.x
-	var h: float = sz.y
-	if w > h * 2.5 and h < 280.0:
-		return fb
-	if h > w * 1.08 and h > w * design_aspect * 1.05:
-		h = w * design_aspect
-	return Vector2(w, h)
-
 func _get_layout_viewport_size() -> Vector2:
-	var vr_l: Rect2 = _visible_viewport_rect_to_local_board_rect()
-	return _cap_layout_size_for_html5(vr_l.size)
+	var s := get_viewport_rect().size
+	var vp := get_viewport()
+	if vp != null:
+		var vr := vp.get_visible_rect().size
+		s.x = maxf(s.x, vr.x)
+		s.y = maxf(s.y, vr.y)
+	if s.x < 32.0 or s.y < 32.0:
+		var fallback := _fallback_project_viewport_size()
+		s.x = maxf(s.x, fallback.x)
+		s.y = maxf(s.y, fallback.y)
+	return s
 
 func _board_pixel_origin() -> Vector2:
-	var vr_l: Rect2 = _visible_viewport_rect_to_local_board_rect()
-	var layout: Vector2 = _cap_layout_size_for_html5(vr_l.size)
-	var inset: Vector2 = Vector2((vr_l.size.x - layout.x) * 0.5, (vr_l.size.y - layout.y) * 0.5)
-	return vr_l.position + inset + _grid_origin(layout)
+	return _grid_origin(_get_layout_viewport_size())
 
 func _grid_origin(vp_size: Vector2) -> Vector2:
 	var grid_size := Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT + PLAYER_ROWS * CELL_SIZE + _field_gap_total)
@@ -1302,13 +1272,9 @@ func _on_viewport_size_changed():
 	_update_ui()
 	queue_redraw()
 
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_WINDOW_RESIZE or what == NOTIFICATION_RESIZED:
-		queue_redraw()
-
 func _draw():
-	var vr_l: Rect2 = _visible_viewport_rect_to_local_board_rect()
-	draw_rect(vr_l, BG_COLOR)
+	var vp_size = _get_layout_viewport_size()
+	draw_rect(Rect2(Vector2.ZERO, vp_size), BG_COLOR)
 	var origin = _board_pixel_origin()
 	
 	# Применяем тряску экрана к началу координат
@@ -1320,7 +1286,7 @@ func _draw():
 	var grid_size = Vector2(COLS * CELL_SIZE, ROWS * CELL_SIZE + _field_gap_total)
 
 	if GAME_BG_TEXTURE:
-		draw_texture_rect(GAME_BG_TEXTURE, vr_l, false)
+		draw_texture_rect(GAME_BG_TEXTURE, Rect2(Vector2.ZERO, vp_size), false)
 
 	# Заливка зон
 	var enemy_rect = Rect2(origin, Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT))
@@ -2393,7 +2359,7 @@ func _unhandled_input(event):
 	if not _active_anims.is_empty() or not _projectiles.is_empty() or _is_executing_combo:
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var cell = _point_to_cell(event.global_position)
+		var cell = _point_to_cell(event.position)
 		if cell.x >= 0 and cell.y >= 0:
 			if _active_booster != BoosterType.NONE:
 				_use_booster_on_cell(cell)
@@ -2489,11 +2455,9 @@ func _apply_booster_shuffle():
 				idx += 1
 	queue_redraw()
 
-func _point_to_cell(global_canvas_pos: Vector2) -> Vector2i:
-	var inv: Transform2D = get_global_transform_with_canvas().affine_inverse()
-	var local_pos: Vector2 = inv * global_canvas_pos
+func _point_to_cell(screen_pos: Vector2) -> Vector2i:
 	var origin: Vector2 = _board_pixel_origin()
-	var local: Vector2 = local_pos - origin
+	var local: Vector2 = screen_pos - origin
 	
 	if local.x < 0 or local.y < 0:
 		return Vector2i(-1, -1)
