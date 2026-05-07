@@ -1,6 +1,7 @@
-extends Node2D
+extends Control
 
-# Простой экран игрового поля: только сетка
+# Игровое поле: корневой Control на весь viewport — раскладка по size (надёжно на Web/iOS);
+# раньше Node2D + эвристики visible_rect давали сдвиг сетки за экран.
 const COLS := 8
 const ROWS := 16
 const CELL_SIZE := 80
@@ -160,9 +161,12 @@ func _ready():
 	_boot_async()
 
 func _boot_async() -> void:
-	# Дать viewport/layout один–два тика (Web/iOS); метрики не жёстко фильтруем — см. _get_layout_viewport_size().
-	for _i in range(4):
+	# Пока корень не получил layout, size может быть 0 — без поля не инициализируем.
+	for _i in range(48):
+		if size.x >= 32.0 and size.y >= 32.0:
+			break
 		await get_tree().process_frame
+	await get_tree().process_frame
 	var init_err: String = _execute_board_initialization()
 	if init_err != "":
 		push_error("[GameBoard] " + init_err)
@@ -1230,38 +1234,17 @@ func _clear_board_vfx_after_refill() -> void:
 	_monster_shakes.clear()
 	_needs_ui_update = true
 
-# Размер области для центровки сетки и фона.
-# На HTML5/iOS DisplayServer.window_get_size и «высота страницы» часто завышают высоту;
-# смесь источников ломала центровку. Используем только get_visible_rect() при адекватном аспекте,
-# иначе базовый размер из ProjectSettings (без раздувания через окно браузера).
+# Размер области раскладки: фактический rect корневого Control (совпадает с игровой областью после stretch).
 func _get_layout_viewport_size() -> Vector2:
-	var fb := Vector2(
+	var sz: Vector2 = size
+	if sz.x >= 32.0 and sz.y >= 32.0:
+		return sz
+	return Vector2(
 		float(ProjectSettings.get_setting("display/window/size/viewport_width", 648)),
 		float(ProjectSettings.get_setting("display/window/size/viewport_height", 1200))
 	)
-	var vp := get_viewport()
-	if vp == null:
-		return fb
-	var vis: Vector2 = vp.get_visible_rect().size
-	if vis.x < 2.0 or vis.y < 2.0:
-		return fb
-	var short_side: float = minf(vis.x, vis.y)
-	var long_side: float = maxf(vis.x, vis.y)
-	var aspect: float = long_side / maxf(short_side, 1.0)
-	if short_side >= 200.0 and long_side >= 480.0 and aspect >= 1.33 and aspect <= 3.8:
-		return Vector2(short_side, long_side)
-	return fb
 
 func _grid_origin(vp_size: Vector2) -> Vector2:
-	var vp := get_viewport()
-	if vp != null:
-		var vis_raw: Vector2 = vp.get_visible_rect().size
-		if vis_raw.x >= 32.0 and vis_raw.y >= 32.0:
-			var sw: float = minf(vis_raw.x, vis_raw.y)
-			var lg: float = maxf(vis_raw.x, vis_raw.y)
-			var ar: float = lg / maxf(sw, 1.0)
-			if sw >= 120.0 and ar >= 1.33 and ar <= 3.8:
-				vp_size = Vector2(minf(vp_size.x, sw), minf(vp_size.y, lg))
 	var grid_size := Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT + PLAYER_ROWS * CELL_SIZE + _field_gap_total)
 	var ox := (vp_size.x - grid_size.x) * 0.5
 	var usable_h := vp_size.y - UI_TOP_MARGIN - UI_BOTTOM_MARGIN
@@ -1277,7 +1260,7 @@ func _on_viewport_size_changed():
 	queue_redraw()
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_WINDOW_RESIZE:
+	if what == NOTIFICATION_WM_WINDOW_RESIZE or what == NOTIFICATION_RESIZED:
 		queue_redraw()
 
 func _draw():
