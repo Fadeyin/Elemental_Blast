@@ -1246,17 +1246,34 @@ func _fallback_project_viewport_size() -> Vector2:
 	)
 
 func _get_layout_viewport_size() -> Vector2:
-	var s := get_viewport_rect().size
+	# На HTML5 (Chrome/Safari) один из источников размера часто даёт высоту «страницы», другой — канвас.
+	# maxf() между ними раздувает высоту: _grid_origin() сдвигает поле вниз за видимую область (серый экран).
 	var vp := get_viewport()
-	if vp != null:
-		var vr := vp.get_visible_rect().size
-		s.x = maxf(s.x, vr.x)
-		s.y = maxf(s.y, vr.y)
-	if s.x < 32.0 or s.y < 32.0:
-		var fallback := _fallback_project_viewport_size()
-		s.x = maxf(s.x, fallback.x)
-		s.y = maxf(s.y, fallback.y)
-	return s
+	if vp == null:
+		return _fallback_project_viewport_size()
+	var ax: float = get_viewport_rect().size.x
+	var ay: float = get_viewport_rect().size.y
+	var bx: float = vp.get_visible_rect().size.x
+	var by: float = vp.get_visible_rect().size.y
+	var out_x: float = bx if ax < 1.0 else (ax if bx < 1.0 else minf(ax, bx))
+	var out_y: float = by if ay < 1.0 else (ay if by < 1.0 else minf(ay, by))
+	var out := Vector2(out_x, out_y)
+	if out.x < 32.0 or out.y < 32.0:
+		return _fallback_project_viewport_size()
+	var design_w: float = float(ProjectSettings.get_setting("display/window/size/viewport_width", 648))
+	var design_h: float = float(ProjectSettings.get_setting("display/window/size/viewport_height", 1200))
+	var design_aspect: float = design_h / maxf(design_w, 1.0)
+	const PORTRAIT_MIN_RATIO := 1.05
+	const HEIGHT_SLACK := 1.28
+	if out.y > out.x * PORTRAIT_MIN_RATIO:
+		var cap_h: float = out.x * design_aspect * HEIGHT_SLACK
+		if out.y > cap_h:
+			out.y = cap_h
+	elif out.x > out.y * PORTRAIT_MIN_RATIO:
+		var cap_w: float = out.y * design_aspect * HEIGHT_SLACK
+		if out.x > cap_w:
+			out.x = cap_w
+	return out
 
 func _board_pixel_origin() -> Vector2:
 	return _grid_origin(_get_layout_viewport_size())
