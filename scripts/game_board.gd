@@ -1218,27 +1218,62 @@ func _clear_board_vfx_after_refill() -> void:
 	_monster_shakes.clear()
 	_needs_ui_update = true
 
-# Размер области отрисовки: предпочитаем get_visible_rect() viewport — он совпадает с canvas
-# при stretch/canvas_items. Нельзя брать max() с DisplayServer.window_get_size: в Web и на части
-# мобильных оконо страница выше canvas — вертикальная центровка уводит всё поле вниз за экран.
+# Размер области отрисовки для раскладки поля.
+# На Web/iOS один из источников (visible_rect или window_get_size) иногда даёт высоту «страницы»
+# больше реального canvas — тогда центровка уводит сетку вниз и виден только однотонный фон.
+# При расхождении источников выбираем меньший по оси, если второй явно раздут; иначе min по оси.
+# Дополнительно ограничиваем портретное h/w на случай одинаково «битых» обоих значений.
 func _get_layout_viewport_size() -> Vector2:
+	const MIN_DIM := 32.0
+	const RATIO := 1.09
+	const MAX_PORTRAIT_HEIGHT_OVER_WIDTH := 3.55
 	var fallback := Vector2(
 		float(ProjectSettings.get_setting("display/window/size/viewport_width", 648)),
 		float(ProjectSettings.get_setting("display/window/size/viewport_height", 1200))
 	)
 	var vp := get_viewport()
-	if vp != null:
-		var vis: Vector2 = vp.get_visible_rect().size
-		if vis.x >= 32.0 and vis.y >= 32.0:
-			return vis
-		var vr := get_viewport_rect().size
-		if vr.x >= 32.0 and vr.y >= 32.0:
-			return vr
-		var wid: int = vp.get_window_id()
-		var ws: Vector2i = DisplayServer.window_get_size(wid)
-		if ws.x > 32 and ws.y > 32:
-			return Vector2(float(ws.x), float(ws.y))
-	return fallback
+	if vp == null:
+		return fallback
+	var vis: Vector2 = vp.get_visible_rect().size
+	var vr: Vector2 = get_viewport_rect().size
+	var wid: int = vp.get_window_id()
+	var ws: Vector2i = DisplayServer.window_get_size(wid)
+	var win := Vector2(float(ws.x), float(ws.y))
+	var base := fallback
+	if vis.x >= MIN_DIM and vis.y >= MIN_DIM:
+		base = vis
+	elif vr.x >= MIN_DIM and vr.y >= MIN_DIM:
+		base = vr
+	elif win.x > MIN_DIM and win.y > MIN_DIM:
+		base = win
+	var out := base
+	if base.x >= MIN_DIM and base.y >= MIN_DIM and win.x > MIN_DIM and win.y > MIN_DIM:
+		var px: float = base.x
+		var py: float = base.y
+		if base.x > win.x * RATIO:
+			px = win.x
+		elif win.x > base.x * RATIO:
+			px = base.x
+		else:
+			px = mini(base.x, win.x)
+		if base.y > win.y * RATIO:
+			py = win.y
+		elif win.y > base.y * RATIO:
+			py = base.y
+		else:
+			py = mini(base.y, win.y)
+		out = Vector2(px, py)
+	if out.x >= MIN_DIM and out.y >= MIN_DIM and out.y >= out.x * 1.02:
+		var max_h: float = out.x * MAX_PORTRAIT_HEIGHT_OVER_WIDTH
+		if out.y > max_h:
+			out.y = max_h
+	var ui_ctrl := find_child("UIRoot", true, false)
+	if ui_ctrl is Control:
+		var us := (ui_ctrl as Control).size
+		if us.x >= MIN_DIM and us.y >= MIN_DIM:
+			if us.x < out.x * 0.98 or us.y < out.y * 0.98:
+				out = Vector2(mini(out.x, us.x), mini(out.y, us.y))
+	return out
 
 func _grid_origin(vp_size: Vector2) -> Vector2:
 	var grid_size := Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT + PLAYER_ROWS * CELL_SIZE + _field_gap_total)
