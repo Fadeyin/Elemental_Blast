@@ -1241,7 +1241,7 @@ func _fallback_project_viewport_size() -> Vector2:
 		float(ProjectSettings.get_setting("display/window/size/viewport_height", 1200))
 	)
 
-# Прямоугольник видимой области viewport (в координатах канвы). На HTML5/iOS position часто не (0,0) из‑за letterbox / полос браузера — без учёта смещения сетка рисуется вне экрана.
+# Прямоугольник видимой области viewport (канва после stretch).
 func _get_viewport_visible_rect_for_board() -> Rect2:
 	var vp := get_viewport()
 	if vp == null:
@@ -1251,14 +1251,41 @@ func _get_viewport_visible_rect_for_board() -> Rect2:
 		return Rect2(Vector2.ZERO, _fallback_project_viewport_size())
 	return vr
 
-func _get_layout_viewport_size() -> Vector2:
-	return _get_viewport_visible_rect_for_board().size
+# Перевод видимого прямоугольника viewport в локальные координаты этого узла для _draw().
+# Без этого на HTML5 координаты get_visible_rect() и локальная отрисовка расходятся — сетка уезжает, виден только фон.
+func _visible_viewport_rect_to_local_board_rect() -> Rect2:
+	var vr_c: Rect2 = _get_viewport_visible_rect_for_board()
+	var inv: Transform2D = get_global_transform_with_canvas().affine_inverse()
+	var p0: Vector2 = inv * vr_c.position
+	var p1: Vector2 = inv * (vr_c.position + vr_c.size)
+	var sz: Vector2 = p1 - p0
+	if absf(sz.x) < 0.5 or absf(sz.y) < 0.5:
+		return Rect2(Vector2.ZERO, _fallback_project_viewport_size())
+	return Rect2(p0, sz)
 
-func _get_canvas_origin_offset() -> Vector2:
-	return _get_viewport_visible_rect_for_board().position
+# На мобильном Chrome высота visible_rect часто соответствует странице, а не канве — ограничиваем аспектом проекта.
+func _cap_layout_size_for_html5(sz: Vector2) -> Vector2:
+	if sz.x < 32.0 or sz.y < 32.0:
+		return _fallback_project_viewport_size()
+	var fb: Vector2 = _fallback_project_viewport_size()
+	var design_aspect: float = fb.y / fb.x
+	var w: float = sz.x
+	var h: float = sz.y
+	if w > h * 2.5 and h < 280.0:
+		return fb
+	if h > w * 1.08 and h > w * design_aspect * 1.05:
+		h = w * design_aspect
+	return Vector2(w, h)
+
+func _get_layout_viewport_size() -> Vector2:
+	var vr_l: Rect2 = _visible_viewport_rect_to_local_board_rect()
+	return _cap_layout_size_for_html5(vr_l.size)
 
 func _board_pixel_origin() -> Vector2:
-	return _grid_origin(_get_layout_viewport_size()) + _get_canvas_origin_offset()
+	var vr_l: Rect2 = _visible_viewport_rect_to_local_board_rect()
+	var layout: Vector2 = _cap_layout_size_for_html5(vr_l.size)
+	var inset: Vector2 = Vector2((vr_l.size.x - layout.x) * 0.5, (vr_l.size.y - layout.y) * 0.5)
+	return vr_l.position + inset + _grid_origin(layout)
 
 func _grid_origin(vp_size: Vector2) -> Vector2:
 	var grid_size := Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT + PLAYER_ROWS * CELL_SIZE + _field_gap_total)
@@ -1280,9 +1307,8 @@ func _notification(what: int) -> void:
 		queue_redraw()
 
 func _draw():
-	var vr := _get_viewport_visible_rect_for_board()
-	# Подложка и фон по реальному видимому прямоугольнику (учёт vr.position на Web / мобильных).
-	draw_rect(vr, BG_COLOR)
+	var vr_l: Rect2 = _visible_viewport_rect_to_local_board_rect()
+	draw_rect(vr_l, BG_COLOR)
 	var origin = _board_pixel_origin()
 	
 	# Применяем тряску экрана к началу координат
@@ -1293,9 +1319,8 @@ func _draw():
 	
 	var grid_size = Vector2(COLS * CELL_SIZE, ROWS * CELL_SIZE + _field_gap_total)
 
-	# Рисуем текстурный фон по видимой области канвы
 	if GAME_BG_TEXTURE:
-		draw_texture_rect(GAME_BG_TEXTURE, vr, false)
+		draw_texture_rect(GAME_BG_TEXTURE, vr_l, false)
 
 	# Заливка зон
 	var enemy_rect = Rect2(origin, Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT))
@@ -2368,7 +2393,7 @@ func _unhandled_input(event):
 	if not _active_anims.is_empty() or not _projectiles.is_empty() or _is_executing_combo:
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var cell = _point_to_cell(event.position)
+		var cell = _point_to_cell(event.global_position)
 		if cell.x >= 0 and cell.y >= 0:
 			if _active_booster != BoosterType.NONE:
 				_use_booster_on_cell(cell)
@@ -2464,10 +2489,11 @@ func _apply_booster_shuffle():
 				idx += 1
 	queue_redraw()
 
-func _point_to_cell(screen_pos: Vector2) -> Vector2i:
-	var vp_size = _get_layout_viewport_size()
-	var origin = _board_pixel_origin()
-	var local = screen_pos - origin
+func _point_to_cell(global_canvas_pos: Vector2) -> Vector2i:
+	var inv: Transform2D = get_global_transform_with_canvas().affine_inverse()
+	var local_pos: Vector2 = inv * global_canvas_pos
+	var origin: Vector2 = _board_pixel_origin()
+	var local: Vector2 = local_pos - origin
 	
 	if local.x < 0 or local.y < 0:
 		return Vector2i(-1, -1)
