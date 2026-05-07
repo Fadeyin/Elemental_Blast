@@ -864,10 +864,15 @@ func _init_enemies_from_config(cfg: Dictionary):
 		enemies_initial_hp.append(row0)
 		_enemies_hit_this_turn.append(row_hit)
 	_reset_boss_grids()
+	var has_structured_enemy_config := (
+		(cfg.has("start_monsters") and typeof(cfg.start_monsters) == TYPE_ARRAY)
+		or (cfg.has("scheduled_spawns") and typeof(cfg.scheduled_spawns) == TYPE_ARRAY)
+		or (cfg.has("boss_units") and typeof(cfg.boss_units) == TYPE_ARRAY)
+	)
+	_use_scheduled_spawns = has_structured_enemy_config
 
 	# Новый режим: стартовые монстры + управляемые отложенные спавны
 	if cfg.has("start_monsters") and typeof(cfg.start_monsters) == TYPE_ARRAY:
-		_use_scheduled_spawns = true
 		for item in cfg.start_monsters:
 			if typeof(item) != TYPE_DICTIONARY:
 				continue
@@ -884,7 +889,6 @@ func _init_enemies_from_config(cfg: Dictionary):
 				_level_targets[hp] = int(_level_targets.get(hp, 0)) + 1
 
 	if cfg.has("scheduled_spawns") and typeof(cfg.scheduled_spawns) == TYPE_ARRAY:
-		_use_scheduled_spawns = true
 		for item in cfg.scheduled_spawns:
 			if typeof(item) != TYPE_DICTIONARY:
 				continue
@@ -1427,8 +1431,8 @@ func _draw():
 				tex_mv = int(g_mv.get("sprite", 1))
 			else:
 				tex_mv = int(anchor_ma.get("boss_tex", 1))
-			var dw := float(span_mv.x) * CELL_SIZE * CHIP_SIZE_FACTOR - 8.0
-			var dh := float(span_mv.y) * ENEMY_CELL_HEIGHT - 6.0
+			var boss_size_mv := _boss_draw_size(span_mv)
+			var boss_visual_rows_mv := _boss_visual_span_rows(span_mv)
 			ma_boss_done[bk_m] = true
 			monsters_to_draw.append({
 				"x": ix,
@@ -1436,12 +1440,14 @@ func _draw():
 				"hp": int(anchor_ma.hp),
 				"init_hp": int(anchor_ma.init),
 				"id": bax + bay * 100,
-				"sort_y": iy + float(span_mv.y - 1),
+				"sort_y": iy + boss_visual_rows_mv - 1.0,
 				"alpha": 1.0,
 				"attack_warn": 0.0,
-				"draw_size": Vector2(dw, dh),
+				"draw_size": boss_size_mv,
 				"texture_tier": tex_mv,
-				"boss_span_h": float(span_mv.y)
+				"boss_span_w": float(span_mv.x),
+				"boss_span_h": boss_visual_rows_mv,
+				"preserve_texture_aspect": true
 			})
 			continue
 		var k0 = clamp(ma.t / ma.d, 0.0, 1.0)
@@ -1496,23 +1502,22 @@ func _draw():
 				if _boss_registry.has(bkey_st):
 					var g_st: Dictionary = _boss_registry[bkey_st]
 					var span_st := _boss_cell_span_from_cells(g_st.get("cells", []))
-					var dw_st := float(span_st.x) * CELL_SIZE * CHIP_SIZE_FACTOR - 8.0
-					var dh_st := float(span_st.y) * ENEMY_CELL_HEIGHT - 6.0
-					var max_y_b := 0
-					for c_b in g_st.get("cells", []):
-						max_y_b = maxi(max_y_b, int(c_b.y))
+					var boss_size_st := _boss_draw_size(span_st)
+					var boss_visual_rows_st := _boss_visual_span_rows(span_st)
 					monsters_to_draw.append({
 						"x": float(x),
 						"y": float(y),
 						"hp": enemies[y][x],
 						"init_hp": int(g_st.get("max_hp", enemies[y][x])),
 						"id": x + y * 100,
-						"sort_y": float(max_y_b),
+						"sort_y": float(y) + boss_visual_rows_st - 1.0,
 						"alpha": 1.0,
 						"attack_warn": warn_flash,
-						"draw_size": Vector2(dw_st, dh_st),
+						"draw_size": boss_size_st,
 						"texture_tier": int(g_st.get("sprite", 1)),
-						"boss_span_h": float(span_st.y)
+						"boss_span_w": float(span_st.x),
+						"boss_span_h": boss_visual_rows_st,
+						"preserve_texture_aspect": true
 					})
 					continue
 				var ba_st: Vector2i = _boss_anchor_of[y][x]
@@ -1563,15 +1568,16 @@ func _draw():
 				origin.y + strip_mid_y - sz_use.y * 0.5
 			) + shake_off
 		else:
+			var span_w := float(m.get("boss_span_w", 1.0))
 			var span_h := float(m.get("boss_span_h", 1.0))
 			e_top_left = Vector2(
-				origin.x + m.x * CELL_SIZE + (CELL_SIZE - sz_use.x) * 0.5,
+				origin.x + m.x * CELL_SIZE + (span_w * CELL_SIZE - sz_use.x) * 0.5,
 				origin.y + m.y * ENEMY_CELL_HEIGHT + (span_h * ENEMY_CELL_HEIGHT - sz_use.y) - 4.0
 			) + shake_off
 		var tex_ov := -1
 		if m.has("texture_tier"):
 			tex_ov = int(m.get("texture_tier", -1))
-		_draw_enemy_monster(e_top_left, sz_use, m.hp, m.init_hp, m.id, m.alpha, float(m.get("attack_warn", 0.0)), tex_ov)
+		_draw_enemy_monster(e_top_left, sz_use, m.hp, m.init_hp, m.id, m.alpha, float(m.get("attack_warn", 0.0)), tex_ov, bool(m.get("preserve_texture_aspect", false)))
 
 	for y in range(ENEMY_ROWS, ROWS):
 		for x in range(COLS):
@@ -1962,7 +1968,20 @@ func _draw_monster_health_bar(top_left: Vector2, width: float, hp: int, max_hp: 
 		red_color.a *= alpha
 		draw_rect(Rect2(bar_x + bar_width * health_ratio, bar_y, damage_width, HEALTH_BAR_HEIGHT), red_color)
 
-func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp: int, monster_id: int, alpha: float = 1.0, attack_warn_strength: float = 0.0, texture_tier_override: int = -1) -> void:
+func _fit_texture_rect_preserve_aspect(tex: Texture2D, bounds: Rect2) -> Rect2:
+	var tex_size: Vector2 = tex.get_size()
+	if tex_size.x <= 0.0 or tex_size.y <= 0.0 or bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
+		return bounds
+	var texture_aspect := tex_size.x / tex_size.y
+	var bounds_aspect := bounds.size.x / bounds.size.y
+	var out_size := bounds.size
+	if bounds_aspect > texture_aspect:
+		out_size.x = bounds.size.y * texture_aspect
+	else:
+		out_size.y = bounds.size.x / texture_aspect
+	return Rect2(bounds.position + (bounds.size - out_size) * 0.5, out_size)
+
+func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp: int, monster_id: int, alpha: float = 1.0, attack_warn_strength: float = 0.0, texture_tier_override: int = -1, preserve_texture_aspect: bool = false) -> void:
 	# Idle-анимация: "дыхание" и легкое покачивание на месте
 	var time = Time.get_ticks_msec() * 0.001
 	var phase = monster_id * 0.5
@@ -1978,12 +1997,18 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 	
 	# Легкое горизонтальное покачивание (микро-смещение)
 	anim_top_left.x += sin(time * 1.8 + phase) * 1.5
+	var health_bar_top_left := anim_top_left
+	var health_bar_width := anim_size.x
 	
 	var tex_tier := texture_tier_override if texture_tier_override >= 0 else initial_hp
 	var tex = MONSTER_TEXTURES.get(tex_tier)
 	if tex:
 		# Отрисовка текстуры монстра
 		var rect = Rect2(anim_top_left, anim_size)
+		if preserve_texture_aspect:
+			rect = _fit_texture_rect_preserve_aspect(tex, rect)
+			health_bar_top_left = rect.position
+			health_bar_width = rect.size.x
 		
 		# Эффект заморозки через модуляцию цвета; перед атакой с переднего ряда — мигание красным
 		var mod_color = Color.WHITE
@@ -2003,7 +2028,7 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 		# Визуальный урон (трещины поверх текстуры)
 		var damage = initial_hp - hp
 		if damage > 0:
-			_draw_monster_cracks(anim_top_left, anim_size, damage, monster_id, alpha)
+			_draw_monster_cracks(rect.position, rect.size, damage, monster_id, alpha)
 		
 		# Добавляем ледяной эффект поверх
 		if _freeze_turns > 0:
@@ -2083,7 +2108,7 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 		else:
 			draw_line(Vector2(draw_center.x - m_w, mouth_y), Vector2(draw_center.x + m_w, mouth_y), mouth_color, 2.0)
 	
-	_draw_monster_health_bar(anim_top_left, anim_size.x, hp, initial_hp, alpha)
+	_draw_monster_health_bar(health_bar_top_left, health_bar_width, hp, initial_hp, alpha)
 
 func _draw_obstacle(top_left: Vector2, size: Vector2, hp: int, max_hp: int, is_unbreakable: bool = false):
 	if is_unbreakable:
@@ -3237,6 +3262,15 @@ func _boss_cell_span_from_cells(cells: Array) -> Vector2i:
 		min_y = mini(min_y, cy)
 		max_y = maxi(max_y, cy)
 	return Vector2i(max_x - min_x + 1, max_y - min_y + 1)
+
+func _boss_draw_size(span: Vector2i) -> Vector2:
+	return Vector2(
+		float(span.x) * CELL_SIZE * CHIP_SIZE_FACTOR - 8.0,
+		float(span.y) * CELL_SIZE * CHIP_SIZE_FACTOR - 8.0
+	)
+
+func _boss_visual_span_rows(span: Vector2i) -> float:
+	return float(span.y) * float(CELL_SIZE) / float(ENEMY_CELL_HEIGHT)
 
 func _enemy_moves_include_last_row_attack(moves: Array) -> bool:
 	for m in moves:
