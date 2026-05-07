@@ -34,11 +34,8 @@ var _selected_spawn_count: int = 1
 var _selected_cell := Vector2i(0, 0)
 var _entity_refs := []
 var _pending_level_switch: int = -1
-var _grid_zoom: float = 1.0
 var _last_grid_cell_size: int = 0
 var _status_message: String = ""
-const GRID_ZOOM_MIN := 0.7
-const GRID_ZOOM_MAX := 2.0
 
 @onready var _level_spin: SpinBox = $Root/TopActions/LevelSpin
 @onready var _mode_option: OptionButton = $Root/ToolsScroll/Tools/ModeOption
@@ -500,7 +497,7 @@ func _refresh_ui() -> void:
 	_level_spin.value = _current_level_number
 	var dirty_suffix := " *" if _dirty else ""
 	var message_suffix := (" | " + _status_message) if _status_message != "" else ""
-	_status_label.text = "Уровень %d | Файл: %s%s%s" % [_current_level_number, _current_file_path, dirty_suffix, message_suffix]
+	_status_label.text = "Уровень %d | Файл: %s%s%s" % [_current_level_number, _display_file_path(), dirty_suffix, message_suffix]
 	_selected_cell_label.text = "Выбрана ячейка: (%d, %d)" % [_selected_cell.x, _selected_cell.y]
 
 	var start_total = _level_data["start_monsters"].size()
@@ -511,6 +508,13 @@ func _refresh_ui() -> void:
 	_refresh_tool_visibility()
 	_refresh_grid_visuals()
 	_refresh_entity_list()
+
+func _display_file_path() -> String:
+	if _current_file_path == "":
+		return "новый"
+	if _current_file_path.begins_with("res://levels/") or _current_file_path.begins_with(USER_LEVEL_DIR + "/"):
+		return _current_file_path.get_file()
+	return _current_file_path
 
 func _refresh_tool_visibility() -> void:
 	var is_start := _brush_mode == BrushMode.START_MONSTER
@@ -549,13 +553,6 @@ func _resize_grid_cells() -> void:
 	for c in _grid.get_children():
 		if c is Button:
 			c.custom_minimum_size = Vector2(side, side)
-
-func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMagnifyGesture:
-		_grid_zoom = clamp(_grid_zoom * event.factor, GRID_ZOOM_MIN, GRID_ZOOM_MAX)
-		var wrap: Control = $Root/CenterPanel/CenterWrap/GridWrap
-		if wrap:
-			wrap.scale = Vector2(_grid_zoom, _grid_zoom)
 
 func _refresh_grid_visuals() -> void:
 	var start_map := {}
