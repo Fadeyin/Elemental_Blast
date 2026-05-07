@@ -679,8 +679,8 @@ func _update_ui():
 			l.add_theme_constant_override("outline_size", 3)
 			gc.add_child(l)
 		else:
-			var keys := _level_targets.keys()
-			keys.sort()
+			var keys: Array = _level_targets.keys()
+			keys.sort_custom(func(a, b) -> bool: return int(a) < int(b))
 			for hp in keys:
 				var count = int(_level_targets[hp])
 				if count > 0:
@@ -824,9 +824,9 @@ func _init_enemies_from_config(cfg: Dictionary):
 					all_monsters.append(hp)
 	else:
 		var total_capacity = ENEMY_ROWS * COLS
-		var strong_count = int(cfg.get("strong_monsters", 0))
+		var strong_count = clampi(int(cfg.get("strong_monsters", 0)), 0, total_capacity)
 		var strong_hp = int(cfg.get("strong_hp", 3))
-		var normal_count = total_capacity - strong_count
+		var normal_count = maxi(0, total_capacity - strong_count)
 		
 		for i in range(strong_count):
 			all_monsters.append(strong_hp)

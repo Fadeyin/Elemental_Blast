@@ -20,12 +20,13 @@ func _load_version():
 		if file:
 			var base_version = file.get_as_text().strip_edges()
 			file.close()
-			
-			# Пытаемся получить имя ветки через git
-			var branch_output = []
-			var branch_exit = OS.execute("git", ["rev-parse", "--abbrev-ref", "HEAD"], branch_output, true)
-			if branch_exit == 0 and branch_output.size() > 0:
-				branch = branch_output[0].strip_edges()
+			# В экспорте (Web, iOS, Android) бинарника git нет; вызов OS.execute даёт лишнюю работу и на
+			# части окружений заметную задержку при старте. Ветку из git читаем только в редакторе.
+			if Engine.is_editor_hint():
+				var branch_output: Array = []
+				var branch_exit: int = OS.execute("git", ["rev-parse", "--abbrev-ref", "HEAD"], branch_output, true)
+				if branch_exit == OK and not branch_output.is_empty():
+					branch = str(branch_output[0]).strip_edges()
 			
 			# Если не в main, добавляем суффикс ветки
 			if branch != "main" and branch != "unknown":

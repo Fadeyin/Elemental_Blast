@@ -294,12 +294,14 @@ func get_level_config(level: int) -> Dictionary:
 			var data = _load_level_config_from_path(path)
 			if not data.is_empty():
 				return _normalize_level_config(data, level)
-	# Дефолтные параметры, если файл не найден
+	# Дефолтные параметры, если файл не найден (strong_monsters ограничен сеткой — иначе возможны минутные циклы в legacy-генерации).
+	var def_cols := 7
+	var def_er := 10
 	return _normalize_level_config({
-		"cols": 7,
+		"cols": def_cols,
 		"rows": 12,
-		"enemy_rows": 10,
-		"strong_monsters": max(0, (level - 1) * 5),
+		"enemy_rows": def_er,
+		"strong_monsters": clampi(max(0, (level - 1) * 5), 0, def_cols * def_er),
 		"strong_hp": 3
 	}, level)
 
@@ -373,6 +375,9 @@ func _normalize_level_config(data: Dictionary, level: int) -> Dictionary:
 	out["obstacles"] = normalized_obstacles
 	if data.has("boss_units") and typeof(data.boss_units) == TYPE_ARRAY:
 		out["boss_units"] = data.boss_units.duplicate(true)
+	var cell_cap: int = maxi(1, int(out.get("cols", 7)) * int(out.get("enemy_rows", 6)))
+	if out.has("strong_monsters"):
+		out["strong_monsters"] = clampi(int(out.get("strong_monsters", 0)), 0, cell_cap)
 	return out
 
 func _emit_start():
@@ -380,7 +385,8 @@ func _emit_start():
 	emit_signal("level_started", current_level)
 
 func set_current_level(level: int):
-	current_level = max(1, level)
+	var mx: int = get_max_level_number()
+	current_level = clampi(level, 1, mx)
 	is_campaign_started = true
 	_save_progress()
 
@@ -791,6 +797,11 @@ func _load_progress():
 		else:
 			golden_pass_premium_claimed = []
 		_ensure_golden_pass_arrays()
+		var max_level_num: int = get_max_level_number()
+		current_level = clampi(current_level, 1, max_level_num)
+		max_unlocked_level = clampi(max_unlocked_level, 1, max_level_num)
+		if current_level > max_unlocked_level:
+			max_unlocked_level = current_level
 	else:
 		_ensure_golden_pass_arrays()
 
