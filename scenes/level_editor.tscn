@@ -18,12 +18,12 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 5
 
 [node name="TopActions" type="GridContainer" parent="Root"]
 layout_mode = 2
-theme_override_constants/separation = 8
-columns = 4
+theme_override_constants/separation = 6
+columns = 6
 
 [node name="NewButton" type="Button" parent="Root/TopActions"]
 layout_mode = 2
@@ -78,14 +78,16 @@ layout_mode = 2
 text = "В меню"
 
 [node name="ToolsScroll" type="ScrollContainer" parent="Root"]
-custom_minimum_size = Vector2(0, 96)
+custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
 horizontal_scroll_mode = 1
 vertical_scroll_mode = 0
 
 [node name="Tools" type="GridContainer" parent="Root/ToolsScroll"]
 layout_mode = 2
-columns = 4
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 4
+columns = 6
 
 [node name="ModeOption" type="OptionButton" parent="Root/ToolsScroll/Tools"]
 custom_minimum_size = Vector2(170, 0)
@@ -166,14 +168,14 @@ layout_mode = 2
 
 [node name="Grid" type="GridContainer" parent="Root/CenterPanel/CenterWrap/GridWrap"]
 layout_mode = 2
-theme_override_constants/h_separation = 4
-theme_override_constants/v_separation = 4
+theme_override_constants/h_separation = 3
+theme_override_constants/v_separation = 3
 columns = 8
 
 [node name="BottomPanel" type="VBoxContainer" parent="Root"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 170)
-theme_override_constants/separation = 8
+custom_minimum_size = Vector2(0, 130)
+theme_override_constants/separation = 5
 
 [node name="StatusLabel" type="Label" parent="Root/BottomPanel"]
 layout_mode = 2
@@ -192,6 +194,7 @@ layout_mode = 2
 text = "Выбрана ячейка: (0,0)"
 
 [node name="EntitiesList" type="ItemList" parent="Root/BottomPanel"]
+custom_minimum_size = Vector2(0, 54)
 layout_mode = 2
 size_flags_vertical = 3
 

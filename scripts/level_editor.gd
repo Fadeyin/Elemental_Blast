@@ -6,6 +6,8 @@ const COLS := 8
 const ENEMY_ROWS := 10
 const ROWS := 16
 const LEVEL_PATH_TEMPLATE := "res://levels/level_%03d.json"
+const USER_LEVEL_DIR := "user://editor_levels"
+const USER_LEVEL_PATH_TEMPLATE := USER_LEVEL_DIR + "/level_%03d.json"
 const MONSTER_TEXTURES := {
 	1: preload("res://textures/Monster_1_lvl.png"),
 	2: preload("res://textures/Monster_2_lvl.png"),
@@ -15,6 +17,8 @@ const MONSTER_TEXTURES := {
 }
 const OBSTACLE_COLOR := Color(0.4, 0.35, 0.3, 1.0)
 const WALL_COLOR := Color(0.36, 0.38, 0.45, 1.0)
+const GRID_CELL_MIN_SIZE := 46
+const GRID_CELL_MAX_SIZE := 82
 
 enum BrushMode { START_MONSTER, SCHEDULED_MONSTER, OBSTACLE, ERASE }
 
@@ -31,6 +35,8 @@ var _selected_cell := Vector2i(0, 0)
 var _entity_refs := []
 var _pending_level_switch: int = -1
 var _grid_zoom: float = 1.0
+var _last_grid_cell_size: int = 0
+var _status_message: String = ""
 const GRID_ZOOM_MIN := 0.7
 const GRID_ZOOM_MAX := 2.0
 
@@ -77,8 +83,8 @@ func _new_level_template() -> Dictionary:
 
 func _init_controls() -> void:
 	_mode_option.clear()
-	_mode_option.add_item("Стартовый монстр")
-	_mode_option.add_item("Отложенный монстр")
+	_mode_option.add_item("Монстр на поле")
+	_mode_option.add_item("Портал / спавн")
 	_mode_option.add_item("Препятствие")
 	_mode_option.add_item("Ластик")
 	_mode_option.item_selected.connect(func(i: int):
@@ -89,6 +95,7 @@ func _init_controls() -> void:
 	_obstacle_type_option.clear()
 	_obstacle_type_option.add_item("Разрушаемое")
 	_obstacle_type_option.add_item("Неразрушаемое")
+	_obstacle_type_option.item_selected.connect(func(_i: int): _refresh_ui())
 	_spawn_on_break_check.toggled.connect(func(_v: bool): _refresh_ui())
 
 	_monster_hp_spin.value_changed.connect(func(v: float): _selected_hp = max(1, int(v)))
@@ -107,7 +114,18 @@ func _init_controls() -> void:
 	_level_spin.max_value = 999
 
 	for s in [_level_spin, _monster_hp_spin, _obstacle_hp_spin, _spawn_delay_spin, _spawn_count_spin, _moves_spin, _spawn_on_break_hp_spin, _spawn_on_break_count_spin]:
-		s.editable = false
+		s.editable = true
+
+	$Root/TopActions/NewButton.tooltip_text = "Очистить текущий номер уровня и начать заново"
+	$Root/TopActions/PrevLevelButton.tooltip_text = "Предыдущий уровень"
+	$Root/TopActions/GoToLevelButton.tooltip_text = "Открыть уровень с указанным номером"
+	$Root/TopActions/NextLevelButton.tooltip_text = "Следующий уровень"
+	$Root/TopActions/LoadButton.tooltip_text = "Загрузить JSON-файл уровня"
+	$Root/TopActions/SaveButton.tooltip_text = "Сохранить уровень; в веб-сборке используется user://editor_levels"
+	$Root/TopActions/ExportJsonButton.tooltip_text = "Сохранить JSON в user://exports"
+	$Root/TopActions/ExportZipButton.tooltip_text = "Собрать ZIP из встроенных уровней"
+	$Root/TopActions/CopyJsonButton.tooltip_text = "Скопировать JSON текущего уровня"
+	$Root/TopActions/TestButton.tooltip_text = "Запустить текущий уровень без выхода из редактора"
 
 	for c in [
 		$Root/TopActions/NewButton,
@@ -150,7 +168,7 @@ func _build_grid() -> void:
 	for y in range(ENEMY_ROWS):
 		for x in range(COLS):
 			var btn := Button.new()
-			btn.custom_minimum_size = Vector2(72, 50)
+			btn.custom_minimum_size = Vector2(GRID_CELL_MIN_SIZE, GRID_CELL_MIN_SIZE)
 			btn.focus_mode = Control.FOCUS_NONE
 			btn.flat = false
 			btn.clip_contents = true
@@ -203,7 +221,7 @@ func _build_grid() -> void:
 			top_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			btn.add_child(top_label)
 			_grid.add_child(btn)
-	_resize_grid_cells()
+	call_deferred("_resize_grid_cells")
 
 func _connect_buttons() -> void:
 	$Root/TopActions/NewButton.pressed.connect(_on_new_pressed)
@@ -268,8 +286,13 @@ func _apply_level_switch(level_num: int) -> void:
 func _path_for_level(level_num: int) -> String:
 	return LEVEL_PATH_TEMPLATE % level_num
 
+func _user_path_for_level(level_num: int) -> String:
+	return USER_LEVEL_PATH_TEMPLATE % level_num
+
 func _load_level_by_number(level_num: int) -> void:
-	var path = _path_for_level(level_num)
+	var path = _user_path_for_level(level_num)
+	if not FileAccess.file_exists(path):
+		path = _path_for_level(level_num)
 	if FileAccess.file_exists(path):
 		var f = FileAccess.open(path, FileAccess.READ)
 		if f:
@@ -277,20 +300,36 @@ func _load_level_by_number(level_num: int) -> void:
 			f.close()
 			if typeof(parsed) == TYPE_DICTIONARY:
 				_level_data = parsed
+				_current_file_path = path
+				_status_message = "Открыт уровень %d" % level_num
+			else:
+				_level_data = _new_level_template()
+				_current_file_path = _user_path_for_level(level_num)
+				_status_message = "JSON поврежден, создан пустой уровень"
+		else:
+			_level_data = _new_level_template()
+			_current_file_path = _user_path_for_level(level_num)
+			_status_message = "Не удалось открыть файл, создан пустой уровень"
 	else:
 		_level_data = _new_level_template()
-	_current_file_path = path
+		_current_file_path = _user_path_for_level(level_num)
+		_status_message = "Создан новый пустой уровень"
+	_prepare_level_data()
+	_dirty = false
+	_refresh_ui()
+
+func _prepare_level_data() -> void:
 	_level_data["start_monsters"] = _level_data.get("start_monsters", [])
 	_level_data["scheduled_spawns"] = _level_data.get("scheduled_spawns", [])
 	_level_data["boss_units"] = _level_data.get("boss_units", [])
 	_level_data["obstacles"] = _level_data.get("obstacles", [])
 	_level_data["moves"] = int(_level_data.get("moves", 20))
 	_moves_spin.value = _level_data["moves"]
-	_dirty = false
-	_refresh_ui()
 
 func _on_new_pressed() -> void:
 	_level_data = _new_level_template()
+	_current_file_path = _user_path_for_level(_current_level_number)
+	_status_message = "Пустой уровень готов к редактированию"
 	_dirty = true
 	_refresh_ui()
 
@@ -306,12 +345,8 @@ func _on_load_pressed() -> void:
 			if typeof(parsed) == TYPE_DICTIONARY:
 				_level_data = parsed
 				_current_file_path = path
-				_level_data["start_monsters"] = _level_data.get("start_monsters", [])
-				_level_data["scheduled_spawns"] = _level_data.get("scheduled_spawns", [])
-				_level_data["boss_units"] = _level_data.get("boss_units", [])
-				_level_data["obstacles"] = _level_data.get("obstacles", [])
-				_level_data["moves"] = int(_level_data.get("moves", 20))
-				_moves_spin.value = _level_data["moves"]
+				_prepare_level_data()
+				_status_message = "JSON загружен"
 				_dirty = false
 				_refresh_ui()
 		dlg.queue_free()
@@ -323,15 +358,24 @@ func _on_save_pressed() -> void:
 	_save_to_path(_path_for_level(_current_level_number))
 
 func _save_to_path(path: String) -> void:
+	_prepare_level_data()
 	_level_data["cols"] = COLS
 	_level_data["rows"] = ROWS
 	_level_data["enemy_rows"] = ENEMY_ROWS
-	var f = FileAccess.open(path, FileAccess.WRITE)
+	var target_path := path
+	var f = FileAccess.open(target_path, FileAccess.WRITE)
+	if not f and path.begins_with("res://"):
+		DirAccess.make_dir_recursive_absolute(USER_LEVEL_DIR)
+		target_path = _user_path_for_level(_current_level_number)
+		f = FileAccess.open(target_path, FileAccess.WRITE)
 	if not f:
+		_status_message = "Не удалось сохранить: ошибка %s" % str(FileAccess.get_open_error())
+		_refresh_ui()
 		return
 	f.store_string(JSON.stringify(_level_data, "\t"))
 	f.close()
-	_current_file_path = path
+	_current_file_path = target_path
+	_status_message = "Сохранено: %s" % target_path
 	_dirty = false
 	_refresh_ui()
 
@@ -386,16 +430,20 @@ func _on_cell_pressed(x: int, y: int) -> void:
 	_selected_cell = Vector2i(x, y)
 	match _brush_mode:
 		BrushMode.START_MONSTER:
+			_erase_cell_full(x, y)
 			_level_data["start_monsters"].append({"x": x, "y": y, "hp": _selected_hp})
+			_status_message = "Поставлен монстр hp=%d в (%d, %d)" % [_selected_hp, x, y]
 			_dirty = true
 		BrushMode.SCHEDULED_MONSTER:
+			_erase_scheduled_spawns(x, y)
 			_level_data["scheduled_spawns"].append({
 				"x": x, "y": y, "hp": _selected_hp, "count": _selected_spawn_count,
 				"spawn_after_player_turns": _selected_spawn_delay
 			})
+			_status_message = "Портал hp=%d x%d через %d ход. в (%d, %d)" % [_selected_hp, _selected_spawn_count, _selected_spawn_delay, x, y]
 			_dirty = true
 		BrushMode.OBSTACLE:
-			_erase_obstacle(x, y)
+			_erase_cell_full(x, y)
 			var obs = {
 				"x": x, "y": y,
 				"type": ("wall" if _obstacle_type_option.selected == 1 else "breakable"),
@@ -407,9 +455,11 @@ func _on_cell_pressed(x: int, y: int) -> void:
 					"count": int(_spawn_on_break_count_spin.value)
 				}
 			_level_data["obstacles"].append(obs)
+			_status_message = "Поставлено препятствие в (%d, %d)" % [x, y]
 			_dirty = true
 		BrushMode.ERASE:
 			_erase_cell_full(x, y)
+			_status_message = "Ячейка (%d, %d) очищена" % [x, y]
 			_dirty = true
 	_refresh_ui()
 
@@ -437,10 +487,20 @@ func _erase_cell_full(x: int, y: int) -> void:
 	_level_data["scheduled_spawns"] = next_sched
 	_erase_obstacle(x, y)
 
+func _erase_scheduled_spawns(x: int, y: int) -> void:
+	var next_sched := []
+	for s in _level_data["scheduled_spawns"]:
+		if int(s.get("x", -1)) == x and int(s.get("y", -1)) == y:
+			continue
+		next_sched.append(s)
+	_level_data["scheduled_spawns"] = next_sched
+
 func _refresh_ui() -> void:
 	_mode_option.select(_brush_mode)
 	_level_spin.value = _current_level_number
-	_status_label.text = "Уровень %d | Файл: %s%s" % [_current_level_number, _current_file_path, (" *" if _dirty else "")]
+	var dirty_suffix := " *" if _dirty else ""
+	var message_suffix := (" | " + _status_message) if _status_message != "" else ""
+	_status_label.text = "Уровень %d | Файл: %s%s%s" % [_current_level_number, _current_file_path, dirty_suffix, message_suffix]
 	_selected_cell_label.text = "Выбрана ячейка: (%d, %d)" % [_selected_cell.x, _selected_cell.y]
 
 	var start_total = _level_data["start_monsters"].size()
@@ -448,9 +508,23 @@ func _refresh_ui() -> void:
 	var obstacles_total = _level_data["obstacles"].size()
 	_counts_label.text = "Стартовых: %d | Отложенных: %d | Препятствий: %d" % [start_total, sched_total, obstacles_total]
 
+	_refresh_tool_visibility()
 	_refresh_grid_visuals()
 	_refresh_entity_list()
-	_resize_grid_cells()
+
+func _refresh_tool_visibility() -> void:
+	var is_start := _brush_mode == BrushMode.START_MONSTER
+	var is_scheduled := _brush_mode == BrushMode.SCHEDULED_MONSTER
+	var is_obstacle := _brush_mode == BrushMode.OBSTACLE
+	var is_breakable_obstacle := is_obstacle and _obstacle_type_option.selected == 0
+	_monster_hp_spin.visible = is_start or is_scheduled
+	_spawn_delay_spin.visible = is_scheduled
+	_spawn_count_spin.visible = is_scheduled
+	_obstacle_hp_spin.visible = is_breakable_obstacle
+	_obstacle_type_option.visible = is_obstacle
+	_spawn_on_break_check.visible = is_breakable_obstacle
+	_spawn_on_break_hp_spin.visible = is_breakable_obstacle and _spawn_on_break_check.button_pressed
+	_spawn_on_break_count_spin.visible = is_breakable_obstacle and _spawn_on_break_check.button_pressed
 
 func _on_viewport_size_changed() -> void:
 	_resize_grid_cells()
@@ -458,20 +532,23 @@ func _on_viewport_size_changed() -> void:
 func _resize_grid_cells() -> void:
 	if _grid == null:
 		return
-	var wrap: Control = $Root/CenterPanel/CenterWrap/GridWrap
-	if wrap == null:
+	var panel: Control = $Root/CenterPanel
+	if panel == null:
 		return
-	var avail = wrap.size
+	var avail = panel.size - Vector2(28, 28)
 	if avail.x <= 0 or avail.y <= 0:
 		return
 	var spacing_x = float(_grid.get_theme_constant("h_separation"))
 	var spacing_y = float(_grid.get_theme_constant("v_separation"))
 	var cell_w = floor((avail.x - spacing_x * float(COLS - 1)) / float(COLS))
 	var cell_h = floor((avail.y - spacing_y * float(ENEMY_ROWS - 1)) / float(ENEMY_ROWS))
-	var side = int(max(44.0, min(cell_w, cell_h)))
+	var side = clampi(int(min(cell_w, cell_h)), GRID_CELL_MIN_SIZE, GRID_CELL_MAX_SIZE)
+	if side == _last_grid_cell_size:
+		return
+	_last_grid_cell_size = side
 	for c in _grid.get_children():
 		if c is Button:
-			c.custom_minimum_size = Vector2(side, side * 0.72)
+			c.custom_minimum_size = Vector2(side, side)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMagnifyGesture:
