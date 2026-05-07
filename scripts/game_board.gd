@@ -3310,6 +3310,75 @@ func _is_last_row_attack_warn_cell(x: int, y: int) -> bool:
 		return outcome == "attack_player_life"
 	return false
 
+func _rewrite_boss_key_in_moves(moves: Array, old_key: String, new_key: String) -> void:
+	if old_key == new_key:
+		return
+	for m in moves:
+		if str(m.get("boss_key", "")) == old_key:
+			m["boss_key"] = new_key
+
+func _update_boss_registry_geometry_from_moves(moves: Array) -> void:
+	var by_key := {}
+	for m in moves:
+		var oc := str(m.get("outcome", "normal"))
+		if oc != "normal" or not m.has("boss_key"):
+			continue
+		var bk := str(m.get("boss_key", ""))
+		if bk.is_empty():
+			continue
+		if not by_key.has(bk):
+			by_key[bk] = []
+		(by_key[bk] as Array).append(m)
+	for old_key in by_key.keys():
+		if not _boss_registry.has(old_key):
+			continue
+		var seg: Array = by_key[old_key]
+		if seg.is_empty():
+			continue
+		var m0: Dictionary = seg[0]
+		var dx := int(m0.tx) - int(m0.fx)
+		var dy := int(m0.ty) - int(m0.fy)
+		var motion_ok := true
+		for mm in seg:
+			var md: Dictionary = mm
+			if int(md.tx) - int(md.fx) != dx or int(md.ty) - int(md.fy) != dy:
+				motion_ok = false
+				break
+		if not motion_ok:
+			push_warning("boss_units: фрагменты хода босса с разным смещением, пропуск обновления геометрии")
+			continue
+		var new_cells: Array = []
+		for mm2 in seg:
+			var md2: Dictionary = mm2
+			new_cells.append(Vector2i(int(md2.tx), int(md2.ty)))
+		new_cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+			if a.y != b.y:
+				return a.y < b.y
+			return a.x < b.x
+			)
+		var g: Dictionary = _boss_registry[old_key]
+		var prev_cells: Array = g.get("cells", []).duplicate()
+		for c in prev_cells:
+			var pc := c as Vector2i
+			if pc.y >= 0 and pc.y < ENEMY_ROWS and pc.x >= 0 and pc.x < COLS:
+				_boss_anchor_of[pc.y][pc.x] = Vector2i(-1, -1)
+		g["cells"] = new_cells.duplicate()
+		_boss_registry[old_key] = g
+		var new_ax := 99
+		var new_ay := 99
+		for c2 in new_cells:
+			var vc := c2 as Vector2i
+			new_ax = mini(new_ax, int(vc.x))
+			new_ay = mini(new_ay, int(vc.y))
+		var new_key := _boss_registry_key(new_ax, new_ay)
+		if new_key != old_key:
+			_boss_registry.erase(old_key)
+			_boss_registry[new_key] = g
+			_rewrite_boss_key_in_moves(moves, old_key, new_key)
+		for c3 in new_cells:
+			var vc3 := c3 as Vector2i
+			_boss_anchor_of[vc3.y][vc3.x] = Vector2i(new_ax, new_ay)
+
 func _apply_enemy_moves_from_plan(moves: Array) -> void:
 	for yy in range(ENEMY_ROWS):
 		for xx in range(COLS):
@@ -3320,6 +3389,7 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 			continue
 		enemies[m.fy][m.fx] = 0
 		enemies_initial_hp[m.fy][m.fx] = 0
+	_update_boss_registry_geometry_from_moves(moves)
 	var vp_size_apply = _get_layout_viewport_size()
 	var origin_apply = _board_pixel_origin()
 	var boss_keys_to_sync := {}
