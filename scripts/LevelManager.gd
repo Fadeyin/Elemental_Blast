@@ -185,7 +185,7 @@ func _update_mort_helmet_level():
 		mort_helmet_level = 0
 
 func is_mort_helmet_unlocked() -> bool:
-	return mort_helmet_unlocked
+	return mort_helmet_unlocked and current_level > MORT_HELMET_UNLOCK_LEVEL
 
 func is_mort_helmet_tutorial_shown() -> bool:
 	return mort_helmet_tutorial_shown
@@ -209,7 +209,7 @@ func log_mort_helmet_bonus_delayed(arrow: int, bomb: int) -> void:
 func get_mort_helmet_bonus_chips() -> Dictionary:
 	# Возвращает количество бонусных фишек от Шлема Морта.
 	# До открытия фичи бонусы не выдаются никогда.
-	if not mort_helmet_unlocked:
+	if not is_mort_helmet_unlocked():
 		return {}
 	match mort_helmet_level:
 		1: return {"arrow": 1, "bomb": 1}         # 2 усиления: 1 стрела, 1 бомба
@@ -259,6 +259,8 @@ func get_prelevel_boost_texture(boost_type: String) -> Texture2D:
 		_: return null
 
 func get_mort_helmet_level() -> int:
+	if not is_mort_helmet_unlocked():
+		return 0
 	return mort_helmet_level
 
 func get_win_streak() -> int:
