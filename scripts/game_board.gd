@@ -160,19 +160,9 @@ func _ready():
 	_boot_async()
 
 func _boot_async() -> void:
-	# Первые кадры на iOS/WebKit часто отдают «широкий и низкий» visible_rect (огромная ширина, крошечная высота).
-	# Тогда срабатывала ветка «альбомная ориентация» в _get_layout_viewport_size и сетка уезжала за экран.
-	# Ждём, пока короткая сторона и длинная сторона выглядят как нормальный портрет телефона, либо таймаут кадров.
-	var vp_boot := get_viewport()
-	var waited_boot := 0
-	while waited_boot < 24:
-		if vp_boot != null:
-			var sb: Vector2 = vp_boot.get_visible_rect().size
-			if minf(sb.x, sb.y) >= 240.0 and maxf(sb.x, sb.y) >= 560.0:
-				break
+	# Дать viewport/layout один–два тика (Web/iOS); метрики не жёстко фильтруем — см. _get_layout_viewport_size().
+	for _i in range(4):
 		await get_tree().process_frame
-		waited_boot += 1
-	await get_tree().process_frame
 	var init_err: String = _execute_board_initialization()
 	if init_err != "":
 		push_error("[GameBoard] " + init_err)
@@ -1240,11 +1230,11 @@ func _clear_board_vfx_after_refill() -> void:
 	_monster_shakes.clear()
 	_needs_ui_update = true
 
-# Размер области для центровки сетки и фона. На iOS/Web разные API дают разную высоту (страница, окно,
-# canvas); если взять завышенную высоту, _grid_origin сдвигает поле вниз за пределы видимого viewport —
-# остаётся только однотонная подложка между панелями.
+# Размер области для центровки сетки и фона.
+# На HTML5/iOS DisplayServer.window_get_size и «высота страницы» часто завышают высоту;
+# смесь источников ломала центровку. Используем только get_visible_rect() при адекватном аспекте,
+# иначе базовый размер из ProjectSettings (без раздувания через окно браузера).
 func _get_layout_viewport_size() -> Vector2:
-	const MIN_DIM := 32.0
 	var fb := Vector2(
 		float(ProjectSettings.get_setting("display/window/size/viewport_width", 648)),
 		float(ProjectSettings.get_setting("display/window/size/viewport_height", 1200))
@@ -1253,105 +1243,25 @@ func _get_layout_viewport_size() -> Vector2:
 	if vp == null:
 		return fb
 	var vis: Vector2 = vp.get_visible_rect().size
-	var vr: Vector2 = get_viewport_rect().size
-	var wid: int = vp.get_window_id()
-	var ws: Vector2i = DisplayServer.window_get_size(wid)
-	var win := Vector2(float(ws.x), float(ws.y))
-	if vis.x >= MIN_DIM and vis.y >= MIN_DIM and minf(vis.x, vis.y) >= 240.0:
-		var ar: float = vis.y / maxf(vis.x, 1.0)
-		if ar >= 1.55 and ar <= 2.65 and vis.y >= 520.0 and vis.y <= 1400.0 and vis.x >= 280.0 and vis.x <= 820.0:
-			var out_trust := vis
-			var ui_ctrl_t := find_child("UIRoot", true, false)
-			if ui_ctrl_t is Control:
-				var ust := (ui_ctrl_t as Control).size
-				if ust.x >= 200.0 and ust.y >= 400.0:
-					var uar: float = ust.y / maxf(ust.x, 1.0)
-					if uar >= 1.4 and uar <= 2.85 and absf(ust.x - vis.x) < vis.x * 0.14 and absf(ust.y - vis.y) < vis.y * 0.14:
-						out_trust = Vector2(ust.x, ust.y)
-			return out_trust
-	# Только если обе стороны уже «взрослые»: иначе это битый первый кадр, а не реальный альбомный viewport.
-	if vis.x >= MIN_DIM and vis.y >= MIN_DIM and minf(vis.x, vis.y) >= 240.0 and vis.y < vis.x * 0.92:
-		var sx: float = mini(vis.x, vis.y)
-		var sy: float = maxi(vis.x, vis.y)
-		if sy / maxf(sx, 1.0) >= 1.45:
-			return Vector2(sx, sy)
-	var wx := _pick_portrait_width_component(vis.x, vr.x, win.x, fb.x, MIN_DIM)
-	var wy := _pick_portrait_height_component(vis.y, vr.y, win.y, fb.y, wx)
-	var out := Vector2(wx, wy)
-	var ui_ctrl := find_child("UIRoot", true, false)
-	if ui_ctrl is Control:
-		var us := (ui_ctrl as Control).size
-		if us.x >= 200.0 and us.y >= 400.0:
-			var uar2: float = us.y / maxf(us.x, 1.0)
-			if uar2 >= 1.35 and uar2 <= 2.9:
-				out = Vector2(mini(out.x, us.x), mini(out.y, us.y))
-	if minf(out.x, out.y) < 200.0:
+	if vis.x < 2.0 or vis.y < 2.0:
 		return fb
-	return out
-
-func _median_of_four(a: float, b: float, c: float, d: float, min_dim: float) -> float:
-	var vals: Array = []
-	for v in [a, b, c, d]:
-		var vf: float = float(v)
-		if vf >= min_dim:
-			vals.append(vf)
-	if vals.is_empty():
-		return maxf(float(ProjectSettings.get_setting("display/window/size/viewport_width", 648)), min_dim)
-	vals.sort()
-	var n: int = vals.size()
-	if n % 2 == 1:
-		return vals[n / 2]
-	return (vals[n / 2 - 1] + vals[n / 2]) * 0.5
-
-func _pick_portrait_width_component(vx: float, vr_x: float, win_x: float, fb_x: float, min_dim: float) -> float:
-	var target: float = 410.0
-	var candidates: Array = [vx, vr_x, win_x, fb_x]
-	var best: float = -1.0
-	var best_score: float = INF
-	for w_any in candidates:
-		var w: float = float(w_any)
-		if w < 260.0:
-			continue
-		var sc: float = absf(w - target)
-		if w > 720.0:
-			sc += (w - 720.0) * 3.0
-		if sc < best_score:
-			best_score = sc
-			best = w
-	if best < 0.0:
-		return _median_of_four(vx, vr_x, win_x, fb_x, min_dim)
-	return best
-
-func _pick_portrait_height_component(vy: float, vr_y: float, win_y: float, fb_y: float, width_ref: float) -> float:
-	var target: float = maxf(width_ref, 320.0) * 2.12
-	var candidates: Array = [vy, vr_y, win_y, fb_y]
-	var best: float = -1.0
-	var best_score: float = INF
-	for h_any in candidates:
-		var h: float = float(h_any)
-		if h < 280.0:
-			continue
-		var sc: float = absf(h - target)
-		if h > maxf(width_ref, 1.0) * 3.2:
-			sc += (h - maxf(width_ref, 1.0) * 3.2) * 4.0
-		if h > 2000.0:
-			sc += (h - 2000.0) * 2.0
-		if sc < best_score:
-			best_score = sc
-			best = h
-	if best < 0.0:
-		return clampf(target, 680.0, 1100.0)
-	return best
+	var short_side: float = minf(vis.x, vis.y)
+	var long_side: float = maxf(vis.x, vis.y)
+	var aspect: float = long_side / maxf(short_side, 1.0)
+	if short_side >= 200.0 and long_side >= 480.0 and aspect >= 1.33 and aspect <= 3.8:
+		return Vector2(short_side, long_side)
+	return fb
 
 func _grid_origin(vp_size: Vector2) -> Vector2:
 	var vp := get_viewport()
 	if vp != null:
 		var vis_raw: Vector2 = vp.get_visible_rect().size
-		if vis_raw.x >= 32.0 and vis_raw.y >= 200.0:
-			var cap_y: float = vis_raw.y
-			if vis_raw.y > vis_raw.x * 2.92:
-				cap_y = mini(vis_raw.y, vis_raw.x * 2.48)
-			vp_size = Vector2(mini(vp_size.x, vis_raw.x), mini(vp_size.y, cap_y))
+		if vis_raw.x >= 32.0 and vis_raw.y >= 32.0:
+			var sw: float = minf(vis_raw.x, vis_raw.y)
+			var lg: float = maxf(vis_raw.x, vis_raw.y)
+			var ar: float = lg / maxf(sw, 1.0)
+			if sw >= 120.0 and ar >= 1.33 and ar <= 3.8:
+				vp_size = Vector2(minf(vp_size.x, sw), minf(vp_size.y, lg))
 	var grid_size := Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT + PLAYER_ROWS * CELL_SIZE + _field_gap_total)
 	var ox := (vp_size.x - grid_size.x) * 0.5
 	var usable_h := vp_size.y - UI_TOP_MARGIN - UI_BOTTOM_MARGIN
