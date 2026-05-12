@@ -36,16 +36,14 @@ var win_streak: int = 0 # Количество побед подряд (посл
 var prelevel_boosts := {
 	"bomb": 3,      # Бомба
 	"arrow": 3,     # Стрела (ракета)
-	"rainbow": 3,    # Шар (радужная фишка)
-	"meteor_rain": 3 # Метеоритный дождь (предуровневый)
+	"rainbow": 3    # Шар (радужная фишка)
 }
 
 # Выбранные предуровневые усиления для текущего уровня (передается из main_menu в game_board)
 var selected_prelevel_boosts := {
 	"bomb": false,
 	"arrow": false,
-	"rainbow": false,
-	"meteor_rain": false
+	"rainbow": false
 }
 
 const PRELEVEL_BOOST_PACK_COUNT := 3
@@ -76,7 +74,6 @@ func get_prelevel_boost_pack_cost(boost_type: String) -> int:
 		"rainbow": return 200
 		"bomb": return 100
 		"arrow": return 150
-		"meteor_rain": return 1000
 		_: return 999999
 
 signal level_started(level: int)
@@ -134,7 +131,7 @@ func mark_level_completed():
 			emit_signal("mort_helmet_event", "stage_up", stage_was, mort_helmet_level)
 	
 	# Сбрасываем выбранные усиления для следующего уровня
-	selected_prelevel_boosts = {"bomb": false, "arrow": false, "rainbow": false, "meteor_rain": false}
+	selected_prelevel_boosts = {"bomb": false, "arrow": false, "rainbow": false}
 	
 	_save_progress()
 	emit_signal("level_completed", current_level)
@@ -147,14 +144,14 @@ func mark_level_failed():
 	# Флаг открытия фичи НЕ сбрасывается: плашка остаётся видимой.
 	_reset_mort_helmet_streak("defeat")
 	# Сбрасываем выбранные усиления
-	selected_prelevel_boosts = {"bomb": false, "arrow": false, "rainbow": false, "meteor_rain": false}
+	selected_prelevel_boosts = {"bomb": false, "arrow": false, "rainbow": false}
 	_save_progress()
 
 func mark_level_exited_after_valid_move():
 	# Игрок вручную вышел из уровня, успев совершить валидный ход — серия сбрасывается.
 	# Прогресс по выбранным усилениям не возвращается, как и при поражении.
 	_reset_mort_helmet_streak("exit_after_move")
-	selected_prelevel_boosts = {"bomb": false, "arrow": false, "rainbow": false, "meteor_rain": false}
+	selected_prelevel_boosts = {"bomb": false, "arrow": false, "rainbow": false}
 	_save_progress()
 
 func mark_level_exited_without_move():
@@ -259,7 +256,6 @@ func get_prelevel_boost_texture(boost_type: String) -> Texture2D:
 		"bomb": return preload("res://textures/Chip_Bonus_Bomb.png")
 		"arrow": return preload("res://textures/Chip_Bonus_Arrows.png")
 		"rainbow": return preload("res://textures/Chip_Bonus_Rainbow_Ball.png")
-		"meteor_rain": return preload("res://textures/Prelevel_Booster_MeteorRain.png")
 		_: return null
 
 func get_mort_helmet_level() -> int:
@@ -762,7 +758,6 @@ func _save_progress():
 	cfg.set_value("prelevel_boosts", "bomb", prelevel_boosts["bomb"])
 	cfg.set_value("prelevel_boosts", "arrow", prelevel_boosts["arrow"])
 	cfg.set_value("prelevel_boosts", "rainbow", prelevel_boosts["rainbow"])
-	cfg.set_value("prelevel_boosts", "meteor_rain", prelevel_boosts["meteor_rain"])
 	
 	# Сохранение бустеров
 	cfg.set_value("boosters", "hammer", booster_counts.get(BoosterType.HAMMER, INITIAL_BOOSTERS))
@@ -803,7 +798,6 @@ func _load_progress():
 		prelevel_boosts["bomb"] = int(cfg.get_value("prelevel_boosts", "bomb", 3))
 		prelevel_boosts["arrow"] = int(cfg.get_value("prelevel_boosts", "arrow", 3))
 		prelevel_boosts["rainbow"] = int(cfg.get_value("prelevel_boosts", "rainbow", 3))
-		prelevel_boosts["meteor_rain"] = int(cfg.get_value("prelevel_boosts", "meteor_rain", 3))
 		
 		# Загрузка бустеров
 		booster_counts[BoosterType.HAMMER] = int(cfg.get_value("boosters", "hammer", INITIAL_BOOSTERS))
