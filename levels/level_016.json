@@ -305,62 +305,62 @@
     {
       "x": 0,
       "y": 3,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 1,
       "y": 3,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 2,
       "y": 3,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 3,
       "y": 3,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 4,
       "y": 3,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 5,
       "y": 3,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 2,
       "y": 5,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 3,
       "y": 5,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 4,
       "y": 5,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 5,
       "y": 5,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 6,
       "y": 5,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 7,
       "y": 5,
-      "type": "wall"
+      "type": "breakable"
     }
   ],
   "seed": 9272

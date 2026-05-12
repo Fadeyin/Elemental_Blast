@@ -268,112 +268,112 @@
     {
       "x": 2,
       "y": 0,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 4,
       "y": 0,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 2,
       "y": 1,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 4,
       "y": 1,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 2,
       "y": 2,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 4,
       "y": 2,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 2,
       "y": 3,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 4,
       "y": 3,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 2,
       "y": 4,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 4,
       "y": 4,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 2,
       "y": 5,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 4,
       "y": 5,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 2,
       "y": 6,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 4,
       "y": 6,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 2,
       "y": 7,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 4,
       "y": 7,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 2,
       "y": 8,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 4,
       "y": 8,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 0,
       "y": 9,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 2,
       "y": 9,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 4,
       "y": 9,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 6,
       "y": 9,
-      "type": "wall"
+      "type": "breakable"
     }
   ],
   "seed": 9255

@@ -230,12 +230,12 @@
     {
       "x": 3,
       "y": 5,
-      "type": "wall"
+      "type": "breakable"
     },
     {
       "x": 4,
       "y": 5,
-      "type": "wall"
+      "type": "breakable"
     }
   ],
   "seed": 9493

@@ -110,7 +110,7 @@
     {
       "x": 3,
       "y": 5,
-      "type": "wall"
+      "type": "breakable"
     }
   ],
   "seed": 9153
