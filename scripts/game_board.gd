@@ -124,7 +124,8 @@ var _freeze_turns: int = 0
 var _selected_prelevel_boosts := {
 	"bomb": false,
 	"arrow": false,
-	"rainbow": false
+	"rainbow": false,
+	"meteor_rain": false
 }
 
 # Бонусные фишки от Шлема Морта для текущего уровня
