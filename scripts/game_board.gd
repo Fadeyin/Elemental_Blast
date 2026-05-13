@@ -98,8 +98,6 @@ var _cached_enemy_moves: Array = []
 var _enemy_move_anims := [] # [{fx:int,fy:int,tx:int,ty:int,hp:int,init:int,t:float,d:float}]
 # Пока false — не засчитывать победу (избегаем ложного _check_level_completed до пересборки целей)
 var _level_ready_for_win: bool = false
-# Стартовая сцена метеоритного дождя: блокируем ввод до завершения
-var _meteor_rain_intro_active: bool = false
 
 var _needs_ui_update: bool = false
 const COINS_PER_REMAINING_BONUS_CHIP := 10
@@ -113,8 +111,6 @@ const DEFEAT_REFILL_LIVES := [3, 5, 7, 10]
 # Мигание красным перед атакой с переднего ряда (сердце / прорыв)
 const ENEMY_ATTACK_WARN_DURATION := 0.55
 const ENEMY_ATTACK_WARN_FLASH_HZ := 5.0
-const METEOR_RAIN_FALL_DURATION := 0.32
-const METEOR_RAIN_CELL_STAGGER_SEC := 0.038
 var _player_lives_remaining: int = TOTAL_LIVES_PER_LEVEL
 # Индекс следующего платного восстановления при поражении (сбрасывается на новом уровне)
 var _defeat_refill_index: int = 0
@@ -128,8 +124,7 @@ var _freeze_turns: int = 0
 var _selected_prelevel_boosts := {
 	"bomb": false,
 	"arrow": false,
-	"rainbow": false,
-	"meteor_rain": false
+	"rainbow": false
 }
 
 # Бонусные фишки от Шлема Морта для текущего уровня
@@ -178,10 +173,6 @@ func _boot_async() -> void:
 		push_error("[GameBoard] " + init_err)
 		_show_board_load_failure_overlay(init_err)
 		return
-	if _selected_prelevel_boosts.get("meteor_rain", false):
-		_meteor_rain_intro_active = true
-		await _run_meteor_rain_intro_protected()
-		_meteor_rain_intro_active = false
 	call_deferred("_start_level1_tutorial_if_needed")
 	call_deferred("_request_board_redraw_after_layout")
 
@@ -207,7 +198,7 @@ func _execute_board_initialization() -> String:
 	if get_viewport() != null:
 		get_viewport().size_changed.connect(_on_viewport_size_changed)
 	set_process(true)
-	_sync_selected_prelevel_boosts_from_level_manager()
+	_selected_prelevel_boosts = LevelManager.selected_prelevel_boosts
 	_mort_helmet_bonus_chips = LevelManager.get_mort_helmet_bonus_chips()
 	_mort_helmet_stage_at_start = LevelManager.get_mort_helmet_level()
 	_player_made_valid_move = false
@@ -639,8 +630,6 @@ func _on_ui_root_layout_changed() -> void:
 	queue_redraw()
 
 func _on_booster_clicked(type: BoosterType, btn: Button):
-	if _meteor_rain_intro_active:
-		return
 	if type == BoosterType.NONE: return
 	
 	var lm_type = _convert_to_lm_booster_type(type)
@@ -1772,30 +1761,6 @@ func _draw():
 				color.a *= alpha
 				var s = vfx.size * (1.0 - k * 0.5)
 				draw_rect(Rect2(vfx.pos - Vector2(s, s) * 0.5, Vector2(s, s)), color)
-			"explosion":
-				var alpha_e := 1.0 - k
-				var rr := CELL_SIZE * 0.32 * (0.45 + 0.55 * k)
-				draw_circle(vfx.pos, rr, Color(vfx.color.r, vfx.color.g, vfx.color.b, alpha_e * 0.85))
-				draw_circle(vfx.pos, rr * 0.55, Color(1.0, 1.0, 1.0, alpha_e * 0.5))
-			"meteor_strike":
-				var kk := clamp(vfx.t / vfx.d, 0.0, 1.0)
-				var ease_k := pow(kk, 0.82)
-				var s0: Vector2 = vfx.start_pos
-				var e0: Vector2 = vfx.end_pos
-				var head := s0.lerp(e0, ease_k)
-				var dir_m := (e0 - s0)
-				if dir_m.length_squared() < 0.01:
-					dir_m = Vector2(0, 1)
-				dir_m = dir_m.normalized()
-				var tail := head - dir_m * (CELL_SIZE * 0.95)
-				var core_col: Color = vfx.color
-				draw_line(tail, head, Color(core_col.r, core_col.g, core_col.b, 0.88 * (1.0 - kk * 0.35)), 7.0)
-				var orth_n := Vector2(-dir_m.y, dir_m.x)
-				if orth_n.length_squared() > 0.0001:
-					orth_n = orth_n.normalized()
-					draw_line(tail + orth_n * 2.0, head, Color(1.0, 0.92, 0.75, 0.45 * (1.0 - kk)), 3.0)
-				draw_circle(head, 10.0 + 4.0 * (1.0 - kk), Color(0.22, 0.06, 0.02, 0.95))
-				draw_circle(head - dir_m * 5.0, 6.0, Color(1.0, 0.38, 0.08, 0.92))
 
 	# ПОСЛЕДНИЙ СЛОЙ: Отрисовка рамки "ямы" поверх всего игрового поля
 	_draw_player_zone_overlay()
@@ -2412,8 +2377,6 @@ func _spawn_new_chips_with_fall():
 func _unhandled_input(event):
 	if event is InputEventMouseMotion:
 		queue_redraw()
-		return
-	if _meteor_rain_intro_active:
 		return
 	if _level1_tutorial_phase == 2:
 		return
@@ -3768,105 +3731,6 @@ func _spawn_bonus_chips_at_start():
 		)
 	
 	queue_redraw()
-
-func _sync_selected_prelevel_boosts_from_level_manager() -> void:
-	if not is_instance_valid(LevelManager):
-		return
-	var src: Dictionary = LevelManager.selected_prelevel_boosts
-	var out := {}
-	for k in ["bomb", "arrow", "rainbow", "meteor_rain"]:
-		out[k] = bool(src.get(k, false))
-	_selected_prelevel_boosts = out
-
-func _enemy_cell_impact_center(tx: int, ty: int) -> Vector2:
-	var origin := _board_pixel_origin()
-	return origin + Vector2(float(tx) * CELL_SIZE + CELL_SIZE * 0.5, float(ty) * ENEMY_CELL_HEIGHT + ENEMY_CELL_HEIGHT * 0.5)
-
-func _enqueue_meteor_fall_vfx(tx: int, ty: int) -> void:
-	var end_pos := _enemy_cell_impact_center(tx, ty)
-	var jitter_x := randf_range(-CELL_SIZE * 0.38, CELL_SIZE * 0.38)
-	var jitter_up := randf_range(ENEMY_CELL_HEIGHT * 5.2, ENEMY_CELL_HEIGHT * 8.8)
-	var start_pos := end_pos + Vector2(jitter_x, -jitter_up)
-	_board_vfx.append({
-		"type": "meteor_strike",
-		"start_pos": start_pos,
-		"end_pos": end_pos,
-		"t": 0.0,
-		"d": METEOR_RAIN_FALL_DURATION,
-		"color": Color(1.0, 0.42, 0.12, 1.0)
-	})
-	set_process(true)
-
-func _apply_meteor_hit_to_cell(tx: int, ty: int) -> void:
-	if ty < 0 or ty >= ENEMY_ROWS or tx < 0 or tx >= COLS:
-		return
-	if obstacles.size() <= ty or obstacles[ty].size() <= tx:
-		return
-	if enemies.size() <= ty or enemies[ty].size() <= tx:
-		return
-	if obstacles[ty][tx] > 0:
-		if obstacles_unbreakable[ty][tx]:
-			pass
-		else:
-			obstacles[ty][tx] -= 1
-			_needs_ui_update = true
-			if obstacles[ty][tx] <= 0:
-				obstacles[ty][tx] = 0
-				obstacles_initial_hp[ty][tx] = 0
-				var obs_center := _enemy_cell_impact_center(tx, ty)
-				_board_vfx.append({
-					"type": "explosion",
-					"pos": obs_center,
-					"color": OBSTACLE_COLOR,
-					"t": 0.0,
-					"d": 0.3
-				})
-				var key_obs := "%d:%d" % [tx, ty]
-				if _obstacle_spawn_on_destroy.has(key_obs):
-					var sp = _obstacle_spawn_on_destroy[key_obs]
-					var shp := max(1, int(sp.get("hp", 1)))
-					var scnt := max(1, int(sp.get("count", 1)))
-					for ii in range(scnt):
-						_scheduled_spawns.append({
-							"hp": shp,
-							"x": tx,
-							"y": ty,
-							"spawn_after_player_turns": _player_turn_counter
-						})
-					_obstacle_spawn_on_destroy.erase(key_obs)
-	elif enemies[ty][tx] > 0:
-		_apply_damage_to_enemy_cell(tx, ty)
-	var ic := _enemy_cell_impact_center(tx, ty)
-	_board_vfx.append({"type": "bomb_explosion", "pos": ic, "color": Color(1.0, 0.38, 0.1), "t": 0.0, "d": 0.2})
-	_board_vfx.append({"type": "shake", "t": 0.0, "d": 0.11, "intensity": 4.5})
-
-func _run_meteor_rain_intro_protected() -> void:
-	if not is_inside_tree():
-		return
-	var tree := get_tree()
-	if tree == null:
-		return
-	set_process(true)
-	var strikes: Array = []
-	for y in range(ENEMY_ROWS):
-		for x in range(COLS):
-			if randf() < 0.5:
-				strikes.append(Vector2i(x, y))
-	strikes.shuffle()
-	for st in strikes:
-		if not is_instance_valid(self) or not is_inside_tree():
-			return
-		_enqueue_meteor_fall_vfx(st.x, st.y)
-		await tree.create_timer(METEOR_RAIN_FALL_DURATION).timeout
-		if not is_instance_valid(self):
-			return
-		_apply_meteor_hit_to_cell(st.x, st.y)
-		_update_ui()
-		queue_redraw()
-		await tree.create_timer(METEOR_RAIN_CELL_STAGGER_SEC).timeout
-	if not is_instance_valid(self) or not is_inside_tree():
-		return
-	await tree.create_timer(0.42).timeout
 
 func _is_valid_mort_helmet_cell(x: int, y: int) -> bool:
 	# GDD §6.1: валидная клетка для бонуса.
