@@ -8,7 +8,8 @@ signal start_gameplay(selected_boosts: Dictionary, mort_helmet_bonuses: Dictiona
 var _selected_prelevel_boosts := {
 	"bomb": false,
 	"arrow": false,
-	"rainbow": false
+	"rainbow": false,
+	"meteor_rain": false
 }
 
 # Флаг для предотвращения множественного закрытия диалога
@@ -525,8 +526,8 @@ func _populate_prelevel_boosts_row() -> void:
 	if not LevelManager or _prelevel_boosts_row == null or not is_instance_valid(_prelevel_boosts_row):
 		return
 	_clear_container_children_immediate(_prelevel_boosts_row)
-	var boost_types: Array[String] = ["bomb", "arrow", "rainbow"]
-	var boost_names := {"bomb": "Бомба", "arrow": "Стрела", "rainbow": "Шар"}
+	var boost_types: Array[String] = ["bomb", "arrow", "rainbow", "meteor_rain"]
+	var boost_names := {"bomb": "Бомба", "arrow": "Стрела", "rainbow": "Шар", "meteor_rain": "Метеоритный дождь"}
 	var slot_size := Vector2(100, 100)
 	for boost_type in boost_types:
 		var boost_count: int = LevelManager.get_prelevel_boost_count(boost_type)
@@ -628,7 +629,7 @@ func _dismiss_prelevel_purchase_overlay() -> void:
 func _show_buy_prelevel_boost_dialog(boost_type: String) -> void:
 	if not LevelManager:
 		return
-	var display_names := {"bomb": "Бомба", "arrow": "Стрела", "rainbow": "Шар"}
+	var display_names := {"bomb": "Бомба", "arrow": "Стрела", "rainbow": "Шар", "meteor_rain": "Метеоритный дождь"}
 	var cost: int = LevelManager.get_prelevel_boost_pack_cost(boost_type)
 	var qty: int = LevelManager.PRELEVEL_BOOST_PACK_COUNT
 	var player_coins: int = LevelManager.get_coins()

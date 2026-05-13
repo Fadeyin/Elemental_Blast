@@ -36,17 +36,22 @@ var win_streak: int = 0 # Количество побед подряд (посл
 var prelevel_boosts := {
 	"bomb": 3,      # Бомба
 	"arrow": 3,     # Стрела (ракета)
-	"rainbow": 3    # Шар (радужная фишка)
+	"rainbow": 3,    # Шар (радужная фишка)
+	"meteor_rain": 3 # Метеоритный дождь
 }
 
 # Выбранные предуровневые усиления для текущего уровня (передается из main_menu в game_board)
 var selected_prelevel_boosts := {
 	"bomb": false,
 	"arrow": false,
-	"rainbow": false
+	"rainbow": false,
+	"meteor_rain": false
 }
 
 const PRELEVEL_BOOST_PACK_COUNT := 3
+const PRELEVEL_METEOR_ICON_PATH := "res://textures/Prelevel_Booster_MeteorRain.png"
+const _PRELEVEL_METEOR_ICON_FALLBACK := preload("res://textures/Chip_Bonus_Bomb.png")
+var _cached_prelevel_meteor_icon: Texture2D = null
 
 # Золотой пропуск: лента наград по календарным дням входа
 const GOLDEN_PASS_TIER_COUNT := 30
@@ -74,6 +79,7 @@ func get_prelevel_boost_pack_cost(boost_type: String) -> int:
 		"rainbow": return 200
 		"bomb": return 100
 		"arrow": return 150
+		"meteor_rain": return 1000
 		_: return 999999
 
 signal level_started(level: int)
@@ -86,6 +92,7 @@ signal mort_helmet_event(open_event: String, stage_before: int, stage_after: int
 
 func _ready():
 	_load_progress()
+	_ensure_prelevel_boost_dictionaries()
 	_ensure_golden_pass_arrays()
 	print("LevelManager инициализирован: уровень=%d, монеты=%d" % [current_level, player_coins])
 
@@ -131,7 +138,7 @@ func mark_level_completed():
 			emit_signal("mort_helmet_event", "stage_up", stage_was, mort_helmet_level)
 	
 	# Сбрасываем выбранные усиления для следующего уровня
-	selected_prelevel_boosts = {"bomb": false, "arrow": false, "rainbow": false}
+	selected_prelevel_boosts = {"bomb": false, "arrow": false, "rainbow": false, "meteor_rain": false}
 	
 	_save_progress()
 	emit_signal("level_completed", current_level)
@@ -144,14 +151,14 @@ func mark_level_failed():
 	# Флаг открытия фичи НЕ сбрасывается: плашка остаётся видимой.
 	_reset_mort_helmet_streak("defeat")
 	# Сбрасываем выбранные усиления
-	selected_prelevel_boosts = {"bomb": false, "arrow": false, "rainbow": false}
+	selected_prelevel_boosts = {"bomb": false, "arrow": false, "rainbow": false, "meteor_rain": false}
 	_save_progress()
 
 func mark_level_exited_after_valid_move():
 	# Игрок вручную вышел из уровня, успев совершить валидный ход — серия сбрасывается.
 	# Прогресс по выбранным усилениям не возвращается, как и при поражении.
 	_reset_mort_helmet_streak("exit_after_move")
-	selected_prelevel_boosts = {"bomb": false, "arrow": false, "rainbow": false}
+	selected_prelevel_boosts = {"bomb": false, "arrow": false, "rainbow": false, "meteor_rain": false}
 	_save_progress()
 
 func mark_level_exited_without_move():
@@ -250,12 +257,33 @@ func use_prelevel_boost(boost_type: String) -> bool:
 func get_prelevel_boost_count(boost_type: String) -> int:
 	return prelevel_boosts.get(boost_type, 0)
 
+func _ensure_prelevel_boost_dictionaries() -> void:
+	var counts_default := {"bomb": 3, "arrow": 3, "rainbow": 3, "meteor_rain": 3}
+	for bid in counts_default.keys():
+		if not prelevel_boosts.has(bid):
+			prelevel_boosts[bid] = int(counts_default[bid])
+	for sel_id in ["bomb", "arrow", "rainbow", "meteor_rain"]:
+		if not selected_prelevel_boosts.has(sel_id):
+			selected_prelevel_boosts[sel_id] = false
+
+func _get_cached_meteor_prelevel_icon() -> Texture2D:
+	if _cached_prelevel_meteor_icon != null:
+		return _cached_prelevel_meteor_icon
+	if ResourceLoader.exists(PRELEVEL_METEOR_ICON_PATH):
+		var loaded: Resource = load(PRELEVEL_METEOR_ICON_PATH)
+		if loaded is Texture2D:
+			_cached_prelevel_meteor_icon = loaded as Texture2D
+			return _cached_prelevel_meteor_icon
+	_cached_prelevel_meteor_icon = _PRELEVEL_METEOR_ICON_FALLBACK
+	return _cached_prelevel_meteor_icon
+
 func get_prelevel_boost_texture(boost_type: String) -> Texture2D:
 	# Возвращает текстуру для иконки усиления
 	match boost_type:
 		"bomb": return preload("res://textures/Chip_Bonus_Bomb.png")
 		"arrow": return preload("res://textures/Chip_Bonus_Arrows.png")
 		"rainbow": return preload("res://textures/Chip_Bonus_Rainbow_Ball.png")
+		"meteor_rain": return _get_cached_meteor_prelevel_icon()
 		_: return null
 
 func get_mort_helmet_level() -> int:
@@ -758,6 +786,7 @@ func _save_progress():
 	cfg.set_value("prelevel_boosts", "bomb", prelevel_boosts["bomb"])
 	cfg.set_value("prelevel_boosts", "arrow", prelevel_boosts["arrow"])
 	cfg.set_value("prelevel_boosts", "rainbow", prelevel_boosts["rainbow"])
+	cfg.set_value("prelevel_boosts", "meteor_rain", prelevel_boosts["meteor_rain"])
 	
 	# Сохранение бустеров
 	cfg.set_value("boosters", "hammer", booster_counts.get(BoosterType.HAMMER, INITIAL_BOOSTERS))
@@ -798,6 +827,7 @@ func _load_progress():
 		prelevel_boosts["bomb"] = int(cfg.get_value("prelevel_boosts", "bomb", 3))
 		prelevel_boosts["arrow"] = int(cfg.get_value("prelevel_boosts", "arrow", 3))
 		prelevel_boosts["rainbow"] = int(cfg.get_value("prelevel_boosts", "rainbow", 3))
+		prelevel_boosts["meteor_rain"] = int(cfg.get_value("prelevel_boosts", "meteor_rain", 3))
 		
 		# Загрузка бустеров
 		booster_counts[BoosterType.HAMMER] = int(cfg.get_value("boosters", "hammer", INITIAL_BOOSTERS))
@@ -824,6 +854,7 @@ func _load_progress():
 		max_unlocked_level = clampi(max_unlocked_level, 1, max_level_num)
 		if current_level > max_unlocked_level:
 			max_unlocked_level = current_level
+		_ensure_prelevel_boost_dictionaries()
 	else:
+		_ensure_prelevel_boost_dictionaries()
 		_ensure_golden_pass_arrays()
-

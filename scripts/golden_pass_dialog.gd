@@ -425,7 +425,7 @@ func _reward_title(entry: Dictionary) -> String:
 			return str(names.get(bid, bid))
 		"bonus_chip":
 			var cid: String = str(entry.get("id", "bomb"))
-			var cnames := {"bomb": "Бомба", "arrow": "Стрела", "rainbow": "Шар"}
+			var cnames := {"bomb": "Бомба", "arrow": "Стрела", "rainbow": "Шар", "meteor_rain": "Метеоритный дождь"}
 			return str(cnames.get(cid, cid))
 		_:
 			return "Награда"
