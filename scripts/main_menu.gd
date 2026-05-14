@@ -152,6 +152,7 @@ func _create_top_bar():
 	top_bar.color = Color(0.08, 0.1, 0.12, 0.9)
 	top_bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	top_bar.offset_bottom = 80
+	top_bar.z_index = 10
 	add_child(top_bar)
 	move_child(top_bar, 1)
 	
