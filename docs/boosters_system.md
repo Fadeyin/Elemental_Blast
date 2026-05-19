@@ -28,6 +28,8 @@
 
 ## Константы
 
+Открытие внутриуровневых бустеров по номеру уровня кампании (`LevelManager.current_level` на старте уровня): молоток — 6, стрела (ROW_BLAST) — 7, перемешивание — 13, заморозка — 14. В режиме теста редактора все бустеры считаются открытыми. Одноразовый туториал по молотку на 6-м уровне: `game_board.gd`, флаг `hammer_booster_tutorial_shown` в сохранении (`[boosters] hammer_tutorial_shown`).
+
 ```gdscript
 const INITIAL_BOOSTERS := 4        # Начальное количество каждого бустера
 const BOOSTER_PURCHASE_COST := 350 # Цена покупки 1 заряда

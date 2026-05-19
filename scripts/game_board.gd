@@ -150,6 +150,7 @@ var _level1_tutorial_overlay: Control = null
 # 0 — выкл; 1 — враги; 2 — фишки; 3 — полное затемнение, ожидание снарядов; 4 — цели (показ)
 var _level1_tutorial_phase: int = 0
 var _level1_tutorial_advancing_to_goals: bool = false
+var _hammer_booster_tutorial_overlay: Control = null
 # Высота зоны врагов совпадает с размером сетки ENEMY_ROWS (10 рядов); поле enemy_rows в JSON не укорачивает поле
 var _enemy_rows_effective: int = ENEMY_ROWS
 var _heart_row_y: int = ENEMY_ROWS - 1
@@ -174,6 +175,7 @@ func _boot_async() -> void:
 		_show_board_load_failure_overlay(init_err)
 		return
 	call_deferred("_start_level1_tutorial_if_needed")
+	call_deferred("_start_hammer_booster_tutorial_if_needed")
 	call_deferred("_request_board_redraw_after_layout")
 
 func _execute_board_initialization() -> String:
@@ -371,6 +373,80 @@ func _on_level1_tutorial_finished() -> void:
 		_level1_tutorial_overlay.queue_free()
 	_level1_tutorial_overlay = null
 	queue_redraw()
+func _start_hammer_booster_tutorial_if_needed() -> void:
+	if LevelManager == null:
+		return
+	if LevelManager.is_editor_test_mode():
+		return
+	if LevelManager.current_level != LevelManager.INGAME_BOOSTER_HAMMER_UNLOCK_LEVEL:
+		return
+	if LevelManager.is_hammer_booster_tutorial_shown():
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _build_hammer_booster_tutorial_overlay()
+
+func _build_hammer_booster_tutorial_overlay() -> void:
+	var btn := get_node_or_null("CanvasUI/UIRoot/BottomBar/Booster1")
+	if btn == null:
+		return
+	var ui := find_child("UIRoot", true, false)
+	var parent: Node = self if ui == null else ui
+	var overlay := Control.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.z_index = 250
+	parent.add_child(overlay)
+	_hammer_booster_tutorial_overlay = overlay
+	await get_tree().process_frame
+	var dim := ColorRect.new()
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(0, 0, 0, 0.65)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			_close_hammer_booster_tutorial()
+	)
+	overlay.add_child(dim)
+	var btn_rect: Rect2 = btn.get_global_rect().grow(8.0)
+	var local_rect: Rect2 = _rect_global_to_overlay_local(overlay, btn_rect)
+	var highlight := Panel.new()
+	highlight.position = local_rect.position
+	highlight.size = local_rect.size
+	var hs := StyleBoxFlat.new()
+	hs.bg_color = Color(1.0, 0.95, 0.45, 0.12)
+	hs.set_corner_radius_all(14)
+	hs.border_color = Color(1.0, 0.95, 0.45, 1.0)
+	hs.border_width_left = 4
+	hs.border_width_top = 4
+	hs.border_width_right = 4
+	hs.border_width_bottom = 4
+	highlight.add_theme_stylebox_override("panel", hs)
+	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(highlight)
+	var hint := Label.new()
+	hint.text = "Молоток снимает одну фишку в вашей зоне. Нажмите на кнопку молотка, затем на фишку."
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_font_size_override("font_size", 22)
+	hint.add_theme_color_override("font_color", Color.WHITE)
+	hint.add_theme_color_override("font_outline_color", Color.BLACK)
+	hint.add_theme_constant_override("outline_size", 4)
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var hw: float = minf(maxf(overlay.size.x - 40.0, 160.0), 560.0)
+	hint.custom_minimum_size = Vector2(hw, 0)
+	var hint_x: float = overlay.size.x * 0.5 - hw * 0.5
+	var hint_y: float = maxf(16.0, local_rect.position.y - 150.0)
+	hint.position = Vector2(hint_x, hint_y)
+	hint.size = Vector2(hw, 120)
+	overlay.add_child(hint)
+	if LevelManager:
+		LevelManager.mark_hammer_booster_tutorial_shown()
+
+func _close_hammer_booster_tutorial() -> void:
+	if _hammer_booster_tutorial_overlay != null and is_instance_valid(_hammer_booster_tutorial_overlay):
+		_hammer_booster_tutorial_overlay.queue_free()
+	_hammer_booster_tutorial_overlay = null
 
 func tutorial_forward_chip_click(screen_pos: Vector2) -> void:
 	if _level1_tutorial_phase != 2:
@@ -631,8 +707,9 @@ func _on_ui_root_layout_changed() -> void:
 
 func _on_booster_clicked(type: BoosterType, btn: Button):
 	if type == BoosterType.NONE: return
-	
 	var lm_type = _convert_to_lm_booster_type(type)
+	if not LevelManager.is_ingame_booster_unlocked_at_current_level(lm_type):
+		return
 	var count = LevelManager.get_booster_count(lm_type)
 	
 	if count <= 0:
@@ -676,6 +753,8 @@ func _dismiss_booster_purchase_overlay() -> void:
 	_booster_purchase_overlay = null
 
 func _show_buy_booster_dialog(lm_type: int) -> void:
+	if not LevelManager.is_ingame_booster_unlocked_at_current_level(lm_type):
+		return
 	var booster_names = {
 		LevelManager.BoosterType.HAMMER: "Молоток",
 		LevelManager.BoosterType.ROW_BLAST: "Стрела",
@@ -722,15 +801,25 @@ func _on_ingame_booster_purchase_confirm(lm_type: int) -> void:
 func _on_ingame_booster_purchase_closed() -> void:
 	_dismiss_booster_purchase_overlay()
 
-func _update_booster_buttons_visual():
-	for i in range(1, 5): # Все 4 бустера
+func _update_booster_buttons_visual() -> void:
+	var booster_types = [BoosterType.HAMMER, BoosterType.ROW_BLAST, BoosterType.SHUFFLE, BoosterType.FREEZE]
+	for i in range(1, 5):
 		var btn: Button = get_node_or_null("CanvasUI/UIRoot/BottomBar/Booster" + str(i))
 		if btn == null:
 			continue
-		if _active_booster != BoosterType.NONE and i == int(_active_booster):
-			btn.modulate = Color(1.5, 1.5, 1.0) # Подсветка активного
+		var type = booster_types[i - 1]
+		var lm_type = _convert_to_lm_booster_type(type)
+		var base_mod := Color(1, 1, 1, 1)
+		if not LevelManager.is_ingame_booster_unlocked_at_current_level(lm_type):
+			base_mod = Color(0.35, 0.35, 0.35, 0.85)
 		else:
-			btn.modulate = Color(1, 1, 1)
+			var count: int = LevelManager.get_booster_count(lm_type)
+			if count <= 0:
+				base_mod = Color(0.5, 0.5, 0.5, 0.7)
+		if _active_booster != BoosterType.NONE and i == int(_active_booster):
+			btn.modulate = base_mod * Color(1.5, 1.5, 1.0, 1.0)
+		else:
+			btn.modulate = base_mod
 
 func _update_ui():
 	# Обновление шкалы жизней (10 сегментов)
@@ -818,16 +907,12 @@ func _update_ui():
 			var btn: Button = get_node(btn_path)
 			var lm_type = _convert_to_lm_booster_type(type)
 			var count = LevelManager.get_booster_count(lm_type)
-			# Обновляем текст метки количества
 			if btn.has_node("CountLabel"):
 				var lbl: Label = btn.get_node("CountLabel")
 				lbl.text = str(count)
-			
-			btn.disabled = false
-			if count <= 0:
-				btn.modulate = Color(0.5, 0.5, 0.5, 0.7)
-			else:
-				btn.modulate = Color(1, 1, 1, 1)
+			var unlocked: bool = LevelManager.is_ingame_booster_unlocked_at_current_level(lm_type)
+			btn.disabled = not unlocked
+	_update_booster_buttons_visual()
 
 func _init_chips():
 	chips.clear()
@@ -2401,6 +2486,11 @@ func _unhandled_input(event):
 func _use_booster_on_cell(cell: Vector2i):
 	var type_used = _active_booster
 	if type_used == BoosterType.NONE: return
+	var lm_gate: int = _convert_to_lm_booster_type(type_used)
+	if not LevelManager.is_ingame_booster_unlocked_at_current_level(lm_gate):
+		_active_booster = BoosterType.NONE
+		_update_booster_buttons_visual()
+		return
 	
 	# Бустеры обычно только на зону игрока, кроме заморозки
 	if type_used != BoosterType.FREEZE and cell.y < ENEMY_ROWS: 

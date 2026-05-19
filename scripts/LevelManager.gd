@@ -27,8 +27,15 @@ var starter_pack_purchased: bool = false
 const MORT_HELMET_UNLOCK_LEVEL := 10
 const MORT_HELMET_MAX_STAGE := 3
 
+# Внутриуровневые бустеры: доступ с номера уровня кампании (LevelManager.current_level на старте уровня).
+const INGAME_BOOSTER_HAMMER_UNLOCK_LEVEL := 6
+const INGAME_BOOSTER_ROW_BLAST_UNLOCK_LEVEL := 7
+const INGAME_BOOSTER_SHUFFLE_UNLOCK_LEVEL := 13
+const INGAME_BOOSTER_FREEZE_UNLOCK_LEVEL := 14
+
 var mort_helmet_unlocked: bool = false
 var mort_helmet_tutorial_shown: bool = false
+var hammer_booster_tutorial_shown: bool = false
 var mort_helmet_level: int = 0 # 0, 1, 2, 3
 var win_streak: int = 0 # Количество побед подряд (после открытия фичи)
 
@@ -195,6 +202,37 @@ func mark_mort_helmet_tutorial_shown() -> void:
 		return
 	mort_helmet_tutorial_shown = true
 	_log_analytics_event("mort_helmet_tutorial_shown", {})
+	_save_progress()
+
+func get_ingame_booster_unlock_level(lm_type: int) -> int:
+	match lm_type:
+		BoosterType.HAMMER:
+			return INGAME_BOOSTER_HAMMER_UNLOCK_LEVEL
+		BoosterType.ROW_BLAST:
+			return INGAME_BOOSTER_ROW_BLAST_UNLOCK_LEVEL
+		BoosterType.SHUFFLE:
+			return INGAME_BOOSTER_SHUFFLE_UNLOCK_LEVEL
+		BoosterType.FREEZE:
+			return INGAME_BOOSTER_FREEZE_UNLOCK_LEVEL
+		_:
+			return 99999
+
+func is_ingame_booster_unlocked_for_level(lm_type: int, level: int) -> bool:
+	return level >= get_ingame_booster_unlock_level(lm_type)
+
+func is_ingame_booster_unlocked_at_current_level(lm_type: int) -> bool:
+	if is_editor_test_mode():
+		return true
+	return is_ingame_booster_unlocked_for_level(lm_type, current_level)
+
+func is_hammer_booster_tutorial_shown() -> bool:
+	return hammer_booster_tutorial_shown
+
+func mark_hammer_booster_tutorial_shown() -> void:
+	if hammer_booster_tutorial_shown:
+		return
+	hammer_booster_tutorial_shown = true
+	_log_analytics_event("hammer_booster_tutorial_shown", {})
 	_save_progress()
 
 func log_mort_helmet_rules_opened() -> void:
@@ -687,6 +725,8 @@ func get_golden_pass_tier_reward(tier_index: int) -> Dictionary:
 	return rows[tier_index]
 
 func use_booster(type: BoosterType) -> bool:
+	if not is_ingame_booster_unlocked_at_current_level(type):
+		return false
 	if booster_counts.get(type, 0) > 0:
 		booster_counts[type] -= 1
 		_save_progress()
@@ -700,6 +740,8 @@ func get_ingame_booster_pack_quantity(type: BoosterType) -> int:
 	return 1
 
 func buy_booster(type: BoosterType) -> bool:
+	if not is_ingame_booster_unlocked_at_current_level(type):
+		return false
 	var qty := get_ingame_booster_pack_quantity(type)
 	if not spend_coins(INGAME_BOOSTER_PACK_COST):
 		return false
@@ -764,6 +806,7 @@ func _save_progress():
 	cfg.set_value("boosters", "row_blast", booster_counts.get(BoosterType.ROW_BLAST, INITIAL_BOOSTERS))
 	cfg.set_value("boosters", "shuffle", booster_counts.get(BoosterType.SHUFFLE, INITIAL_BOOSTERS))
 	cfg.set_value("boosters", "freeze", booster_counts.get(BoosterType.FREEZE, INITIAL_BOOSTERS))
+	cfg.set_value("boosters", "hammer_tutorial_shown", hammer_booster_tutorial_shown)
 	
 	cfg.set_value("golden_pass", "purchased", golden_pass_purchased)
 	cfg.set_value("golden_pass", "last_calendar_date", golden_pass_last_calendar_date)
@@ -804,6 +847,7 @@ func _load_progress():
 		booster_counts[BoosterType.ROW_BLAST] = int(cfg.get_value("boosters", "row_blast", INITIAL_BOOSTERS))
 		booster_counts[BoosterType.SHUFFLE] = int(cfg.get_value("boosters", "shuffle", INITIAL_BOOSTERS))
 		booster_counts[BoosterType.FREEZE] = int(cfg.get_value("boosters", "freeze", INITIAL_BOOSTERS))
+		hammer_booster_tutorial_shown = bool(cfg.get_value("boosters", "hammer_tutorial_shown", false))
 		
 		golden_pass_purchased = bool(cfg.get_value("golden_pass", "purchased", false))
 		golden_pass_last_calendar_date = str(cfg.get_value("golden_pass", "last_calendar_date", ""))
