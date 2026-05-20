@@ -151,6 +151,7 @@ var _level1_tutorial_overlay: Control = null
 var _level1_tutorial_phase: int = 0
 var _level1_tutorial_advancing_to_goals: bool = false
 var _hammer_booster_tutorial_overlay: Control = null
+var _row_blast_booster_tutorial_overlay: Control = null
 # Высота зоны врагов совпадает с размером сетки ENEMY_ROWS (10 рядов); поле enemy_rows в JSON не укорачивает поле
 var _enemy_rows_effective: int = ENEMY_ROWS
 var _heart_row_y: int = ENEMY_ROWS - 1
@@ -176,6 +177,7 @@ func _boot_async() -> void:
 		return
 	call_deferred("_start_level1_tutorial_if_needed")
 	call_deferred("_start_hammer_booster_tutorial_if_needed")
+	call_deferred("_start_row_blast_booster_tutorial_if_needed")
 	call_deferred("_request_board_redraw_after_layout")
 
 func _execute_board_initialization() -> String:
@@ -448,6 +450,81 @@ func _close_hammer_booster_tutorial() -> void:
 	if _hammer_booster_tutorial_overlay != null and is_instance_valid(_hammer_booster_tutorial_overlay):
 		_hammer_booster_tutorial_overlay.queue_free()
 	_hammer_booster_tutorial_overlay = null
+
+func _start_row_blast_booster_tutorial_if_needed() -> void:
+	if LevelManager == null:
+		return
+	if LevelManager.is_editor_test_mode():
+		return
+	if LevelManager.current_level != LevelManager.INGAME_BOOSTER_ROW_BLAST_UNLOCK_LEVEL:
+		return
+	if LevelManager.is_row_blast_booster_tutorial_shown():
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _build_row_blast_booster_tutorial_overlay()
+
+func _build_row_blast_booster_tutorial_overlay() -> void:
+	var btn := get_node_or_null("CanvasUI/UIRoot/BottomBar/Booster2")
+	if btn == null:
+		return
+	var ui := find_child("UIRoot", true, false)
+	var parent: Node = self if ui == null else ui
+	var overlay := Control.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.z_index = 250
+	parent.add_child(overlay)
+	_row_blast_booster_tutorial_overlay = overlay
+	await get_tree().process_frame
+	var dim := ColorRect.new()
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(0, 0, 0, 0.65)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			_close_row_blast_booster_tutorial()
+	)
+	overlay.add_child(dim)
+	var btn_rect: Rect2 = btn.get_global_rect().grow(8.0)
+	var local_rect: Rect2 = _rect_global_to_overlay_local(overlay, btn_rect)
+	var highlight := Panel.new()
+	highlight.position = local_rect.position
+	highlight.size = local_rect.size
+	var hs := StyleBoxFlat.new()
+	hs.bg_color = Color(1.0, 0.95, 0.45, 0.12)
+	hs.set_corner_radius_all(14)
+	hs.border_color = Color(1.0, 0.95, 0.45, 1.0)
+	hs.border_width_left = 4
+	hs.border_width_top = 4
+	hs.border_width_right = 4
+	hs.border_width_bottom = 4
+	highlight.add_theme_stylebox_override("panel", hs)
+	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(highlight)
+	var hint := Label.new()
+	hint.text = "Стрела убирает весь ряд фишек в вашей зоне. Нажмите на кнопку стрелы, затем на фишку в нужном ряду."
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_font_size_override("font_size", 22)
+	hint.add_theme_color_override("font_color", Color.WHITE)
+	hint.add_theme_color_override("font_outline_color", Color.BLACK)
+	hint.add_theme_constant_override("outline_size", 4)
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var hw: float = minf(maxf(overlay.size.x - 40.0, 160.0), 560.0)
+	hint.custom_minimum_size = Vector2(hw, 0)
+	var hint_x: float = overlay.size.x * 0.5 - hw * 0.5
+	var hint_y: float = maxf(16.0, local_rect.position.y - 150.0)
+	hint.position = Vector2(hint_x, hint_y)
+	hint.size = Vector2(hw, 120)
+	overlay.add_child(hint)
+	if LevelManager:
+		LevelManager.mark_row_blast_booster_tutorial_shown()
+
+func _close_row_blast_booster_tutorial() -> void:
+	if _row_blast_booster_tutorial_overlay != null and is_instance_valid(_row_blast_booster_tutorial_overlay):
+		_row_blast_booster_tutorial_overlay.queue_free()
+	_row_blast_booster_tutorial_overlay = null
 
 func tutorial_forward_chip_click(screen_pos: Vector2) -> void:
 	if _level1_tutorial_phase != 2:

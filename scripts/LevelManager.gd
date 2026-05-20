@@ -38,6 +38,7 @@ const FREE_INGAME_BOOSTERS_ON_UNLOCK := 3
 var mort_helmet_unlocked: bool = false
 var mort_helmet_tutorial_shown: bool = false
 var hammer_booster_tutorial_shown: bool = false
+var row_blast_booster_tutorial_shown: bool = false
 # Разовые бесплатные заряды за «открытие» типа (уровень ≥ порога открытия, один раз на тип).
 var ingame_booster_unlock_bonus_claimed := {
 	BoosterType.HAMMER: false,
@@ -261,6 +262,16 @@ func mark_hammer_booster_tutorial_shown() -> void:
 		return
 	hammer_booster_tutorial_shown = true
 	_log_analytics_event("hammer_booster_tutorial_shown", {})
+	_save_progress()
+
+func is_row_blast_booster_tutorial_shown() -> bool:
+	return row_blast_booster_tutorial_shown
+
+func mark_row_blast_booster_tutorial_shown() -> void:
+	if row_blast_booster_tutorial_shown:
+		return
+	row_blast_booster_tutorial_shown = true
+	_log_analytics_event("row_blast_booster_tutorial_shown", {})
 	_save_progress()
 
 func log_mort_helmet_rules_opened() -> void:
@@ -835,6 +846,7 @@ func _save_progress():
 	cfg.set_value("boosters", "shuffle", booster_counts.get(BoosterType.SHUFFLE, INITIAL_BOOSTERS))
 	cfg.set_value("boosters", "freeze", booster_counts.get(BoosterType.FREEZE, INITIAL_BOOSTERS))
 	cfg.set_value("boosters", "hammer_tutorial_shown", hammer_booster_tutorial_shown)
+	cfg.set_value("boosters", "row_blast_tutorial_shown", row_blast_booster_tutorial_shown)
 	cfg.set_value("boosters", "unlock_bonus_hammer", bool(ingame_booster_unlock_bonus_claimed.get(BoosterType.HAMMER, false)))
 	cfg.set_value("boosters", "unlock_bonus_row_blast", bool(ingame_booster_unlock_bonus_claimed.get(BoosterType.ROW_BLAST, false)))
 	cfg.set_value("boosters", "unlock_bonus_shuffle", bool(ingame_booster_unlock_bonus_claimed.get(BoosterType.SHUFFLE, false)))
@@ -880,6 +892,7 @@ func _load_progress():
 		booster_counts[BoosterType.SHUFFLE] = int(cfg.get_value("boosters", "shuffle", INITIAL_BOOSTERS))
 		booster_counts[BoosterType.FREEZE] = int(cfg.get_value("boosters", "freeze", INITIAL_BOOSTERS))
 		hammer_booster_tutorial_shown = bool(cfg.get_value("boosters", "hammer_tutorial_shown", false))
+		row_blast_booster_tutorial_shown = bool(cfg.get_value("boosters", "row_blast_tutorial_shown", false))
 		ingame_booster_unlock_bonus_claimed[BoosterType.HAMMER] = bool(cfg.get_value("boosters", "unlock_bonus_hammer", false))
 		ingame_booster_unlock_bonus_claimed[BoosterType.ROW_BLAST] = bool(cfg.get_value("boosters", "unlock_bonus_row_blast", false))
 		ingame_booster_unlock_bonus_claimed[BoosterType.SHUFFLE] = bool(cfg.get_value("boosters", "unlock_bonus_shuffle", false))
