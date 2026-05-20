@@ -28,7 +28,7 @@
 
 ## Константы
 
-Открытие внутриуровневых бустеров по номеру уровня кампании (`LevelManager.current_level` на старте уровня): молоток — 6, стрела (ROW_BLAST) — 7, перемешивание — 13, заморозка — 14. В режиме теста редактора все бустеры считаются открытыми. Одноразовый туториал по молотку на 6-м уровне: `game_board.gd`, флаг `hammer_booster_tutorial_shown` в сохранении (`[boosters] hammer_tutorial_shown`). При первом заходе на уровень не ниже порога открытия каждому типу один раз начисляется **+3** бесплатных заряда (`ensure_ingame_booster_unlock_bonus_rewards`, флаги `unlock_bonus_*` в `[boosters]`). Одноразовые туториалы по молотку (ур. 6) и стреле (ур. 7): `game_board.gd`; флаги `hammer_tutorial_shown`, `row_blast_tutorial_shown` в `[boosters]`.
+Открытие внутриуровневых бустеров по номеру уровня кампании (`LevelManager.current_level` на старте уровня): молоток — 6, стрела (ROW_BLAST) — 7, перемешивание — 13, заморозка — 14. В режиме теста редактора все бустеры считаются открытыми. Одноразовый туториал по молотку на 6-м уровне: `game_board.gd`, флаг `hammer_booster_tutorial_shown` в сохранении (`[boosters] hammer_tutorial_shown`). При первом заходе на уровень не ниже порога открытия каждому типу один раз начисляется **+3** бесплатных заряда (`ensure_ingame_booster_unlock_bonus_rewards`, флаги `unlock_bonus_*` в `[boosters]`). Одноразовые туториалы: молоток (ур. 6), стрела (7), перемешивание (13), заморозка (14) — `game_board.gd`; флаги `hammer_tutorial_shown`, `row_blast_tutorial_shown`, `shuffle_tutorial_shown`, `freeze_tutorial_shown` в `[boosters]`.
 
 ```gdscript
 const INITIAL_BOOSTERS := 4        # Начальное количество каждого бустера
