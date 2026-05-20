@@ -195,6 +195,7 @@ func _execute_board_initialization() -> String:
 	_init_enemies_from_config(cfg)
 	_init_player_lives_for_level()
 	_init_ui()
+	LevelManager.ensure_ingame_booster_unlock_bonus_rewards()
 	_update_ui()
 	queue_redraw()
 	if get_viewport() != null:

@@ -32,10 +32,19 @@ const INGAME_BOOSTER_HAMMER_UNLOCK_LEVEL := 6
 const INGAME_BOOSTER_ROW_BLAST_UNLOCK_LEVEL := 7
 const INGAME_BOOSTER_SHUFFLE_UNLOCK_LEVEL := 13
 const INGAME_BOOSTER_FREEZE_UNLOCK_LEVEL := 14
+# Разовая выдача при первом достижении уровня открытия каждого типа (не суммируется с INITIAL_BOOSTERS — добавляется к счётчику).
+const FREE_INGAME_BOOSTERS_ON_UNLOCK := 3
 
 var mort_helmet_unlocked: bool = false
 var mort_helmet_tutorial_shown: bool = false
 var hammer_booster_tutorial_shown: bool = false
+# Разовые бесплатные заряды за «открытие» типа (уровень ≥ порога открытия, один раз на тип).
+var ingame_booster_unlock_bonus_claimed := {
+	BoosterType.HAMMER: false,
+	BoosterType.ROW_BLAST: false,
+	BoosterType.SHUFFLE: false,
+	BoosterType.FREEZE: false
+}
 var mort_helmet_level: int = 0 # 0, 1, 2, 3
 var win_streak: int = 0 # Количество побед подряд (после открытия фичи)
 
@@ -224,6 +233,25 @@ func is_ingame_booster_unlocked_at_current_level(lm_type: int) -> bool:
 	if is_editor_test_mode():
 		return true
 	return is_ingame_booster_unlocked_for_level(lm_type, current_level)
+
+func ensure_ingame_booster_unlock_bonus_rewards() -> void:
+	# В тесте редактора все типы считаются «открытыми» — награды за открытие не выдаём, чтобы не засорять сохранение.
+	if is_editor_test_mode():
+		return
+	var changed_counts := false
+	for bt in [BoosterType.HAMMER, BoosterType.ROW_BLAST, BoosterType.SHUFFLE, BoosterType.FREEZE]:
+		if bool(ingame_booster_unlock_bonus_claimed.get(bt, false)):
+			continue
+		if not is_ingame_booster_unlocked_for_level(bt, current_level):
+			continue
+		booster_counts[bt] = booster_counts.get(bt, 0) + FREE_INGAME_BOOSTERS_ON_UNLOCK
+		ingame_booster_unlock_bonus_claimed[bt] = true
+		changed_counts = true
+		_log_analytics_event("ingame_booster_unlock_bonus", {"booster_type": bt, "amount": FREE_INGAME_BOOSTERS_ON_UNLOCK, "level": current_level})
+	if not changed_counts:
+		return
+	_save_progress()
+	emit_signal("boosters_changed")
 
 func is_hammer_booster_tutorial_shown() -> bool:
 	return hammer_booster_tutorial_shown
@@ -807,6 +835,10 @@ func _save_progress():
 	cfg.set_value("boosters", "shuffle", booster_counts.get(BoosterType.SHUFFLE, INITIAL_BOOSTERS))
 	cfg.set_value("boosters", "freeze", booster_counts.get(BoosterType.FREEZE, INITIAL_BOOSTERS))
 	cfg.set_value("boosters", "hammer_tutorial_shown", hammer_booster_tutorial_shown)
+	cfg.set_value("boosters", "unlock_bonus_hammer", bool(ingame_booster_unlock_bonus_claimed.get(BoosterType.HAMMER, false)))
+	cfg.set_value("boosters", "unlock_bonus_row_blast", bool(ingame_booster_unlock_bonus_claimed.get(BoosterType.ROW_BLAST, false)))
+	cfg.set_value("boosters", "unlock_bonus_shuffle", bool(ingame_booster_unlock_bonus_claimed.get(BoosterType.SHUFFLE, false)))
+	cfg.set_value("boosters", "unlock_bonus_freeze", bool(ingame_booster_unlock_bonus_claimed.get(BoosterType.FREEZE, false)))
 	
 	cfg.set_value("golden_pass", "purchased", golden_pass_purchased)
 	cfg.set_value("golden_pass", "last_calendar_date", golden_pass_last_calendar_date)
@@ -848,6 +880,10 @@ func _load_progress():
 		booster_counts[BoosterType.SHUFFLE] = int(cfg.get_value("boosters", "shuffle", INITIAL_BOOSTERS))
 		booster_counts[BoosterType.FREEZE] = int(cfg.get_value("boosters", "freeze", INITIAL_BOOSTERS))
 		hammer_booster_tutorial_shown = bool(cfg.get_value("boosters", "hammer_tutorial_shown", false))
+		ingame_booster_unlock_bonus_claimed[BoosterType.HAMMER] = bool(cfg.get_value("boosters", "unlock_bonus_hammer", false))
+		ingame_booster_unlock_bonus_claimed[BoosterType.ROW_BLAST] = bool(cfg.get_value("boosters", "unlock_bonus_row_blast", false))
+		ingame_booster_unlock_bonus_claimed[BoosterType.SHUFFLE] = bool(cfg.get_value("boosters", "unlock_bonus_shuffle", false))
+		ingame_booster_unlock_bonus_claimed[BoosterType.FREEZE] = bool(cfg.get_value("boosters", "unlock_bonus_freeze", false))
 		
 		golden_pass_purchased = bool(cfg.get_value("golden_pass", "purchased", false))
 		golden_pass_last_calendar_date = str(cfg.get_value("golden_pass", "last_calendar_date", ""))
