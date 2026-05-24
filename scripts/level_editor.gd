@@ -36,6 +36,7 @@ var _entity_refs := []
 var _pending_level_switch: int = -1
 var _last_grid_cell_size: int = 0
 var _status_message: String = ""
+var _json_export_popup: PopupMenu
 
 @onready var _level_spin: SpinBox = $Root/TopActions/LevelSpin
 @onready var _mode_option: OptionButton = $Root/ToolsScroll/Tools/ModeOption
@@ -142,7 +143,7 @@ func _init_controls() -> void:
 	$Root/TopActions/NextLevelButton.tooltip_text = "Следующий уровень"
 	$Root/TopActions/LoadButton.tooltip_text = "Загрузить JSON-файл уровня"
 	$Root/TopActions/SaveButton.tooltip_text = "Сохранить уровень; в веб-сборке используется user://editor_levels"
-	$Root/TopActions/ExportJsonButton.tooltip_text = "Сохранить JSON в user://exports"
+	$Root/TopActions/ExportJsonButton.tooltip_text = "Копировать JSON, сохранить в экспорт или выбрать файл на устройстве"
 	$Root/TopActions/ExportZipButton.tooltip_text = "Собрать ZIP из встроенных уровней"
 	$Root/TopActions/CopyJsonButton.tooltip_text = "Скопировать JSON текущего уровня"
 	$Root/TopActions/TestButton.tooltip_text = "Запустить текущий уровень без выхода из редактора"
@@ -180,6 +181,13 @@ func _init_controls() -> void:
 	var discard_btn = _confirm_switch.add_button("Перейти без сохранения", false, "discard")
 	discard_btn.pressed.connect(_on_switch_discard_pressed)
 	_confirm_switch.confirmed.connect(_on_switch_save_pressed)
+	_json_export_popup = PopupMenu.new()
+	_json_export_popup.name = "JsonExportPopup"
+	add_child(_json_export_popup)
+	_json_export_popup.add_item("Копировать в буфер", 0)
+	_json_export_popup.add_item("Сохранить в user://exports", 1)
+	_json_export_popup.add_item("Сохранить файлом на устройство...", 2)
+	_json_export_popup.id_pressed.connect(_on_json_export_popup_id_pressed)
 
 func _build_grid() -> void:
 	for c in _grid.get_children():
@@ -405,7 +413,7 @@ func _on_test_pressed() -> void:
 	LevelManager.begin_editor_test(temp_path, _current_level_number)
 	get_tree().change_scene_to_file("res://scenes/game_board.tscn")
 
-func _on_export_json_menu_pressed() -> void:
+func _on_export_json_pressed() -> void:
 	var btn: Button = $Root/TopActions/ExportJsonButton
 	var r: Rect2 = btn.get_global_rect()
 	_json_export_popup.position = Vector2i(int(r.position.x), int(r.position.y + r.size.y))
@@ -467,7 +475,6 @@ func _execute_json_save_file_dialog() -> void:
 	)
 	add_child(dlg)
 	dlg.popup_centered_ratio(0.55)
-
 func _on_export_zip_pressed() -> void:
 	var export_dir = "user://exports"
 	DirAccess.make_dir_recursive_absolute(export_dir)
