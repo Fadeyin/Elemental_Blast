@@ -405,7 +405,30 @@ func _on_test_pressed() -> void:
 	LevelManager.begin_editor_test(temp_path, _current_level_number)
 	get_tree().change_scene_to_file("res://scenes/game_board.tscn")
 
-func _on_export_json_pressed() -> void:
+func _on_export_json_menu_pressed() -> void:
+	var btn: Button = $Root/TopActions/ExportJsonButton
+	var r: Rect2 = btn.get_global_rect()
+	_json_export_popup.position = Vector2i(int(r.position.x), int(r.position.y + r.size.y))
+	_json_export_popup.reset_size()
+	_json_export_popup.popup()
+
+func _on_json_export_popup_id_pressed(menu_id: int) -> void:
+	match menu_id:
+		0:
+			_execute_json_copy_to_clipboard()
+		1:
+			_execute_json_export_to_user_exports()
+		2:
+			_execute_json_save_file_dialog()
+
+func _execute_json_copy_to_clipboard() -> void:
+	_prepare_level_data()
+	DisplayServer.clipboard_set(JSON.stringify(_level_data, "\t"))
+	_status_label.text = "JSON скопирован в буфер обмена"
+	_status_message = "JSON скопирован в буфер обмена"
+	_refresh_ui()
+
+func _execute_json_export_to_user_exports() -> void:
 	var export_dir = "user://exports"
 	DirAccess.make_dir_recursive_absolute(export_dir)
 	var path = "%s/level_%03d.json" % [export_dir, _current_level_number]
@@ -413,9 +436,37 @@ func _on_export_json_pressed() -> void:
 	if not f:
 		_status_label.text = "Экспорт JSON не удался"
 		return
+	_prepare_level_data()
 	f.store_string(JSON.stringify(_level_data, "\t"))
 	f.close()
 	_status_label.text = "JSON сохранен: %s" % path
+	_status_message = "JSON сохранен: %s" % path
+	_refresh_ui()
+
+func _execute_json_save_file_dialog() -> void:
+	var dlg := FileDialog.new()
+	dlg.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	dlg.access = FileDialog.ACCESS_FILESYSTEM
+	dlg.title = "Сохранить JSON уровня"
+	dlg.add_filter("*.json", "JSON уровня")
+	dlg.current_file = "level_%03d.json" % _current_level_number
+	dlg.file_selected.connect(func(path: String):
+		_prepare_level_data()
+		var file = FileAccess.open(path, FileAccess.WRITE)
+		if not file:
+			_status_label.text = "Не удалось записать файл: %s" % str(FileAccess.get_open_error())
+			_refresh_ui()
+			dlg.queue_free()
+			return
+		file.store_string(JSON.stringify(_level_data, "\t"))
+		file.close()
+		_status_label.text = "JSON сохранен: %s" % path
+		_status_message = "JSON сохранен: %s" % path
+		_refresh_ui()
+		dlg.queue_free()
+	)
+	add_child(dlg)
+	dlg.popup_centered_ratio(0.55)
 
 func _on_export_zip_pressed() -> void:
 	var export_dir = "user://exports"
