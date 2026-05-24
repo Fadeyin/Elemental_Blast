@@ -29,6 +29,10 @@ columns = 4
 layout_mode = 2
 text = "Новый"
 
+[node name="ClearAllButton" type="Button" parent="Root/TopActions"]
+layout_mode = 2
+text = "Очистить всё"
+
 [node name="PrevLevelButton" type="Button" parent="Root/TopActions"]
 layout_mode = 2
 text = "<"

@@ -82,6 +82,7 @@ func _new_level_template() -> Dictionary:
 func _init_controls() -> void:
 	$Root/TopActions.columns = 4
 	$Root/TopActions/NewButton.text = "Новый"
+	$Root/TopActions/ClearAllButton.text = "Очистить всё"
 	$Root/TopActions/PrevLevelButton.text = "-"
 	$Root/TopActions/GoToLevelButton.text = "Откр."
 	$Root/TopActions/NextLevelButton.text = "+"
@@ -138,6 +139,7 @@ func _init_controls() -> void:
 		s.editable = true
 
 	$Root/TopActions/NewButton.tooltip_text = "Очистить текущий номер уровня и начать заново"
+	$Root/TopActions/ClearAllButton.tooltip_text = "Удалить всех монстров на поле, отложенные спавны и препятствия (ходы и номер уровня сохраняются)"
 	$Root/TopActions/PrevLevelButton.tooltip_text = "Предыдущий уровень"
 	$Root/TopActions/GoToLevelButton.tooltip_text = "Открыть уровень с указанным номером"
 	$Root/TopActions/NextLevelButton.tooltip_text = "Следующий уровень"
@@ -150,6 +152,7 @@ func _init_controls() -> void:
 
 	for c in [
 		$Root/TopActions/NewButton,
+		$Root/TopActions/ClearAllButton,
 		$Root/TopActions/PrevLevelButton,
 		$Root/TopActions/GoToLevelButton,
 		$Root/TopActions/NextLevelButton,
@@ -253,6 +256,7 @@ func _build_grid() -> void:
 
 func _connect_buttons() -> void:
 	$Root/TopActions/NewButton.pressed.connect(_on_new_pressed)
+	$Root/TopActions/ClearAllButton.pressed.connect(_on_clear_all_pressed)
 	$Root/TopActions/LoadButton.pressed.connect(_on_load_pressed)
 	$Root/TopActions/SaveButton.pressed.connect(_on_save_pressed)
 	$Root/TopActions/ExportJsonButton.pressed.connect(_on_export_json_pressed)
@@ -266,6 +270,7 @@ func _connect_buttons() -> void:
 	$Root/TopActions/GoToLevelButton.pressed.connect(func(): _request_level_switch(int(_level_spin.value)))
 	for b in [
 		$Root/TopActions/NewButton,
+		$Root/TopActions/ClearAllButton,
 		$Root/TopActions/PrevLevelButton,
 		$Root/TopActions/GoToLevelButton,
 		$Root/TopActions/NextLevelButton,
@@ -358,6 +363,18 @@ func _on_new_pressed() -> void:
 	_level_data = _new_level_template()
 	_current_file_path = _user_path_for_level(_current_level_number)
 	_status_message = "Пустой уровень готов к редактированию"
+	_dirty = true
+	_refresh_ui()
+
+func _on_clear_all_pressed() -> void:
+	_prepare_level_data()
+	_level_data["start_monsters"] = []
+	_level_data["scheduled_spawns"] = []
+	_level_data["obstacles"] = []
+	_level_data["boss_units"] = []
+	if _level_data.has("strong_monsters"):
+		_level_data["strong_monsters"] = 0
+	_status_message = "Поле очищено: монстры, очереди и препятствия удалены"
 	_dirty = true
 	_refresh_ui()
 
