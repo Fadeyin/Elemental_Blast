@@ -38,6 +38,8 @@ const MONSTER_TEXTURES := {
 	50: preload("res://textures/Monster_1_lvl.png")
 }
 const BOSS_GOAL_VISUAL_HP := 50
+# Смещение босса по полю: раз в N завершённых ходов игрока; попадания фишками не «замораживают» босса. Атака по полосе сердец планируется каждый вражеский шаг при контакте.
+const BOSS_MOVE_INTERVAL_PLAYER_TURNS := 2
 const CHIP_SIZE_FACTOR := 1.02
 const CHIP_EDGE_WIDTH := 3.0
 const CHIP_SHADOW_OFFSET := Vector2(0, 6)
@@ -3497,11 +3499,6 @@ func _plan_boss_group_moves(ax: int, ay: int, moves: Array, occupied_next: Array
 		return
 	var g: Dictionary = _boss_registry[key]
 	var cells: Array = g.get("cells", [])
-	for c in cells:
-		var cx := int(c.x)
-		var cy := int(c.y)
-		if _enemies_hit_this_turn[cy][cx]:
-			return
 	var cur_hp := maxi(0, int(g.get("hp", 0)))
 	var max_hp := maxi(1, int(g.get("max_hp", cur_hp)))
 	var spr := maxi(1, int(g.get("sprite", 1)))
@@ -3513,6 +3510,10 @@ func _plan_boss_group_moves(ax: int, ay: int, moves: Array, occupied_next: Array
 	if any_on_heart:
 		moves.append({"outcome": "boss_attack_life", "boss_key": key})
 		return
+	if BOSS_MOVE_INTERVAL_PLAYER_TURNS > 1:
+		var turn := maxi(0, _player_turn_counter)
+		if turn % BOSS_MOVE_INTERVAL_PLAYER_TURNS != 0:
+			return
 	var can_down := true
 	for c in cells:
 		var cx := int(c.x)

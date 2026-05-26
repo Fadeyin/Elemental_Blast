@@ -162,6 +162,38 @@ max_value = 20.0
 value = 1.0
 prefix = "Кол-во:"
 
+[node name="BossHpSpin" type="SpinBox" parent="Root/ToolsScroll/Tools"]
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+min_value = 1.0
+max_value = 200.0
+value = 28.0
+prefix = "Б HP:"
+
+[node name="BossWidthSpin" type="SpinBox" parent="Root/ToolsScroll/Tools"]
+custom_minimum_size = Vector2(72, 0)
+layout_mode = 2
+min_value = 1.0
+max_value = 4.0
+value = 2.0
+prefix = "Б W:"
+
+[node name="BossHeightSpin" type="SpinBox" parent="Root/ToolsScroll/Tools"]
+custom_minimum_size = Vector2(72, 0)
+layout_mode = 2
+min_value = 1.0
+max_value = 4.0
+value = 2.0
+prefix = "Б H:"
+
+[node name="BossSpriteSpin" type="SpinBox" parent="Root/ToolsScroll/Tools"]
+custom_minimum_size = Vector2(88, 0)
+layout_mode = 2
+min_value = 1.0
+max_value = 5.0
+value = 1.0
+prefix = "Б #:"
+
 [node name="CenterPanel" type="PanelContainer" parent="Root"]
 layout_mode = 2
 size_flags_vertical = 3

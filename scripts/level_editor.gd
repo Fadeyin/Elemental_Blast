@@ -19,8 +19,9 @@ const OBSTACLE_COLOR := Color(0.4, 0.35, 0.3, 1.0)
 const WALL_COLOR := Color(0.36, 0.38, 0.45, 1.0)
 const GRID_CELL_MIN_SIZE := 46
 const GRID_CELL_MAX_SIZE := 82
+const BOSS_CELL_COLOR := Color(0.52, 0.22, 0.62, 1.0)
 
-enum BrushMode { START_MONSTER, SCHEDULED_MONSTER, OBSTACLE, ERASE }
+enum BrushMode { START_MONSTER, SCHEDULED_MONSTER, OBSTACLE, BOSS, ERASE }
 
 var _level_data := {}
 var _current_file_path := ""
@@ -49,6 +50,10 @@ var _json_export_popup: PopupMenu
 @onready var _spawn_on_break_check: CheckBox = $Root/ToolsScroll/Tools/SpawnOnBreakCheck
 @onready var _spawn_on_break_hp_spin: SpinBox = $Root/ToolsScroll/Tools/SpawnOnBreakHpSpin
 @onready var _spawn_on_break_count_spin: SpinBox = $Root/ToolsScroll/Tools/SpawnOnBreakCountSpin
+@onready var _boss_hp_spin: SpinBox = $Root/ToolsScroll/Tools/BossHpSpin
+@onready var _boss_width_spin: SpinBox = $Root/ToolsScroll/Tools/BossWidthSpin
+@onready var _boss_height_spin: SpinBox = $Root/ToolsScroll/Tools/BossHeightSpin
+@onready var _boss_sprite_spin: SpinBox = $Root/ToolsScroll/Tools/BossSpriteSpin
 @onready var _grid: GridContainer = $Root/CenterPanel/CenterWrap/GridWrap/Grid
 @onready var _status_label: Label = $Root/BottomPanel/StatusLabel
 @onready var _counts_label: Label = $Root/BottomPanel/CountsLabel
@@ -98,6 +103,7 @@ func _init_controls() -> void:
 	_mode_option.add_item("Монстр на поле")
 	_mode_option.add_item("Портал / спавн")
 	_mode_option.add_item("Препятствие")
+	_mode_option.add_item("Босс")
 	_mode_option.add_item("Ластик")
 	_mode_option.item_selected.connect(func(i: int):
 		_brush_mode = i
@@ -116,6 +122,10 @@ func _init_controls() -> void:
 	_spawn_count_spin.value_changed.connect(func(v: float): _selected_spawn_count = max(1, int(v)))
 	_spawn_on_break_hp_spin.value_changed.connect(func(_v: float): pass)
 	_spawn_on_break_count_spin.value_changed.connect(func(_v: float): pass)
+	_boss_hp_spin.value_changed.connect(func(_v: float): pass)
+	_boss_width_spin.value_changed.connect(func(_v: float): pass)
+	_boss_height_spin.value_changed.connect(func(_v: float): pass)
+	_boss_sprite_spin.value_changed.connect(func(_v: float): pass)
 	_moves_spin.value_changed.connect(func(v: float):
 		_level_data["moves"] = max(1, int(v))
 		_dirty = true
@@ -134,12 +144,29 @@ func _init_controls() -> void:
 	_obstacle_type_option.custom_minimum_size.x = 142
 	_spawn_on_break_hp_spin.custom_minimum_size.x = 96
 	_spawn_on_break_count_spin.custom_minimum_size.x = 112
+	_boss_hp_spin.custom_minimum_size.x = 96
+	_boss_width_spin.custom_minimum_size.x = 72
+	_boss_height_spin.custom_minimum_size.x = 72
+	_boss_sprite_spin.custom_minimum_size.x = 88
 
-	for s in [_level_spin, _monster_hp_spin, _obstacle_hp_spin, _spawn_delay_spin, _spawn_count_spin, _moves_spin, _spawn_on_break_hp_spin, _spawn_on_break_count_spin]:
+	for s in [_level_spin, _monster_hp_spin, _obstacle_hp_spin, _spawn_delay_spin, _spawn_count_spin, _moves_spin, _spawn_on_break_hp_spin, _spawn_on_break_count_spin, _boss_hp_spin, _boss_width_spin, _boss_height_spin, _boss_sprite_spin]:
 		s.editable = true
 
+	_boss_hp_spin.min_value = 1
+	_boss_hp_spin.max_value = 200
+	_boss_hp_spin.value = 28
+	_boss_width_spin.min_value = 1
+	_boss_width_spin.max_value = mini(4, COLS)
+	_boss_width_spin.value = 2
+	_boss_height_spin.min_value = 1
+	_boss_height_spin.max_value = mini(4, ENEMY_ROWS)
+	_boss_height_spin.value = 2
+	_boss_sprite_spin.min_value = 1
+	_boss_sprite_spin.max_value = 5
+	_boss_sprite_spin.value = 1
+
 	$Root/TopActions/NewButton.tooltip_text = "Очистить текущий номер уровня и начать заново"
-	$Root/TopActions/ClearAllButton.tooltip_text = "Удалить всех монстров на поле, отложенные спавны и препятствия (ходы и номер уровня сохраняются)"
+	$Root/TopActions/ClearAllButton.tooltip_text = "Удалить монстров, очереди спавна, препятствия и боссов (ходы и номер уровня сохраняются)"
 	$Root/TopActions/PrevLevelButton.tooltip_text = "Предыдущий уровень"
 	$Root/TopActions/GoToLevelButton.tooltip_text = "Открыть уровень с указанным номером"
 	$Root/TopActions/NextLevelButton.tooltip_text = "Следующий уровень"
@@ -172,7 +199,11 @@ func _init_controls() -> void:
 		_obstacle_type_option,
 		_spawn_on_break_check,
 		_spawn_on_break_hp_spin,
-		_spawn_on_break_count_spin
+		_spawn_on_break_count_spin,
+		_boss_hp_spin,
+		_boss_width_spin,
+		_boss_height_spin,
+		_boss_sprite_spin
 	]:
 		if c is Control:
 			c.add_theme_font_size_override("font_size", 13)
@@ -374,7 +405,7 @@ func _on_clear_all_pressed() -> void:
 	_level_data["boss_units"] = []
 	if _level_data.has("strong_monsters"):
 		_level_data["strong_monsters"] = 0
-	_status_message = "Поле очищено: монстры, очереди и препятствия удалены"
+	_status_message = "Поле очищено: монстры, очереди, препятствия и боссы удалены"
 	_dirty = true
 	_refresh_ui()
 
@@ -552,6 +583,31 @@ func _on_cell_pressed(x: int, y: int) -> void:
 			_level_data["obstacles"].append(obs)
 			_status_message = "Поставлено препятствие в (%d, %d)" % [x, y]
 			_dirty = true
+		BrushMode.BOSS:
+			var bw := clampi(int(_boss_width_spin.value), 1, COLS)
+			var bh := clampi(int(_boss_height_spin.value), 1, ENEMY_ROWS)
+			var ax := x
+			var ay := y
+			if ax + bw > COLS or ay + bh > ENEMY_ROWS:
+				_status_message = "Босс выходит за сетку (%d×%d от (%d,%d))" % [bw, bh, ax, ay]
+				_refresh_ui()
+				return
+			_remove_bosses_intersecting_rect(ax, ay, bw, bh)
+			for cy in range(ay, ay + bh):
+				for cx in range(ax, ax + bw):
+					_erase_cell_monsters_spawns_obstacles(cx, cy)
+			var bhp := maxi(1, int(_boss_hp_spin.value))
+			var bspr := clampi(int(_boss_sprite_spin.value), 1, 5)
+			_level_data["boss_units"].append({
+				"anchor_x": ax,
+				"anchor_y": ay,
+				"width": bw,
+				"height": bh,
+				"hp": bhp,
+				"sprite": bspr
+			})
+			_status_message = "Босс %d×%d HP=%d якорь (%d,%d)" % [bw, bh, bhp, ax, ay]
+			_dirty = true
 		BrushMode.ERASE:
 			_erase_cell_full(x, y)
 			_status_message = "Ячейка (%d, %d) очищена" % [x, y]
@@ -566,14 +622,13 @@ func _erase_obstacle(x: int, y: int) -> void:
 		next.append(o)
 	_level_data["obstacles"] = next
 
-func _erase_cell_full(x: int, y: int) -> void:
+func _erase_cell_monsters_spawns_obstacles(x: int, y: int) -> void:
 	var next_start := []
 	for m in _level_data["start_monsters"]:
 		if int(m.get("x", -1)) == x and int(m.get("y", -1)) == y:
 			continue
 		next_start.append(m)
 	_level_data["start_monsters"] = next_start
-
 	var next_sched := []
 	for s in _level_data["scheduled_spawns"]:
 		if int(s.get("x", -1)) == x and int(s.get("y", -1)) == y:
@@ -581,6 +636,44 @@ func _erase_cell_full(x: int, y: int) -> void:
 		next_sched.append(s)
 	_level_data["scheduled_spawns"] = next_sched
 	_erase_obstacle(x, y)
+
+func _boss_index_at_cell(x: int, y: int) -> int:
+	for i in range(_level_data["boss_units"].size()):
+		var b: Dictionary = _level_data["boss_units"][i]
+		var ax := int(b.get("anchor_x", -999))
+		var ay := int(b.get("anchor_y", -999))
+		var bw := maxi(1, int(b.get("width", 1)))
+		var bh := maxi(1, int(b.get("height", 1)))
+		if x >= ax and x < ax + bw and y >= ay and y < ay + bh:
+			return i
+	return -1
+
+func _rects_overlap(ax1: int, ay1: int, w1: int, h1: int, ax2: int, ay2: int, w2: int, h2: int) -> bool:
+	var endx1 := ax1 + w1 - 1
+	var endy1 := ay1 + h1 - 1
+	var endx2 := ax2 + w2 - 1
+	var endy2 := ay2 + h2 - 1
+	return not (endx1 < ax2 or ax1 > endx2 or endy1 < ay2 or ay1 > endy2)
+
+func _remove_bosses_intersecting_rect(ax: int, ay: int, bw: int, bh: int) -> void:
+	var next: Array = []
+	for b in _level_data["boss_units"]:
+		if typeof(b) != TYPE_DICTIONARY:
+			continue
+		var bax := int(b.get("anchor_x", 0))
+		var bay := int(b.get("anchor_y", 0))
+		var bbw := maxi(1, int(b.get("width", 1)))
+		var bbh := maxi(1, int(b.get("height", 1)))
+		if _rects_overlap(ax, ay, bw, bh, bax, bay, bbw, bbh):
+			continue
+		next.append(b)
+	_level_data["boss_units"] = next
+
+func _erase_cell_full(x: int, y: int) -> void:
+	var bi := _boss_index_at_cell(x, y)
+	if bi >= 0:
+		_level_data["boss_units"].remove_at(bi)
+	_erase_cell_monsters_spawns_obstacles(x, y)
 
 func _erase_scheduled_spawns(x: int, y: int) -> void:
 	var next_sched := []
@@ -601,7 +694,8 @@ func _refresh_ui() -> void:
 	var start_total = _level_data["start_monsters"].size()
 	var sched_total = _level_data["scheduled_spawns"].size()
 	var obstacles_total = _level_data["obstacles"].size()
-	_counts_label.text = "Стартовых: %d | Отложенных: %d | Препятствий: %d" % [start_total, sched_total, obstacles_total]
+	var boss_total = _level_data["boss_units"].size()
+	_counts_label.text = "Стартовых: %d | Отложенных: %d | Препятствий: %d | Боссов: %d" % [start_total, sched_total, obstacles_total, boss_total]
 
 	_refresh_tool_visibility()
 	_refresh_grid_visuals()
@@ -618,6 +712,7 @@ func _refresh_tool_visibility() -> void:
 	var is_start := _brush_mode == BrushMode.START_MONSTER
 	var is_scheduled := _brush_mode == BrushMode.SCHEDULED_MONSTER
 	var is_obstacle := _brush_mode == BrushMode.OBSTACLE
+	var is_boss := _brush_mode == BrushMode.BOSS
 	var is_breakable_obstacle := is_obstacle and _obstacle_type_option.selected == 0
 	_monster_hp_spin.visible = is_start or is_scheduled
 	_spawn_delay_spin.visible = is_scheduled
@@ -627,6 +722,10 @@ func _refresh_tool_visibility() -> void:
 	_spawn_on_break_check.visible = is_breakable_obstacle
 	_spawn_on_break_hp_spin.visible = is_breakable_obstacle and _spawn_on_break_check.button_pressed
 	_spawn_on_break_count_spin.visible = is_breakable_obstacle and _spawn_on_break_check.button_pressed
+	_boss_hp_spin.visible = is_boss
+	_boss_width_spin.visible = is_boss
+	_boss_height_spin.visible = is_boss
+	_boss_sprite_spin.visible = is_boss
 
 func _on_viewport_size_changed() -> void:
 	_resize_grid_cells()
@@ -672,6 +771,31 @@ func _refresh_grid_visuals() -> void:
 	for o in _level_data["obstacles"]:
 		var key = "%d:%d" % [int(o.get("x", -1)), int(o.get("y", -1))]
 		obstacle_map[key] = o
+
+	var boss_cell := {}
+	for bi in range(_level_data["boss_units"].size()):
+		var b: Dictionary = _level_data["boss_units"][bi]
+		if typeof(b) != TYPE_DICTIONARY:
+			continue
+		var bax := int(b.get("anchor_x", 0))
+		var bay := int(b.get("anchor_y", 0))
+		var bw := maxi(1, int(b.get("width", 1)))
+		var bh := maxi(1, int(b.get("height", 1)))
+		var bhp := maxi(1, int(b.get("hp", 1)))
+		var bspr := clampi(int(b.get("sprite", 1)), 1, 5)
+		for dy in range(bh):
+			for dx in range(bw):
+				var cx := bax + dx
+				var cy := bay + dy
+				var ckey := "%d:%d" % [cx, cy]
+				boss_cell[ckey] = {
+					"is_anchor": dx == 0 and dy == 0,
+					"hp": bhp,
+					"sprite": bspr,
+					"bw": bw,
+					"bh": bh,
+					"index": bi
+				}
 
 	for y in range(ENEMY_ROWS):
 		for x in range(COLS):
@@ -722,6 +846,25 @@ func _refresh_grid_visuals() -> void:
 					btn.modulate = Color(1, 1, 1, 0.5)
 				top_label.text = (top_label.text + " " if top_label.text != "" else "") + ("q×%d" % sched_map[key].size())
 
+			if boss_cell.has(key):
+				var bd: Dictionary = boss_cell[key]
+				btn.self_modulate = BOSS_CELL_COLOR
+				btn.tooltip_text += " | босс"
+				if bool(bd.get("is_anchor", false)):
+					var spr_b := clampi(int(bd.get("sprite", 1)), 1, 5)
+					icon.texture = MONSTER_TEXTURES.get(spr_b, null)
+					var bhp_v := int(bd.get("hp", 1))
+					var bw_v := int(bd.get("bw", 1))
+					var bh_v := int(bd.get("bh", 1))
+					top_label.text = ("Б%d×%d %d" % [bw_v, bh_v, bhp_v]) + ((" " + top_label.text) if top_label.text != "" else "")
+					hp_bg.visible = true
+					hp_fg.visible = true
+					var hp_ratio_b := clamp(float(bhp_v) / 120.0, 0.12, 1.0)
+					hp_fg.anchor_right = 0.15 + 0.7 * hp_ratio_b
+				else:
+					icon.texture = null
+					top_label.text = ("·") + ((" " + top_label.text) if top_label.text != "" else "")
+
 			if _selected_cell.x == x and _selected_cell.y == y:
 				btn.add_theme_color_override("font_color", Color(1, 0.95, 0.6))
 				btn.add_theme_color_override("font_hover_color", Color(1, 0.95, 0.6))
@@ -752,6 +895,20 @@ func _refresh_entity_list() -> void:
 		_entities_list.add_item("Очередь hp=%d x%d через %d @ (%d,%d)" % [int(s.get("hp", 1)), int(s.get("count", 1)), int(s.get("spawn_after_player_turns", 0)), x, y])
 		_entity_refs.append({"kind": "scheduled", "index": i})
 
+	for i in range(_level_data["boss_units"].size()):
+		var b: Dictionary = _level_data["boss_units"][i]
+		var bax := int(b.get("anchor_x", -1))
+		var bay := int(b.get("anchor_y", -1))
+		var bw := maxi(1, int(b.get("width", 1)))
+		var bh := maxi(1, int(b.get("height", 1)))
+		if only_selected:
+			var sx := _selected_cell.x
+			var sy := _selected_cell.y
+			if sx < bax or sy < bay or sx >= bax + bw or sy >= bay + bh:
+				continue
+		_entities_list.add_item("Босс %d×%d HP=%d spr=%d @ (%d,%d)" % [bw, bh, int(b.get("hp", 1)), int(b.get("sprite", 1)), bax, bay])
+		_entity_refs.append({"kind": "boss", "index": i})
+
 	for i in range(_level_data["obstacles"].size()):
 		var o = _level_data["obstacles"][i]
 		var x = int(o.get("x", -1))
@@ -780,6 +937,9 @@ func _on_delete_selected_entity() -> void:
 		"scheduled":
 			if idx >= 0 and idx < _level_data["scheduled_spawns"].size():
 				_level_data["scheduled_spawns"].remove_at(idx)
+		"boss":
+			if idx >= 0 and idx < _level_data["boss_units"].size():
+				_level_data["boss_units"].remove_at(idx)
 		"obstacle":
 			if idx >= 0 and idx < _level_data["obstacles"].size():
 				_level_data["obstacles"].remove_at(idx)
