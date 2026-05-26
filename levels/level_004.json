@@ -7,7 +7,7 @@
     {
       "x": 0,
       "y": 1,
-      "hp": 2
+      "hp": 1
     },
     {
       "x": 1,
@@ -17,7 +17,7 @@
     {
       "x": 2,
       "y": 1,
-      "hp": 2
+      "hp": 1
     },
     {
       "x": 3,
@@ -27,7 +27,7 @@
     {
       "x": 4,
       "y": 1,
-      "hp": 2
+      "hp": 1
     },
     {
       "x": 5,
@@ -37,7 +37,7 @@
     {
       "x": 6,
       "y": 1,
-      "hp": 2
+      "hp": 1
     },
     {
       "x": 7,
@@ -45,129 +45,49 @@
       "hp": 1
     },
     {
-      "x": 0,
-      "y": 2,
-      "hp": 1
-    },
-    {
-      "x": 1,
-      "y": 2,
-      "hp": 2
-    },
-    {
-      "x": 2,
-      "y": 2,
-      "hp": 1
-    },
-    {
-      "x": 3,
-      "y": 2,
-      "hp": 2
-    },
-    {
-      "x": 4,
-      "y": 2,
-      "hp": 1
-    },
-    {
-      "x": 5,
-      "y": 2,
-      "hp": 2
-    },
-    {
-      "x": 6,
-      "y": 2,
-      "hp": 1
-    },
-    {
-      "x": 7,
-      "y": 2,
-      "hp": 2
-    },
-    {
-      "x": 0,
-      "y": 3,
-      "hp": 2
-    },
-    {
-      "x": 1,
-      "y": 3,
-      "hp": 1
-    },
-    {
-      "x": 2,
-      "y": 3,
-      "hp": 2
-    },
-    {
-      "x": 3,
-      "y": 3,
-      "hp": 1
-    },
-    {
-      "x": 4,
-      "y": 3,
-      "hp": 2
-    },
-    {
-      "x": 5,
-      "y": 3,
-      "hp": 1
-    },
-    {
-      "x": 6,
-      "y": 3,
-      "hp": 2
-    },
-    {
       "x": 7,
       "y": 3,
       "hp": 1
     },
     {
-      "x": 0,
-      "y": 4,
-      "hp": 1
-    },
-    {
-      "x": 1,
-      "y": 4,
-      "hp": 2
-    },
-    {
-      "x": 2,
-      "y": 4,
-      "hp": 1
-    },
-    {
-      "x": 3,
-      "y": 4,
-      "hp": 2
-    },
-    {
-      "x": 4,
-      "y": 4,
+      "x": 6,
+      "y": 3,
       "hp": 1
     },
     {
       "x": 5,
-      "y": 4,
-      "hp": 2
-    },
-    {
-      "x": 6,
-      "y": 4,
+      "y": 3,
       "hp": 1
     },
     {
-      "x": 7,
-      "y": 4,
-      "hp": 2
+      "x": 4,
+      "y": 3,
+      "hp": 1
+    },
+    {
+      "x": 3,
+      "y": 3,
+      "hp": 1
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "hp": 1
+    },
+    {
+      "x": 1,
+      "y": 3,
+      "hp": 1
+    },
+    {
+      "x": 0,
+      "y": 3,
+      "hp": 1
     },
     {
       "x": 0,
       "y": 5,
-      "hp": 2
+      "hp": 1
     },
     {
       "x": 1,
@@ -175,19 +95,19 @@
       "hp": 1
     },
     {
-      "x": 2,
+      "x": 3,
       "y": 5,
-      "hp": 2
+      "hp": 1
     },
     {
-      "x": 3,
+      "x": 2,
       "y": 5,
       "hp": 1
     },
     {
       "x": 4,
       "y": 5,
-      "hp": 2
+      "hp": 1
     },
     {
       "x": 5,
@@ -197,7 +117,7 @@
     {
       "x": 6,
       "y": 5,
-      "hp": 2
+      "hp": 1
     },
     {
       "x": 7,
@@ -207,18 +127,18 @@
   ],
   "scheduled_spawns": [
     {
-      "x": 2,
+      "x": 0,
       "y": 0,
       "hp": 1,
       "count": 1,
-      "spawn_after_player_turns": 1
+      "spawn_after_player_turns": 3
     },
     {
-      "x": 6,
+      "x": 1,
       "y": 0,
       "hp": 1,
       "count": 1,
-      "spawn_after_player_turns": 2
+      "spawn_after_player_turns": 3
     },
     {
       "x": 2,
@@ -228,100 +148,41 @@
       "spawn_after_player_turns": 3
     },
     {
-      "x": 6,
-      "y": 0,
-      "hp": 2,
-      "count": 1,
-      "spawn_after_player_turns": 4
-    },
-    {
-      "x": 2,
-      "y": 0,
-      "hp": 2,
-      "count": 1,
-      "spawn_after_player_turns": 5
-    },
-    {
-      "x": 6,
-      "y": 0,
-      "hp": 2,
-      "count": 1,
-      "spawn_after_player_turns": 6
-    },
-    {
-      "x": 2,
-      "y": 0,
-      "hp": 2,
-      "count": 1,
-      "spawn_after_player_turns": 7
-    }
-  ],
-  "obstacles": [
-    {
-      "x": 4,
-      "y": 2,
-      "hp": 2
-    },
-    {
-      "x": 0,
-      "y": 3,
-      "type": "breakable"
-    },
-    {
-      "x": 1,
-      "y": 3,
-      "type": "breakable"
-    },
-    {
-      "x": 2,
-      "y": 3,
-      "type": "breakable"
-    },
-    {
       "x": 3,
-      "y": 3,
-      "type": "breakable"
+      "y": 0,
+      "hp": 1,
+      "count": 1,
+      "spawn_after_player_turns": 3
     },
     {
       "x": 4,
-      "y": 3,
-      "type": "breakable"
+      "y": 0,
+      "hp": 1,
+      "count": 1,
+      "spawn_after_player_turns": 3
     },
     {
       "x": 5,
-      "y": 3,
-      "type": "breakable"
-    },
-    {
-      "x": 2,
-      "y": 5,
-      "type": "breakable"
-    },
-    {
-      "x": 3,
-      "y": 5,
-      "type": "breakable"
-    },
-    {
-      "x": 4,
-      "y": 5,
-      "type": "breakable"
-    },
-    {
-      "x": 5,
-      "y": 5,
-      "type": "breakable"
+      "y": 0,
+      "hp": 1,
+      "count": 1,
+      "spawn_after_player_turns": 3
     },
     {
       "x": 6,
-      "y": 5,
-      "type": "breakable"
+      "y": 0,
+      "hp": 1,
+      "count": 1,
+      "spawn_after_player_turns": 3
     },
     {
       "x": 7,
-      "y": 5,
-      "type": "breakable"
+      "y": 0,
+      "hp": 1,
+      "count": 1,
+      "spawn_after_player_turns": 3
     }
   ],
+  "obstacles": [],
   "seed": 9068
 }

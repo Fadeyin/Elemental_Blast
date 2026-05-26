@@ -15,13 +15,6 @@
   ],
   "start_monsters": [],
   "scheduled_spawns": [],
-  "obstacles": [
-    {"x": 0, "y": 0, "type": "breakable"},
-    {"x": 0, "y": 1, "type": "breakable"},
-    {"x": 0, "y": 2, "type": "breakable"},
-    {"x": 7, "y": 0, "type": "breakable"},
-    {"x": 7, "y": 1, "type": "breakable"},
-    {"x": 7, "y": 2, "type": "breakable"}
-  ],
+  "obstacles": [],
   "seed": 9085
 }
