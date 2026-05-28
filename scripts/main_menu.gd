@@ -27,19 +27,30 @@ var _golden_pass_dialog_open: bool = false
 const GOLDEN_PASS_DIALOG_SCRIPT := preload("res://scripts/golden_pass_dialog.gd")
 const TEX_UI_TOOLBAR_BG := preload("res://textures/ui_main_menu_toolbar_bg.png")
 const TEX_UI_BUY_COINS_BTN := preload("res://textures/ui_buy_coins_button.png")
+const TEX_UI_PLAY_BTN := preload("res://textures/ui_main_menu_play_button.png")
 const TEX_UI_SETTINGS := preload("res://textures/Booster_Hummer.png")
 const TEX_UI_GOLDEN_PASS := preload("res://textures/Chip_Bonus_Rainbow_Ball.png")
+const PLAY_BTN_TEX_SIZE := Vector2(1371.0, 474.0)
+const TOP_BAR_HEIGHT := 62.0
+const TOP_BAR_WIDTH := 268.0
+const TOP_BAR_MARGIN_LEFT := 10.0
+const TOP_BAR_MARGIN_TOP := 18.0
+const BUY_COINS_BTN_SIZE := 46.0
 
 var _syncing_ranks_level_edit: bool = false
+var _play_level_banner: Label = null
 
 func _ready():
 	if LevelManager:
 		LevelManager.clear_editor_level_override()
 	_create_top_bar()
+	_create_top_bar_settings()
 	if LevelManager:
 		LevelManager.tick_golden_pass_daily_login()
 	_create_golden_pass_fab()
 	
+	if is_instance_valid(start_level_label):
+		start_level_label.visible = false
 	if is_instance_valid(play_button):
 		play_button.pressed.connect(_on_play_pressed)
 		_style_play_button()
@@ -148,9 +159,14 @@ func _show_golden_pass_dialog() -> void:
 func _create_top_bar() -> void:
 	var top_bar := Control.new()
 	top_bar.name = "TopBar"
-	top_bar.custom_minimum_size = Vector2(0, 80)
-	top_bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	top_bar.offset_bottom = 80
+	top_bar.anchor_left = 0.0
+	top_bar.anchor_top = 0.0
+	top_bar.anchor_right = 0.0
+	top_bar.anchor_bottom = 0.0
+	top_bar.offset_left = TOP_BAR_MARGIN_LEFT
+	top_bar.offset_top = TOP_BAR_MARGIN_TOP
+	top_bar.offset_right = TOP_BAR_MARGIN_LEFT + TOP_BAR_WIDTH
+	top_bar.offset_bottom = TOP_BAR_MARGIN_TOP + TOP_BAR_HEIGHT
 	top_bar.z_index = 10
 	add_child(top_bar)
 	move_child(top_bar, 1)
@@ -164,17 +180,28 @@ func _create_top_bar() -> void:
 	top_bar.add_child(bg)
 	var hbox := HBoxContainer.new()
 	hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hbox.add_theme_constant_override("separation", 10)
+	hbox.offset_left = 6.0
+	hbox.offset_right = -6.0
+	hbox.add_theme_constant_override("separation", 6)
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	top_bar.add_child(hbox)
-	hbox.add_child(_create_spacer(16))
-	var coins_container := _create_coins_display()
-	hbox.add_child(coins_container)
-	var buy_coins_btn := _create_buy_coins_button()
-	hbox.add_child(buy_coins_btn)
-	hbox.add_child(_create_flexible_spacer())
+	hbox.add_child(_create_spacer(2))
+	hbox.add_child(_create_coins_display())
+	hbox.add_child(_create_buy_coins_button())
+
+func _create_top_bar_settings() -> void:
 	var settings_btn := _create_settings_button()
-	hbox.add_child(settings_btn)
-	hbox.add_child(_create_spacer(16))
+	settings_btn.name = "TopBarSettings"
+	settings_btn.anchor_left = 1.0
+	settings_btn.anchor_top = 0.0
+	settings_btn.anchor_right = 1.0
+	settings_btn.anchor_bottom = 0.0
+	settings_btn.offset_left = -72.0
+	settings_btn.offset_top = TOP_BAR_MARGIN_TOP
+	settings_btn.offset_right = -10.0
+	settings_btn.offset_bottom = TOP_BAR_MARGIN_TOP + 60.0
+	settings_btn.z_index = 10
+	add_child(settings_btn)
 
 func _create_spacer(width: float) -> Control:
 	var spacer = Control.new()
@@ -190,10 +217,10 @@ func _create_coins_display() -> Control:
 	var container = HBoxContainer.new()
 	container.add_theme_constant_override("separation", 8)
 	var coin_slot := CenterContainer.new()
-	coin_slot.custom_minimum_size = Vector2(52, 52)
+	coin_slot.custom_minimum_size = Vector2(46, 46)
 	var coin_icon := TextureRect.new()
 	coin_icon.texture = LevelManager.UI_GOLD_COIN_TEXTURE
-	coin_icon.custom_minimum_size = Vector2(48, 48)
+	coin_icon.custom_minimum_size = Vector2(42, 42)
 	coin_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	coin_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	coin_slot.add_child(coin_icon)
@@ -203,7 +230,7 @@ func _create_coins_display() -> Control:
 	coins_label.name = "TopBarCoinsCount"
 	var coins = LevelManager.get_coins() if LevelManager else 0
 	coins_label.text = str(coins)
-	coins_label.add_theme_font_size_override("font_size", 32)
+	coins_label.add_theme_font_size_override("font_size", 28)
 	coins_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
 	coins_label.add_theme_color_override("font_outline_color", Color(0.3, 0.2, 0.0, 0.9))
 	coins_label.add_theme_constant_override("outline_size", 4)
@@ -218,7 +245,7 @@ func _create_buy_coins_button() -> TextureButton:
 	btn.texture_pressed = TEX_UI_BUY_COINS_BTN
 	btn.texture_hover = TEX_UI_BUY_COINS_BTN
 	btn.ignore_texture_size = true
-	btn.custom_minimum_size = Vector2(56, 56)
+	btn.custom_minimum_size = Vector2(BUY_COINS_BTN_SIZE, BUY_COINS_BTN_SIZE)
 	btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 	btn.focus_mode = Control.FOCUS_NONE
 	btn.pressed.connect(_on_buy_coins_pressed)
@@ -436,62 +463,67 @@ func _style_secondary_action_button(btn: Button) -> void:
 	btn.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
 	btn.add_theme_constant_override("outline_size", 3)
 
-func _style_play_button():
+func _make_texture_stylebox(tex: Texture2D) -> StyleBoxTexture:
+	var sb := StyleBoxTexture.new()
+	sb.texture = tex
+	return sb
+
+func _style_play_button() -> void:
 	if not is_instance_valid(play_button):
 		return
-	
-	# Красивый стиль кнопки с закруглениями
-	var normal_style = StyleBoxFlat.new()
-	normal_style.bg_color = Color(0.2, 0.4, 0.6, 1.0) # Синий
-	normal_style.corner_radius_top_left = 20
-	normal_style.corner_radius_top_right = 20
-	normal_style.corner_radius_bottom_left = 20
-	normal_style.corner_radius_bottom_right = 20
-	normal_style.border_width_top = 3
-	normal_style.border_width_bottom = 3
-	normal_style.border_width_left = 3
-	normal_style.border_width_right = 3
-	normal_style.border_color = Color(0.4, 0.6, 0.9, 1.0)
-	normal_style.shadow_color = Color(0, 0, 0, 0.3)
-	normal_style.shadow_size = 8
-	normal_style.shadow_offset = Vector2(0, 4)
-	
-	var hover_style = normal_style.duplicate()
-	hover_style.bg_color = Color(0.3, 0.5, 0.7, 1.0)
-	hover_style.border_color = Color(0.5, 0.7, 1.0, 1.0)
-	
-	var pressed_style = normal_style.duplicate()
-	pressed_style.bg_color = Color(0.15, 0.3, 0.5, 1.0)
-	pressed_style.shadow_offset = Vector2(0, 2)
-	
-	play_button.add_theme_stylebox_override("normal", normal_style)
-	play_button.add_theme_stylebox_override("hover", hover_style)
-	play_button.add_theme_stylebox_override("pressed", pressed_style)
-	
-	# Игровой шрифт (жирный, читаемый)
-	play_button.add_theme_font_size_override("font_size", 48)
-	play_button.add_theme_color_override("font_color", Color.WHITE)
-	play_button.add_theme_color_override("font_hover_color", Color(1, 1, 0.9))
-	play_button.add_theme_color_override("font_pressed_color", Color(0.9, 0.9, 0.9))
-	
-	# Обводка текста для читаемости
-	play_button.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
-	play_button.add_theme_constant_override("outline_size", 4)
+	play_button.text = ""
+	play_button.flat = true
+	var btn_w := 400.0
+	var btn_h := btn_w * PLAY_BTN_TEX_SIZE.y / PLAY_BTN_TEX_SIZE.x
+	play_button.custom_minimum_size = Vector2(btn_w, btn_h)
+	var bottom_gap := 72.0
+	play_button.offset_left = -btn_w * 0.5
+	play_button.offset_right = btn_w * 0.5
+	play_button.offset_top = -bottom_gap - btn_h
+	play_button.offset_bottom = -bottom_gap
+	var tex_style := _make_texture_stylebox(TEX_UI_PLAY_BTN)
+	play_button.add_theme_stylebox_override("normal", tex_style)
+	play_button.add_theme_stylebox_override("hover", tex_style)
+	play_button.add_theme_stylebox_override("pressed", tex_style)
+	play_button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	_ensure_play_level_banner()
+	_position_play_level_banner()
 
-func _update_level_label():
-	if is_instance_valid(start_level_label):
-		var lvl = LevelManager.current_level if LevelManager else 1
-		start_level_label.text = "Стартовый уровень: " + str(lvl)
-		# Применяем игровой шрифт к лейблу
-		start_level_label.add_theme_font_size_override("font_size", 32)
-		start_level_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
-		start_level_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.6))
-		start_level_label.add_theme_constant_override("outline_size", 3)
-	
-	# Обновляем текст кнопки
-	if is_instance_valid(play_button):
-		var lvl = LevelManager.current_level if LevelManager else 1
-		play_button.text = "Уровень " + str(lvl)
+func _ensure_play_level_banner() -> void:
+	if _play_level_banner != null and is_instance_valid(_play_level_banner):
+		return
+	if not is_instance_valid(main_tab) or not is_instance_valid(play_button):
+		return
+	_play_level_banner = Label.new()
+	_play_level_banner.name = "PlayLevelBanner"
+	_play_level_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_play_level_banner.add_theme_font_size_override("font_size", 24)
+	_play_level_banner.add_theme_color_override("font_color", Color(0.92, 0.98, 1.0))
+	_play_level_banner.add_theme_color_override("font_outline_color", Color(0.12, 0.38, 0.58, 0.95))
+	_play_level_banner.add_theme_constant_override("outline_size", 3)
+	main_tab.add_child(_play_level_banner)
+
+func _position_play_level_banner() -> void:
+	if _play_level_banner == null or not is_instance_valid(_play_level_banner):
+		return
+	if not is_instance_valid(play_button):
+		return
+	_play_level_banner.anchor_left = play_button.anchor_left
+	_play_level_banner.anchor_top = play_button.anchor_top
+	_play_level_banner.anchor_right = play_button.anchor_right
+	_play_level_banner.anchor_bottom = play_button.anchor_bottom
+	_play_level_banner.offset_left = play_button.offset_left
+	_play_level_banner.offset_right = play_button.offset_right
+	_play_level_banner.offset_top = play_button.offset_bottom + 4.0
+	_play_level_banner.offset_bottom = play_button.offset_bottom + 36.0
+	_play_level_banner.grow_horizontal = play_button.grow_horizontal
+
+func _update_level_label() -> void:
+	var lvl := LevelManager.current_level if LevelManager else 1
+	_ensure_play_level_banner()
+	if _play_level_banner != null and is_instance_valid(_play_level_banner):
+		_play_level_banner.text = "Уровень %d" % lvl
+	_position_play_level_banner()
 
 func _update_version_label():
 	if is_instance_valid(version_label):
