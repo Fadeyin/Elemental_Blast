@@ -1,7 +1,6 @@
 extends Control
 
-@onready var play_button = $TabContent/MainTab/PlayButton
-@onready var start_level_label = $TabContent/MainTab/StartLevelLabel
+@onready var play_button: TextureButton = $TabContent/MainTab/PlayButton
 @onready var version_label = $VersionLabel
 
 @onready var ranks_level_edit: LineEdit = $TabContent/RanksTab/RanksMargin/RanksVBox/LevelPickRow/LevelNumberEdit
@@ -49,8 +48,6 @@ func _ready():
 		LevelManager.tick_golden_pass_daily_login()
 	_create_golden_pass_fab()
 	
-	if is_instance_valid(start_level_label):
-		start_level_label.visible = false
 	if is_instance_valid(play_button):
 		play_button.pressed.connect(_on_play_pressed)
 		_style_play_button()
@@ -463,29 +460,24 @@ func _style_secondary_action_button(btn: Button) -> void:
 	btn.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
 	btn.add_theme_constant_override("outline_size", 3)
 
-func _make_texture_stylebox(tex: Texture2D) -> StyleBoxTexture:
-	var sb := StyleBoxTexture.new()
-	sb.texture = tex
-	return sb
-
 func _style_play_button() -> void:
 	if not is_instance_valid(play_button):
 		return
-	play_button.text = ""
-	play_button.flat = true
+	play_button.texture_normal = TEX_UI_PLAY_BTN
+	play_button.texture_pressed = TEX_UI_PLAY_BTN
+	play_button.texture_hover = TEX_UI_PLAY_BTN
+	play_button.ignore_texture_size = true
+	play_button.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+	play_button.focus_mode = Control.FOCUS_NONE
 	var btn_w := 400.0
 	var btn_h := btn_w * PLAY_BTN_TEX_SIZE.y / PLAY_BTN_TEX_SIZE.x
 	play_button.custom_minimum_size = Vector2(btn_w, btn_h)
-	var bottom_gap := 72.0
+	var bottom_gap := 110.0
 	play_button.offset_left = -btn_w * 0.5
 	play_button.offset_right = btn_w * 0.5
 	play_button.offset_top = -bottom_gap - btn_h
 	play_button.offset_bottom = -bottom_gap
-	var tex_style := _make_texture_stylebox(TEX_UI_PLAY_BTN)
-	play_button.add_theme_stylebox_override("normal", tex_style)
-	play_button.add_theme_stylebox_override("hover", tex_style)
-	play_button.add_theme_stylebox_override("pressed", tex_style)
-	play_button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	play_button.z_index = 2
 	_ensure_play_level_banner()
 	_position_play_level_banner()
 
@@ -501,6 +493,7 @@ func _ensure_play_level_banner() -> void:
 	_play_level_banner.add_theme_color_override("font_color", Color(0.92, 0.98, 1.0))
 	_play_level_banner.add_theme_color_override("font_outline_color", Color(0.12, 0.38, 0.58, 0.95))
 	_play_level_banner.add_theme_constant_override("outline_size", 3)
+	_play_level_banner.z_index = 3
 	main_tab.add_child(_play_level_banner)
 
 func _position_play_level_banner() -> void:
