@@ -25,8 +25,8 @@ var _level_start_dialog_shown: bool = false
 var _golden_pass_dialog_open: bool = false
 
 const GOLDEN_PASS_DIALOG_SCRIPT := preload("res://scripts/golden_pass_dialog.gd")
-# Текстуры вместо эмодзи в шрифте: на Android системный шрифт часто без цветных глифов — вместо иконок «квадраты» с кодами
-const TEX_UI_AVATAR := preload("res://textures/Monster_1_lvl.png")
+const TEX_UI_TOOLBAR_BG := preload("res://textures/ui_main_menu_toolbar_bg.png")
+const TEX_UI_BUY_COINS_BTN := preload("res://textures/ui_buy_coins_button.png")
 const TEX_UI_SETTINGS := preload("res://textures/Booster_Hummer.png")
 const TEX_UI_GOLDEN_PASS := preload("res://textures/Chip_Bonus_Rainbow_Ball.png")
 
@@ -145,41 +145,36 @@ func _show_golden_pass_dialog() -> void:
 	add_child(dlg)
 	dlg.setup()
 
-func _create_top_bar():
-	var top_bar = ColorRect.new()
+func _create_top_bar() -> void:
+	var top_bar := Control.new()
 	top_bar.name = "TopBar"
 	top_bar.custom_minimum_size = Vector2(0, 80)
-	top_bar.color = Color(0.08, 0.1, 0.12, 0.9)
 	top_bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	top_bar.offset_bottom = 80
 	top_bar.z_index = 10
 	add_child(top_bar)
 	move_child(top_bar, 1)
-	
-	var hbox = HBoxContainer.new()
+	var bg := TextureRect.new()
+	bg.name = "TopBarBackground"
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.texture = TEX_UI_TOOLBAR_BG
+	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg.stretch_mode = TextureRect.STRETCH_SCALE
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top_bar.add_child(bg)
+	var hbox := HBoxContainer.new()
 	hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hbox.add_theme_constant_override("separation", 15)
+	hbox.add_theme_constant_override("separation", 10)
 	top_bar.add_child(hbox)
-	
-	hbox.add_child(_create_spacer(20))
-	
-	var avatar_container = _create_avatar()
-	hbox.add_child(avatar_container)
-	
-	hbox.add_child(_create_spacer(15))
-	
-	var coins_container = _create_coins_display()
+	hbox.add_child(_create_spacer(16))
+	var coins_container := _create_coins_display()
 	hbox.add_child(coins_container)
-	
-	var buy_coins_btn = _create_buy_coins_button()
+	var buy_coins_btn := _create_buy_coins_button()
 	hbox.add_child(buy_coins_btn)
-	
 	hbox.add_child(_create_flexible_spacer())
-	
-	var settings_btn = _create_settings_button()
+	var settings_btn := _create_settings_button()
 	hbox.add_child(settings_btn)
-	
-	hbox.add_child(_create_spacer(20))
+	hbox.add_child(_create_spacer(16))
 
 func _create_spacer(width: float) -> Control:
 	var spacer = Control.new()
@@ -191,42 +186,14 @@ func _create_flexible_spacer() -> Control:
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return spacer
 
-func _create_avatar() -> Control:
-	var container = PanelContainer.new()
-	container.custom_minimum_size = Vector2(64, 64)
-	
-	var bg_style = StyleBoxFlat.new()
-	bg_style.bg_color = Color(0.3, 0.35, 0.4, 1.0)
-	bg_style.corner_radius_top_left = 32
-	bg_style.corner_radius_top_right = 32
-	bg_style.corner_radius_bottom_left = 32
-	bg_style.corner_radius_bottom_right = 32
-	bg_style.border_width_top = 3
-	bg_style.border_width_bottom = 3
-	bg_style.border_width_left = 3
-	bg_style.border_width_right = 3
-	bg_style.border_color = Color(0.5, 0.6, 0.7, 1.0)
-	container.add_theme_stylebox_override("panel", bg_style)
-	
-	var avatar_center = CenterContainer.new()
-	var avatar_icon := TextureRect.new()
-	avatar_icon.texture = TEX_UI_AVATAR
-	avatar_icon.custom_minimum_size = Vector2(52, 52)
-	avatar_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	avatar_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	avatar_center.add_child(avatar_icon)
-	container.add_child(avatar_center)
-	
-	return container
-
 func _create_coins_display() -> Control:
 	var container = HBoxContainer.new()
 	container.add_theme_constant_override("separation", 8)
 	var coin_slot := CenterContainer.new()
-	coin_slot.custom_minimum_size = Vector2(44, 44)
+	coin_slot.custom_minimum_size = Vector2(52, 52)
 	var coin_icon := TextureRect.new()
 	coin_icon.texture = LevelManager.UI_GOLD_COIN_TEXTURE
-	coin_icon.custom_minimum_size = Vector2(40, 40)
+	coin_icon.custom_minimum_size = Vector2(48, 48)
 	coin_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	coin_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	coin_slot.add_child(coin_icon)
@@ -245,39 +212,16 @@ func _create_coins_display() -> Control:
 	
 	return container
 
-func _create_buy_coins_button() -> Button:
-	var btn = Button.new()
-	btn.text = "+"
-	btn.custom_minimum_size = Vector2(50, 50)
-	
-	var normal_style = StyleBoxFlat.new()
-	normal_style.bg_color = Color(0.2, 0.6, 0.3, 1.0)
-	normal_style.corner_radius_top_left = 25
-	normal_style.corner_radius_top_right = 25
-	normal_style.corner_radius_bottom_left = 25
-	normal_style.corner_radius_bottom_right = 25
-	normal_style.border_width_top = 2
-	normal_style.border_width_bottom = 2
-	normal_style.border_width_left = 2
-	normal_style.border_width_right = 2
-	normal_style.border_color = Color(0.3, 0.8, 0.4, 1.0)
-	
-	var hover_style = normal_style.duplicate()
-	hover_style.bg_color = Color(0.3, 0.7, 0.4, 1.0)
-	
-	var pressed_style = normal_style.duplicate()
-	pressed_style.bg_color = Color(0.15, 0.5, 0.25, 1.0)
-	
-	btn.add_theme_stylebox_override("normal", normal_style)
-	btn.add_theme_stylebox_override("hover", hover_style)
-	btn.add_theme_stylebox_override("pressed", pressed_style)
-	btn.add_theme_font_size_override("font_size", 36)
-	btn.add_theme_color_override("font_color", Color.WHITE)
-	btn.add_theme_color_override("font_outline_color", Color(0, 0.3, 0, 0.9))
-	btn.add_theme_constant_override("outline_size", 3)
-	
+func _create_buy_coins_button() -> TextureButton:
+	var btn := TextureButton.new()
+	btn.texture_normal = TEX_UI_BUY_COINS_BTN
+	btn.texture_pressed = TEX_UI_BUY_COINS_BTN
+	btn.texture_hover = TEX_UI_BUY_COINS_BTN
+	btn.ignore_texture_size = true
+	btn.custom_minimum_size = Vector2(56, 56)
+	btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+	btn.focus_mode = Control.FOCUS_NONE
 	btn.pressed.connect(_on_buy_coins_pressed)
-	
 	return btn
 
 func _create_settings_button() -> Button:
