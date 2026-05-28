@@ -1637,8 +1637,7 @@ func _draw():
 				var tile_pos = origin + Vector2(float(x) * CELL_SIZE, float(y) * ENEMY_CELL_HEIGHT)
 				draw_texture_rect(ENEMY_TILE_TEXTURE, Rect2(tile_pos, Vector2(CELL_SIZE, tile_h)), false)
 	
-	var portal_time := Time.get_ticks_msec() * 0.001
-	_draw_spawn_portals(origin, portal_time)
+	_draw_spawn_portals(origin)
 	_draw_portal_spawn_burst_vfx(origin)
 	
 	var heart_strip_top = origin.y + float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT
@@ -3931,7 +3930,7 @@ func _draw_outlined_countdown(center: Vector2, text: String) -> void:
 			draw_string(font, pos + Vector2(ox, oy), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, outline)
 	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, fill)
 
-func _draw_spawn_portals(origin: Vector2, time_now: float) -> void:
+func _draw_spawn_portals(origin: Vector2) -> void:
 	if not _use_scheduled_spawns:
 		return
 	var cols := _collect_portal_columns()
@@ -3940,8 +3939,7 @@ func _draw_spawn_portals(origin: Vector2, time_now: float) -> void:
 		var info: Dictionary = cols[col_key]
 		var countdown := int(info.get("countdown", 0))
 		var spawn_y := int(info.get("spawn_y", 0))
-		var pulse := 1.0 + sin(time_now * 3.2 + float(col_x) * 0.55) * 0.045
-		var portal_rect := _portal_rect_for_column(origin, col_x, spawn_y, pulse)
+		var portal_rect := _portal_rect_for_column(origin, col_x, spawn_y)
 		draw_texture_rect(PORTAL_SPAWN_TEXTURE, portal_rect, false)
 		var center := portal_rect.position + portal_rect.size * 0.5
 		_draw_outlined_countdown(center, str(countdown))
@@ -3951,7 +3949,7 @@ func _draw_portal_spawn_burst_vfx(origin: Vector2) -> void:
 		var col_x := int(v.get("x", 0))
 		var spawn_y := int(v.get("y", 0))
 		var k := clampf(float(v.t) / float(v.d), 0.0, 1.0)
-		var portal_rect := _portal_rect_for_column(origin, col_x, spawn_y, 1.0)
+		var portal_rect := _portal_rect_for_column(origin, col_x, spawn_y)
 		var center := portal_rect.position + portal_rect.size * 0.5
 		var ring_r := lerpf(8.0, CELL_SIZE * 0.85, k)
 		var ring_alpha := (1.0 - k) * 0.75
