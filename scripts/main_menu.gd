@@ -35,6 +35,7 @@ const TOP_BAR_WIDTH := 268.0
 const TOP_BAR_MARGIN_LEFT := 10.0
 const TOP_BAR_MARGIN_TOP := 18.0
 const BUY_COINS_BTN_SIZE := 46.0
+const PLAY_BTN_PRESS_SCALE := Vector2(0.92, 0.92)
 
 var _syncing_ranks_level_edit: bool = false
 var _play_level_banner: Label = null
@@ -51,6 +52,7 @@ func _ready():
 	if is_instance_valid(play_button):
 		play_button.pressed.connect(_on_play_pressed)
 		_style_play_button()
+		_setup_play_button_press_feedback()
 	if is_instance_valid(ranks_editor_button):
 		ranks_editor_button.pressed.connect(_on_editor_pressed)
 		_style_secondary_action_button(ranks_editor_button)
@@ -469,6 +471,7 @@ func _style_play_button() -> void:
 	play_button.ignore_texture_size = true
 	play_button.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 	play_button.focus_mode = Control.FOCUS_NONE
+	play_button.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
 	var btn_w := 400.0
 	var btn_h := btn_w * PLAY_BTN_TEX_SIZE.y / PLAY_BTN_TEX_SIZE.x
 	play_button.custom_minimum_size = Vector2(btn_w, btn_h)
@@ -479,44 +482,72 @@ func _style_play_button() -> void:
 	play_button.offset_bottom = -bottom_gap
 	play_button.z_index = 2
 	_ensure_play_level_banner()
-	_position_play_level_banner()
+	call_deferred("_update_play_button_pivot")
 
 func _ensure_play_level_banner() -> void:
-	if _play_level_banner != null and is_instance_valid(_play_level_banner):
-		return
-	if not is_instance_valid(main_tab) or not is_instance_valid(play_button):
-		return
-	_play_level_banner = Label.new()
-	_play_level_banner.name = "PlayLevelBanner"
-	_play_level_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_play_level_banner.add_theme_font_size_override("font_size", 24)
-	_play_level_banner.add_theme_color_override("font_color", Color(0.92, 0.98, 1.0))
-	_play_level_banner.add_theme_color_override("font_outline_color", Color(0.12, 0.38, 0.58, 0.95))
-	_play_level_banner.add_theme_constant_override("outline_size", 3)
-	_play_level_banner.z_index = 3
-	main_tab.add_child(_play_level_banner)
-
-func _position_play_level_banner() -> void:
-	if _play_level_banner == null or not is_instance_valid(_play_level_banner):
-		return
 	if not is_instance_valid(play_button):
 		return
-	_play_level_banner.anchor_left = play_button.anchor_left
-	_play_level_banner.anchor_top = play_button.anchor_top
-	_play_level_banner.anchor_right = play_button.anchor_right
-	_play_level_banner.anchor_bottom = play_button.anchor_bottom
-	_play_level_banner.offset_left = play_button.offset_left
-	_play_level_banner.offset_right = play_button.offset_right
-	_play_level_banner.offset_top = play_button.offset_bottom + 4.0
-	_play_level_banner.offset_bottom = play_button.offset_bottom + 36.0
-	_play_level_banner.grow_horizontal = play_button.grow_horizontal
+	var old_on_tab := main_tab.get_node_or_null("PlayLevelBanner") if is_instance_valid(main_tab) else null
+	if old_on_tab != null:
+		old_on_tab.queue_free()
+	var existing := play_button.get_node_or_null("PlayLevelOverlay/PlayLevelBanner") as Label
+	if existing != null:
+		_play_level_banner = existing
+		return
+	var overlay := play_button.get_node_or_null("PlayLevelOverlay") as Control
+	if overlay == null:
+		overlay = Control.new()
+		overlay.name = "PlayLevelOverlay"
+		overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		play_button.add_child(overlay)
+	_play_level_banner = Label.new()
+	_play_level_banner.name = "PlayLevelBanner"
+	_play_level_banner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_play_level_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_play_level_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_play_level_banner.add_theme_font_size_override("font_size", 40)
+	_play_level_banner.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+	_play_level_banner.add_theme_color_override("font_outline_color", Color(0.12, 0.42, 0.18, 0.95))
+	_play_level_banner.add_theme_constant_override("outline_size", 5)
+	_play_level_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(_play_level_banner)
+
+func _setup_play_button_press_feedback() -> void:
+	if not is_instance_valid(play_button):
+		return
+	if play_button.button_down.is_connected(_on_play_button_down):
+		return
+	play_button.button_down.connect(_on_play_button_down)
+	play_button.button_up.connect(_on_play_button_up)
+	play_button.focus_exited.connect(_on_play_button_up)
+
+func _update_play_button_pivot() -> void:
+	if is_instance_valid(play_button):
+		play_button.pivot_offset = play_button.size * 0.5
+
+func _on_play_button_down() -> void:
+	if not is_instance_valid(play_button):
+		return
+	_update_play_button_pivot()
+	play_button.modulate = Color(0.86, 0.86, 0.86, 1.0)
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(play_button, "scale", PLAY_BTN_PRESS_SCALE, 0.07)
+
+func _on_play_button_up() -> void:
+	if not is_instance_valid(play_button):
+		return
+	play_button.modulate = Color(1.0, 1.0, 1.0, 1.0)
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(play_button, "scale", Vector2.ONE, 0.11)
 
 func _update_level_label() -> void:
 	var lvl := LevelManager.current_level if LevelManager else 1
 	_ensure_play_level_banner()
 	if _play_level_banner != null and is_instance_valid(_play_level_banner):
 		_play_level_banner.text = "Уровень %d" % lvl
-	_position_play_level_banner()
 
 func _update_version_label():
 	if is_instance_valid(version_label):
