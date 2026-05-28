@@ -56,6 +56,10 @@ const MIN_NORMAL_CLUSTER_POP := 2
 const BG_COLOR := Color(0.52, 0.58, 0.68, 1) # Пастельный светло-синий фон
 const GAME_BG_TEXTURE := preload("res://textures/Game_Backgound.png")
 const ENEMY_TILE_TEXTURE := preload("res://textures/Floor_Enemy_Tile_.png")
+const PORTAL_SPAWN_TEXTURE := preload("res://textures/ui_portal_spawn.png")
+const PORTAL_TEX_SIZE := Vector2(838.0, 844.0)
+const PORTAL_DRAW_WIDTH := 74.0
+const PORTAL_SPAWN_BURST_DURATION := 0.48
 
 # Константы полоски здоровья монстров
 const HEALTH_BAR_HEIGHT := 4.0
@@ -98,6 +102,7 @@ var _enemy_attack_warn_pending: bool = false
 var _enemy_attack_warn_time_left: float = 0.0
 var _cached_enemy_moves: Array = []
 var _enemy_move_anims := [] # [{fx:int,fy:int,tx:int,ty:int,hp:int,init:int,t:float,d:float}]
+var _portal_spawn_burst_vfx := [] # [{x:int,y:int,t:float,d:float}]
 # Пока false — не засчитывать победу (избегаем ложного _check_level_completed до пересборки целей)
 var _level_ready_for_win: bool = false
 
@@ -1167,6 +1172,7 @@ func _init_enemies_from_config(cfg: Dictionary):
 	_level_targets.clear()
 	_monster_spawn_queue.clear()
 	_scheduled_spawns.clear()
+	_portal_spawn_burst_vfx.clear()
 	_use_scheduled_spawns = false
 	_player_turn_counter = 0
 	
@@ -1631,6 +1637,10 @@ func _draw():
 				var tile_pos = origin + Vector2(float(x) * CELL_SIZE, float(y) * ENEMY_CELL_HEIGHT)
 				draw_texture_rect(ENEMY_TILE_TEXTURE, Rect2(tile_pos, Vector2(CELL_SIZE, tile_h)), false)
 	
+	var portal_time := Time.get_ticks_msec() * 0.001
+	_draw_spawn_portals(origin, portal_time)
+	_draw_portal_spawn_burst_vfx(origin)
+	
 	var heart_strip_top = origin.y + float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT
 	var heart_strip_rect = Rect2(Vector2(origin.x, heart_strip_top), Vector2(float(COLS) * CELL_SIZE, _field_gap_total))
 	var strip_sb = StyleBoxFlat.new()
@@ -1769,10 +1779,20 @@ func _draw():
 				"preserve_texture_aspect": true
 			})
 			continue
-		var k0 = clamp(ma.t / ma.d, 0.0, 1.0)
-		k0 = pow(k0, 0.8)
-		var ix0 = lerp(float(ma.fx), float(ma.tx), k0)
-		var iy0 = lerp(float(ma.fy), float(ma.ty), k0)
+		var ix0: float
+		var iy0: float
+		var spawn_scale_ma := 1.0
+		if ma.get("portal_spawn", false):
+			var pk := clamp(ma.t / ma.d, 0.0, 1.0)
+			pk = sin(pk * PI * 0.5)
+			spawn_scale_ma = lerpf(0.12, 1.0, pk)
+			ix0 = float(ma.fx)
+			iy0 = float(ma.fy)
+		else:
+			var k0 = clamp(ma.t / ma.d, 0.0, 1.0)
+			k0 = pow(k0, 0.8)
+			ix0 = lerp(float(ma.fx), float(ma.tx), k0)
+			iy0 = lerp(float(ma.fy), float(ma.ty), k0)
 		monsters_to_draw.append({
 			"x": ix0,
 			"y": iy0,
@@ -1781,7 +1801,8 @@ func _draw():
 			"id": ma.fx + ma.fy * 10,
 			"sort_y": iy0,
 			"alpha": 1.0,
-			"attack_warn": 0.0
+			"attack_warn": 0.0,
+			"spawn_scale": spawn_scale_ma
 		})
 	
 	# Затем умирающие (чтобы они тряслись и исчезали)
@@ -1879,6 +1900,8 @@ func _draw():
 		var sz_use: Vector2 = e_chip_size
 		if m.has("draw_size"):
 			sz_use = m.draw_size
+		var spawn_scale_draw := float(m.get("spawn_scale", 1.0))
+		sz_use *= spawn_scale_draw
 		var e_top_left: Vector2
 		if m.get("heart_strip_death", false):
 			var strip_mid_y = float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + HEART_STRIP_HEIGHT * 0.5
@@ -2642,6 +2665,10 @@ func _process(delta: float) -> void:
 		if _enemy_move_anims[m].t >= _enemy_move_anims[m].d:
 			_enemy_move_anims[m].t = _enemy_move_anims[m].d
 			# оставляем запись до конца кадра, удалим после отрисовки, чтобы дошли до цели визуально
+	for bi in range(_portal_spawn_burst_vfx.size() - 1, -1, -1):
+		_portal_spawn_burst_vfx[bi].t += delta
+		if _portal_spawn_burst_vfx[bi].t >= _portal_spawn_burst_vfx[bi].d:
+			_portal_spawn_burst_vfx.remove_at(bi)
 	# Удаляем завершённые после отрисовки
 	# Автопобеда/поражение и шаги врагов после завершения всех эффектов
 	if _projectiles.is_empty() and _active_anims.is_empty() and _enemy_death_anims.is_empty():
@@ -3859,6 +3886,94 @@ func _enemy_move_step() -> void:
 		return
 	_apply_enemy_moves_from_plan(planned)
 
+func _collect_portal_columns() -> Dictionary:
+	var cols := {}
+	if not _use_scheduled_spawns:
+		return cols
+	for item in _scheduled_spawns:
+		var x := clampi(int(item.get("x", 0)), 0, COLS - 1)
+		var y := clampi(int(item.get("y", 0)), 0, ENEMY_ROWS - 1)
+		var due := int(item.get("spawn_after_player_turns", 0))
+		var turns_left := due - _player_turn_counter
+		if turns_left < 0:
+			continue
+		if not cols.has(x):
+			cols[x] = {"countdown": turns_left, "spawn_y": y}
+			continue
+		var cur: Dictionary = cols[x]
+		if turns_left < int(cur.get("countdown", 9999)):
+			cols[x] = {"countdown": turns_left, "spawn_y": y}
+		elif turns_left == int(cur.get("countdown", 9999)) and y < int(cur.get("spawn_y", 99)):
+			cols[x] = {"countdown": turns_left, "spawn_y": y}
+	return cols
+
+func _portal_rect_for_column(origin: Vector2, col_x: int, spawn_y: int, pulse_scale: float) -> Rect2:
+	var portal_w := PORTAL_DRAW_WIDTH * pulse_scale
+	var portal_h := portal_w * PORTAL_TEX_SIZE.y / PORTAL_TEX_SIZE.x
+	var cell_top_y := origin.y + float(spawn_y) * ENEMY_CELL_HEIGHT
+	var top_left := Vector2(
+		origin.x + float(col_x) * CELL_SIZE + (CELL_SIZE - portal_w) * 0.5,
+		cell_top_y - portal_h * 0.72
+	)
+	return Rect2(top_left, Vector2(portal_w, portal_h))
+
+func _draw_outlined_countdown(center: Vector2, text: String) -> void:
+	var font := ThemeDB.fallback_font
+	var font_size := 30
+	var ts := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+	var pos := center - Vector2(ts.x * 0.5, ts.y * 0.35)
+	var outline := Color(0.12, 0.05, 0.28, 0.95)
+	var fill := Color(1.0, 0.98, 0.55, 1.0)
+	for ox in range(-2, 3):
+		for oy in range(-2, 3):
+			if ox == 0 and oy == 0:
+				continue
+			draw_string(font, pos + Vector2(ox, oy), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, outline)
+	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, fill)
+
+func _draw_spawn_portals(origin: Vector2, time_now: float) -> void:
+	if not _use_scheduled_spawns:
+		return
+	var cols := _collect_portal_columns()
+	for col_key in cols.keys():
+		var col_x := int(col_key)
+		var info: Dictionary = cols[col_key]
+		var countdown := int(info.get("countdown", 0))
+		var spawn_y := int(info.get("spawn_y", 0))
+		var pulse := 1.0 + sin(time_now * 3.2 + float(col_x) * 0.55) * 0.045
+		var portal_rect := _portal_rect_for_column(origin, col_x, spawn_y, pulse)
+		draw_texture_rect(PORTAL_SPAWN_TEXTURE, portal_rect, false)
+		var center := portal_rect.position + portal_rect.size * 0.5
+		_draw_outlined_countdown(center, str(countdown))
+
+func _draw_portal_spawn_burst_vfx(origin: Vector2) -> void:
+	for v in _portal_spawn_burst_vfx:
+		var col_x := int(v.get("x", 0))
+		var spawn_y := int(v.get("y", 0))
+		var k := clampf(float(v.t) / float(v.d), 0.0, 1.0)
+		var portal_rect := _portal_rect_for_column(origin, col_x, spawn_y, 1.0)
+		var center := portal_rect.position + portal_rect.size * 0.5
+		var ring_r := lerpf(8.0, CELL_SIZE * 0.85, k)
+		var ring_alpha := (1.0 - k) * 0.75
+		draw_circle(center, ring_r, Color(0.75, 0.45, 1.0, ring_alpha * 0.35))
+		draw_arc(center, ring_r, 0.0, TAU, 36, Color(1.0, 0.88, 0.35, ring_alpha), 3.0)
+		var flash_r := lerpf(4.0, ring_r * 0.55, k)
+		draw_circle(center, flash_r, Color(1.0, 1.0, 0.9, (1.0 - k) * 0.55))
+		var spark_n := 6
+		for si in range(spark_n):
+			var ang := float(si) / float(spark_n) * TAU + k * 2.4
+			var dist := lerpf(6.0, ring_r * 1.1, k)
+			var spark_pos := center + Vector2(cos(ang), sin(ang)) * dist
+			draw_circle(spark_pos, lerpf(5.0, 1.0, k), Color(0.95, 0.7, 1.0, (1.0 - k) * 0.8))
+
+func _trigger_portal_spawn_burst(col_x: int, spawn_y: int) -> void:
+	_portal_spawn_burst_vfx.append({
+		"x": col_x,
+		"y": spawn_y,
+		"t": 0.0,
+		"d": PORTAL_SPAWN_BURST_DURATION
+	})
+
 func _process_scheduled_spawns():
 	for i in range(_scheduled_spawns.size() - 1, -1, -1):
 		var item = _scheduled_spawns[i]
@@ -3872,14 +3987,17 @@ func _process_scheduled_spawns():
 			continue
 		if enemies[y][x] > 0:
 			continue
+		_trigger_portal_spawn_burst(x, y)
 		enemies[y][x] = hp
 		enemies_initial_hp[y][x] = hp
 		_enemy_move_anims.append({
-			"fx": x, "fy": y - 1,
+			"fx": x, "fy": y,
 			"tx": x, "ty": y,
 			"hp": hp,
 			"init": hp,
-			"t": 0.0, "d": 0.25
+			"t": 0.0,
+			"d": 0.38,
+			"portal_spawn": true
 		})
 		_scheduled_spawns.remove_at(i)
 

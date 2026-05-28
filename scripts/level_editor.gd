@@ -20,6 +20,7 @@ const WALL_COLOR := Color(0.36, 0.38, 0.45, 1.0)
 const GRID_CELL_MIN_SIZE := 46
 const GRID_CELL_MAX_SIZE := 82
 const BOSS_CELL_COLOR := Color(0.52, 0.22, 0.62, 1.0)
+const TEX_UI_PORTAL := preload("res://textures/ui_portal_spawn.png")
 
 enum BrushMode { START_MONSTER, SCHEDULED_MONSTER, OBSTACLE, BOSS, ERASE }
 
