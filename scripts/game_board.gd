@@ -3907,8 +3907,8 @@ func _collect_portal_columns() -> Dictionary:
 			cols[x] = {"countdown": turns_left, "spawn_y": y}
 	return cols
 
-func _portal_rect_for_column(origin: Vector2, col_x: int, spawn_y: int, pulse_scale: float) -> Rect2:
-	var portal_w := PORTAL_DRAW_WIDTH * pulse_scale
+func _portal_rect_for_column(origin: Vector2, col_x: int, spawn_y: int) -> Rect2:
+	var portal_w := PORTAL_DRAW_WIDTH
 	var portal_h := portal_w * PORTAL_TEX_SIZE.y / PORTAL_TEX_SIZE.x
 	var cell_top_y := origin.y + float(spawn_y) * ENEMY_CELL_HEIGHT
 	var top_left := Vector2(
