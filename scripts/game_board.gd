@@ -750,34 +750,34 @@ func _run_level1_goals_tutorial_step() -> void:
 	await overlay.begin_goals_step(goals_r, "Уничтожь все цели, чтобы пройти уровень.")
 	_level1_tutorial_advancing_to_goals = false
 
-func _make_ingame_booster_button_stylebox() -> StyleBoxEmpty:
-	return StyleBoxEmpty.new()
+func _ingame_booster_slot_content_margin() -> int:
+	var margin := int((INGAME_BOOSTER_BUTTON_SIZE.x - INGAME_BOOSTER_SLOT_DISPLAY_SIZE.x) * 0.5)
+	return maxi(margin, 0)
 
-func _add_ingame_booster_texture_shadow(parent: Control, tex: Texture2D, display_size: Vector2) -> TextureRect:
-	var shadow := TextureRect.new()
-	shadow.name = "TextureShadow"
-	shadow.texture = tex
-	shadow.custom_minimum_size = display_size
-	shadow.size = display_size
-	shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	shadow.modulate = Color(0, 0, 0, INGAME_BOOSTER_TEXTURE_SHADOW_ALPHA)
-	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	shadow.position = INGAME_BOOSTER_TEXTURE_SHADOW_OFFSET
-	parent.add_child(shadow)
-	return shadow
+func _make_ingame_booster_slot_stylebox(tint: Color = Color.WHITE) -> StyleBoxTexture:
+	var style := StyleBoxTexture.new()
+	style.texture = INGAME_BOOSTER_SLOT_BG
+	style.modulate_color = tint
+	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	style.draw_center = true
+	var slot_margin := _ingame_booster_slot_content_margin()
+	style.set_content_margin_all(slot_margin)
+	style.shadow_color = Color(0, 0, 0, INGAME_BOOSTER_TEXTURE_SHADOW_ALPHA)
+	style.shadow_size = 5
+	style.shadow_offset = INGAME_BOOSTER_TEXTURE_SHADOW_OFFSET
+	return style
 
-func _add_ingame_booster_centered_texture(parent: Control, tex: Texture2D, display_size: Vector2, node_name: String) -> TextureRect:
-	var icon := TextureRect.new()
-	icon.name = node_name
-	icon.texture = tex
-	icon.custom_minimum_size = display_size
-	icon.size = display_size
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(icon)
-	return icon
+func _make_ingame_booster_count_stylebox() -> StyleBoxTexture:
+	var style := StyleBoxTexture.new()
+	style.texture = INGAME_BOOSTER_COUNT_BG
+	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	style.draw_center = true
+	style.shadow_color = Color(0, 0, 0, INGAME_BOOSTER_TEXTURE_SHADOW_ALPHA)
+	style.shadow_size = 4
+	style.shadow_offset = INGAME_BOOSTER_TEXTURE_SHADOW_OFFSET
+	return style
 
 func _style_ingame_booster_count_label(label: Label) -> void:
 	label.add_theme_font_size_override("font_size", 14)
@@ -786,58 +786,44 @@ func _style_ingame_booster_count_label(label: Label) -> void:
 	label.add_theme_constant_override("outline_size", 5)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.z_index = 2
-
-func _add_ingame_booster_centered_stack(btn: Button, stack_name: String, display_size: Vector2, z: int) -> Control:
-	var stack := Control.new()
-	stack.name = stack_name
-	stack.custom_minimum_size = display_size
-	stack.size = display_size
-	stack.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stack.z_index = z
-	btn.add_child(stack)
-	return stack
 
 func _setup_ingame_booster_button_visuals(btn: Button, icon_tex: Texture2D) -> void:
 	btn.text = ""
-	btn.icon = null
 	btn.clip_contents = false
 	btn.custom_minimum_size = INGAME_BOOSTER_BUTTON_SIZE
-	var transparent_style := _make_ingame_booster_button_stylebox()
-	btn.add_theme_stylebox_override("normal", transparent_style)
-	btn.add_theme_stylebox_override("hover", transparent_style)
-	btn.add_theme_stylebox_override("pressed", transparent_style)
-	btn.add_theme_stylebox_override("disabled", transparent_style)
-	btn.add_theme_stylebox_override("focus", transparent_style)
-	var slot_stack := _add_ingame_booster_centered_stack(btn, "SlotStack", INGAME_BOOSTER_SLOT_DISPLAY_SIZE, 0)
-	_add_ingame_booster_texture_shadow(slot_stack, INGAME_BOOSTER_SLOT_BG, INGAME_BOOSTER_SLOT_DISPLAY_SIZE)
-	var slot_bg := _add_ingame_booster_centered_texture(slot_stack, INGAME_BOOSTER_SLOT_BG, INGAME_BOOSTER_SLOT_DISPLAY_SIZE, "SlotBg")
-	slot_bg.position = Vector2.ZERO
-	var icon_stack := _add_ingame_booster_centered_stack(btn, "IconStack", INGAME_BOOSTER_ICON_DISPLAY_SIZE, 1)
+	btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	btn.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+	btn.expand_icon = true
 	if icon_tex != null:
-		_add_ingame_booster_texture_shadow(icon_stack, icon_tex, INGAME_BOOSTER_ICON_DISPLAY_SIZE)
-		var icon_rect := _add_ingame_booster_centered_texture(icon_stack, icon_tex, INGAME_BOOSTER_ICON_DISPLAY_SIZE, "BoosterIcon")
-		icon_rect.position = Vector2.ZERO
-	var badge := Control.new()
+		btn.icon = icon_tex
+	btn.add_theme_constant_override("icon_max_width", int(INGAME_BOOSTER_ICON_DISPLAY_SIZE.x))
+	btn.add_theme_constant_override("icon_max_height", int(INGAME_BOOSTER_ICON_DISPLAY_SIZE.y))
+	var slot_normal := _make_ingame_booster_slot_stylebox(Color.WHITE)
+	var slot_hover := _make_ingame_booster_slot_stylebox(Color(1.06, 1.06, 1.06, 1.0))
+	var slot_pressed := _make_ingame_booster_slot_stylebox(Color(0.94, 0.94, 0.94, 1.0))
+	var slot_disabled := _make_ingame_booster_slot_stylebox(Color(0.55, 0.55, 0.55, 0.85))
+	slot_disabled.shadow_size = 2
+	btn.add_theme_stylebox_override("normal", slot_normal)
+	btn.add_theme_stylebox_override("hover", slot_hover)
+	btn.add_theme_stylebox_override("pressed", slot_pressed)
+	btn.add_theme_stylebox_override("disabled", slot_disabled)
+	btn.add_theme_stylebox_override("focus", slot_normal.duplicate())
+	var badge := PanelContainer.new()
 	badge.name = "CountBadge"
 	badge.custom_minimum_size = INGAME_BOOSTER_COUNT_BADGE_SIZE
-	badge.size = INGAME_BOOSTER_COUNT_BADGE_SIZE
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.add_theme_stylebox_override("panel", _make_ingame_booster_count_stylebox())
 	badge.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	badge.offset_left = -INGAME_BOOSTER_COUNT_BADGE_SIZE.x - 1
 	badge.offset_top = -INGAME_BOOSTER_COUNT_BADGE_SIZE.y - 1
 	badge.offset_right = -1
 	badge.offset_bottom = -1
-	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	badge.z_index = 2
 	btn.add_child(badge)
-	_add_ingame_booster_texture_shadow(badge, INGAME_BOOSTER_COUNT_BG, INGAME_BOOSTER_COUNT_BADGE_SIZE)
-	var badge_bg := _add_ingame_booster_centered_texture(badge, INGAME_BOOSTER_COUNT_BG, INGAME_BOOSTER_COUNT_BADGE_SIZE, "CountBadgeBg")
-	badge_bg.position = Vector2.ZERO
 	var count_label := Label.new()
 	count_label.name = "CountLabel"
 	count_label.text = "0"
-	count_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	count_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	count_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_style_ingame_booster_count_label(count_label)
 	badge.add_child(count_label)
