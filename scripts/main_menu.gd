@@ -29,19 +29,22 @@ const GAME_BOARD_SCENE_PATH = "res://scenes/game_board.tscn"
 # Флаг для предотвращения множественного открытия диалога
 var _level_start_dialog_shown: bool = false
 var _golden_pass_dialog_open: bool = false
+var _golden_pass_fab: Button = null
 
 const GOLDEN_PASS_DIALOG_SCRIPT := preload("res://scripts/golden_pass_dialog.gd")
 const TEX_UI_TOOLBAR_BG := preload("res://textures/ui_main_menu_toolbar_bg.png")
 const TEX_UI_BUY_COINS_BTN := preload("res://textures/ui_buy_coins_button.png")
 const TEX_UI_PLAY_BTN := preload("res://textures/ui_main_menu_play_button.png")
-const TEX_UI_SETTINGS := preload("res://textures/Booster_Hummer.png")
-const TEX_UI_GOLDEN_PASS := preload("res://textures/Chip_Bonus_Rainbow_Ball.png")
+const TEX_UI_ROUND_BTN_BG := preload("res://textures/ui_menu_round_button_bg.png")
+const TEX_UI_DAILY_REWARDS := preload("res://textures/ui_daily_rewards_icon.png")
 const TEX_NAV_LEADERBOARD := preload("res://textures/ui_nav_icon_leaderboard.png")
 const TEX_NAV_HOME := preload("res://textures/ui_nav_icon_home.png")
 const TEX_NAV_SHOP := preload("res://textures/ui_nav_icon_shop.png")
 const TEX_BOTTOM_NAV_BG := preload("res://textures/ui_bottom_nav_bg.png")
 const TEX_BOTTOM_NAV_ACTIVE := preload("res://textures/ui_bottom_nav_active_bg.png")
 const PLAY_BTN_TEX_SIZE := Vector2(1371.0, 474.0)
+const ROUND_MENU_BTN_SIZE := 60.0
+const ROUND_MENU_BTN_PRESS_SCALE := Vector2(0.92, 0.92)
 const NAV_ICON_SIZE := 44.0
 const NAV_LABEL_FONT_SIZE := 22
 const NAV_ICON_ACTIVE_MODULATE := Color(1.0, 1.0, 1.0, 1.0)
@@ -109,11 +112,48 @@ func _refresh_golden_pass_buy_button_if_visible():
 		if dlg and dlg.has_method("refresh_from_state"):
 			dlg.refresh_from_state()
 
+func _apply_round_button_press_feedback(btn: BaseButton) -> void:
+	btn.button_down.connect(func():
+		if not is_instance_valid(btn):
+			return
+		btn.scale = ROUND_MENU_BTN_PRESS_SCALE
+	)
+	btn.button_up.connect(func():
+		if not is_instance_valid(btn):
+			return
+		btn.scale = Vector2.ONE
+	)
+
+func _make_round_menu_button(size: float) -> Button:
+	var btn := Button.new()
+	btn.text = ""
+	btn.custom_minimum_size = Vector2(size, size)
+	btn.focus_mode = Control.FOCUS_NONE
+	var empty_style := StyleBoxEmpty.new()
+	btn.add_theme_stylebox_override("normal", empty_style)
+	btn.add_theme_stylebox_override("hover", empty_style)
+	btn.add_theme_stylebox_override("pressed", empty_style)
+	btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	var bg := TextureRect.new()
+	bg.name = "RoundBtnBackground"
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.texture = TEX_UI_ROUND_BTN_BG
+	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg.stretch_mode = TextureRect.STRETCH_SCALE
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(bg)
+	var content := Control.new()
+	content.name = "RoundBtnContent"
+	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(content)
+	_apply_round_button_press_feedback(btn)
+	return btn
+
 func _create_golden_pass_fab() -> void:
-	var fab := Button.new()
+	var fab := _make_round_menu_button(64.0)
+	_golden_pass_fab = fab
 	fab.name = "GoldenPassFab"
-	fab.focus_mode = Control.FOCUS_NONE
-	fab.custom_minimum_size = Vector2(64, 64)
 	fab.anchor_left = 1.0
 	fab.anchor_top = 0.0
 	fab.anchor_right = 1.0
@@ -124,37 +164,20 @@ func _create_golden_pass_fab() -> void:
 	fab.offset_bottom = 152.0
 	fab.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	fab.grow_vertical = Control.GROW_DIRECTION_END
-	fab.text = ""
-	var fab_icon_wrap := CenterContainer.new()
-	fab_icon_wrap.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	fab_icon_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var fab_icon := TextureRect.new()
-	fab_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fab_icon.texture = TEX_UI_GOLDEN_PASS
-	fab_icon.custom_minimum_size = Vector2(36, 36)
-	fab_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	fab_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	fab_icon_wrap.add_child(fab_icon)
-	fab.add_child(fab_icon_wrap)
-	var r := 32
-	var n := StyleBoxFlat.new()
-	n.bg_color = Color(0.78, 0.55, 0.12, 1.0)
-	n.set_corner_radius_all(r)
-	n.border_width_left = 3
-	n.border_width_top = 3
-	n.border_width_right = 3
-	n.border_width_bottom = 3
-	n.border_color = Color(1.0, 0.92, 0.45, 1.0)
-	_apply_menu_shadow(n, UI_SHADOW_SIZE_SOFT, UI_SHADOW_OFFSET_SOFT)
-	var h := n.duplicate()
-	h.bg_color = Color(0.9, 0.68, 0.18, 1.0)
-	var p := n.duplicate()
-	p.bg_color = Color(0.62, 0.42, 0.08, 1.0)
-	fab.add_theme_stylebox_override("normal", n)
-	fab.add_theme_stylebox_override("hover", h)
-	fab.add_theme_stylebox_override("pressed", p)
 	fab.z_index = 5
-	fab.tooltip_text = "Золотой пропуск"
+	fab.tooltip_text = "Ежедневные награды"
+	var content := fab.get_node("RoundBtnContent") as Control
+	var icon_wrap := CenterContainer.new()
+	icon_wrap.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	icon_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var icon := TextureRect.new()
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.texture = TEX_UI_DAILY_REWARDS
+	icon.custom_minimum_size = Vector2(42, 42)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon_wrap.add_child(icon)
+	content.add_child(icon_wrap)
 	fab.pressed.connect(_show_golden_pass_dialog)
 	add_child(fab)
 
@@ -293,48 +316,19 @@ func _create_buy_coins_button() -> TextureButton:
 	return btn
 
 func _create_settings_button() -> Button:
-	var btn = Button.new()
-	btn.text = ""
-	btn.custom_minimum_size = Vector2(60, 60)
-	var settings_icon_wrap := CenterContainer.new()
-	settings_icon_wrap.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	settings_icon_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var settings_icon := TextureRect.new()
-	settings_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	settings_icon.texture = TEX_UI_SETTINGS
-	settings_icon.custom_minimum_size = Vector2(40, 40)
-	settings_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	settings_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	settings_icon_wrap.add_child(settings_icon)
-	btn.add_child(settings_icon_wrap)
-	
-	var normal_style = StyleBoxFlat.new()
-	normal_style.bg_color = Color(0.25, 0.3, 0.35, 1.0)
-	normal_style.corner_radius_top_left = 30
-	normal_style.corner_radius_top_right = 30
-	normal_style.corner_radius_bottom_left = 30
-	normal_style.corner_radius_bottom_right = 30
-	normal_style.border_width_top = 2
-	normal_style.border_width_bottom = 2
-	normal_style.border_width_left = 2
-	normal_style.border_width_right = 2
-	normal_style.border_color = Color(0.4, 0.5, 0.6, 1.0)
-	_apply_menu_shadow(normal_style, UI_SHADOW_SIZE_SOFT, UI_SHADOW_OFFSET_SOFT)
-	
-	var hover_style = normal_style.duplicate()
-	hover_style.bg_color = Color(0.35, 0.4, 0.45, 1.0)
-	
-	var pressed_style = normal_style.duplicate()
-	pressed_style.bg_color = Color(0.2, 0.25, 0.3, 1.0)
-	_apply_menu_shadow(hover_style, UI_SHADOW_SIZE_SOFT, UI_SHADOW_OFFSET_SOFT)
-	_apply_menu_shadow(pressed_style, UI_SHADOW_SIZE_SOFT, UI_SHADOW_OFFSET_SOFT)
-	
-	btn.add_theme_stylebox_override("normal", normal_style)
-	btn.add_theme_stylebox_override("hover", hover_style)
-	btn.add_theme_stylebox_override("pressed", pressed_style)
-	
+	var btn := _make_round_menu_button(ROUND_MENU_BTN_SIZE)
+	var content := btn.get_node("RoundBtnContent") as Control
+	var dots := Label.new()
+	dots.text = "•••"
+	dots.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	dots.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	dots.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dots.offset_top = -2.0
+	dots.add_theme_font_size_override("font_size", 34)
+	dots.add_theme_color_override("font_color", Color(0.22, 0.12, 0.04, 1.0))
+	dots.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(dots)
 	btn.pressed.connect(_on_settings_pressed)
-	
 	return btn
 
 func _on_buy_coins_pressed():
@@ -430,6 +424,8 @@ func _switch_tab(tab_name: String):
 	shop_tab.visible = (tab_name == "shop")
 	main_tab.visible = (tab_name == "main")
 	ranks_tab.visible = (tab_name == "ranks")
+	if is_instance_valid(_golden_pass_fab):
+		_golden_pass_fab.visible = (tab_name == "main")
 	if tab_name == "ranks":
 		_sync_ranks_level_field_from_manager()
 	_update_nav_highlight(tab_name)
