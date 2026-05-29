@@ -54,6 +54,11 @@ const TOP_BAR_MARGIN_LEFT := 10.0
 const TOP_BAR_MARGIN_TOP := 18.0
 const BUY_COINS_BTN_SIZE := 46.0
 const PLAY_BTN_PRESS_SCALE := Vector2(0.92, 0.92)
+const UI_SHADOW_COLOR := Color(0, 0, 0, 0.45)
+const UI_SHADOW_SIZE := 8
+const UI_SHADOW_OFFSET := Vector2(0, 4)
+const UI_SHADOW_SIZE_SOFT := 6
+const UI_SHADOW_OFFSET_SOFT := Vector2(0, 3)
 
 var _syncing_ranks_level_edit: bool = false
 var _play_level_banner: Label = null
@@ -140,9 +145,7 @@ func _create_golden_pass_fab() -> void:
 	n.border_width_right = 3
 	n.border_width_bottom = 3
 	n.border_color = Color(1.0, 0.92, 0.45, 1.0)
-	n.shadow_color = Color(0, 0, 0, 0.35)
-	n.shadow_size = 6
-	n.shadow_offset = Vector2(0, 3)
+	_apply_menu_shadow(n, UI_SHADOW_SIZE_SOFT, UI_SHADOW_OFFSET_SOFT)
 	var h := n.duplicate()
 	h.bg_color = Color(0.9, 0.68, 0.18, 1.0)
 	var p := n.duplicate()
@@ -187,6 +190,10 @@ func _create_top_bar() -> void:
 	top_bar.z_index = 10
 	add_child(top_bar)
 	move_child(top_bar, 1)
+	var top_shadow := _make_shadow_panel(14, Color(0.1, 0.14, 0.18, 0.82), UI_SHADOW_SIZE_SOFT, UI_SHADOW_OFFSET_SOFT)
+	top_shadow.name = "TopBarShadow"
+	top_shadow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	top_bar.add_child(top_shadow)
 	var bg := TextureRect.new()
 	bg.name = "TopBarBackground"
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -229,6 +236,23 @@ func _create_flexible_spacer() -> Control:
 	var spacer = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return spacer
+
+func _apply_menu_shadow(style: StyleBoxFlat, shadow_size: int = UI_SHADOW_SIZE, shadow_offset: Vector2 = UI_SHADOW_OFFSET) -> void:
+	style.shadow_color = UI_SHADOW_COLOR
+	style.shadow_size = shadow_size
+	style.shadow_offset = shadow_offset
+
+
+func _make_shadow_panel(corner_radius: int, bg_color: Color, shadow_size: int = UI_SHADOW_SIZE, shadow_offset: Vector2 = UI_SHADOW_OFFSET) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg_color
+	style.set_corner_radius_all(corner_radius)
+	_apply_menu_shadow(style, shadow_size, shadow_offset)
+	panel.add_theme_stylebox_override("panel", style)
+	return panel
+
 
 func _create_coins_display() -> Control:
 	var container = HBoxContainer.new()
@@ -295,12 +319,15 @@ func _create_settings_button() -> Button:
 	normal_style.border_width_left = 2
 	normal_style.border_width_right = 2
 	normal_style.border_color = Color(0.4, 0.5, 0.6, 1.0)
+	_apply_menu_shadow(normal_style, UI_SHADOW_SIZE_SOFT, UI_SHADOW_OFFSET_SOFT)
 	
 	var hover_style = normal_style.duplicate()
 	hover_style.bg_color = Color(0.35, 0.4, 0.45, 1.0)
 	
 	var pressed_style = normal_style.duplicate()
 	pressed_style.bg_color = Color(0.2, 0.25, 0.3, 1.0)
+	_apply_menu_shadow(hover_style, UI_SHADOW_SIZE_SOFT, UI_SHADOW_OFFSET_SOFT)
+	_apply_menu_shadow(pressed_style, UI_SHADOW_SIZE_SOFT, UI_SHADOW_OFFSET_SOFT)
 	
 	btn.add_theme_stylebox_override("normal", normal_style)
 	btn.add_theme_stylebox_override("hover", hover_style)
@@ -345,7 +372,24 @@ func _show_buy_coins_dialog():
 	dialog.confirmed.connect(_on_close)
 	dialog.close_requested.connect(_on_close)
 
+func _ensure_bottom_nav_shadow() -> void:
+	if not is_instance_valid(bottom_nav_bg):
+		return
+	var bottom_nav: Control = bottom_nav_bg.get_parent() as Control
+	if bottom_nav == null:
+		return
+	var existing := bottom_nav.get_node_or_null("NavShadow")
+	if existing != null:
+		return
+	var nav_shadow := _make_shadow_panel(24, Color(0.08, 0.1, 0.12, 0.9), UI_SHADOW_SIZE, UI_SHADOW_OFFSET)
+	nav_shadow.name = "NavShadow"
+	nav_shadow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bottom_nav.add_child(nav_shadow)
+	bottom_nav.move_child(nav_shadow, 0)
+
+
 func _apply_bottom_nav_visuals() -> void:
+	_ensure_bottom_nav_shadow()
 	if is_instance_valid(bottom_nav_bg):
 		bottom_nav_bg.texture = TEX_BOTTOM_NAV_BG
 		bottom_nav_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -417,6 +461,50 @@ func _on_play_pressed():
 func _on_editor_pressed():
 	get_tree().change_scene_to_file("res://scenes/level_editor.tscn")
 
+
+
+func _style_ranks_control_button(btn: Button) -> void:
+	if not is_instance_valid(btn):
+		return
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(0.22, 0.38, 0.52, 1.0)
+	normal.set_corner_radius_all(16)
+	normal.border_width_left = 2
+	normal.border_width_top = 2
+	normal.border_width_right = 2
+	normal.border_width_bottom = 2
+	normal.border_color = Color(0.45, 0.62, 0.85, 1.0)
+	_apply_menu_shadow(normal)
+	var hover := normal.duplicate()
+	hover.bg_color = Color(0.32, 0.48, 0.62, 1.0)
+	var pressed := normal.duplicate()
+	pressed.bg_color = Color(0.16, 0.3, 0.45, 1.0)
+	_apply_menu_shadow(hover)
+	_apply_menu_shadow(pressed)
+	btn.add_theme_stylebox_override("normal", normal)
+	btn.add_theme_stylebox_override("hover", hover)
+	btn.add_theme_stylebox_override("pressed", pressed)
+	btn.add_theme_font_size_override("font_size", 32)
+
+
+func _style_ranks_level_edit() -> void:
+	if not is_instance_valid(ranks_level_edit):
+		return
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(0.12, 0.16, 0.2, 0.95)
+	normal.set_corner_radius_all(14)
+	normal.border_width_left = 2
+	normal.border_width_top = 2
+	normal.border_width_right = 2
+	normal.border_width_bottom = 2
+	normal.border_color = Color(0.4, 0.55, 0.7, 1.0)
+	_apply_menu_shadow(normal, UI_SHADOW_SIZE_SOFT, UI_SHADOW_OFFSET_SOFT)
+	var focus := normal.duplicate()
+	focus.border_color = Color(0.55, 0.75, 0.95, 1.0)
+	ranks_level_edit.add_theme_stylebox_override("normal", normal)
+	ranks_level_edit.add_theme_stylebox_override("focus", focus)
+	ranks_level_edit.add_theme_font_size_override("font_size", 28)
+
 func _setup_ranks_level_controls() -> void:
 	if is_instance_valid(ranks_minus_btn):
 		ranks_minus_btn.pressed.connect(_on_ranks_level_step.bind(-1))
@@ -425,6 +513,9 @@ func _setup_ranks_level_controls() -> void:
 	if is_instance_valid(ranks_level_edit):
 		ranks_level_edit.text_submitted.connect(_on_ranks_level_submitted)
 		ranks_level_edit.focus_exited.connect(_on_ranks_level_focus_exited)
+	_style_ranks_control_button(ranks_minus_btn)
+	_style_ranks_control_button(ranks_plus_btn)
+	_style_ranks_level_edit()
 	_sync_ranks_level_field_from_manager()
 
 func _get_max_selectable_level() -> int:
@@ -489,10 +580,13 @@ func _style_secondary_action_button(btn: Button) -> void:
 	normal_style.border_width_left = 2
 	normal_style.border_width_right = 2
 	normal_style.border_color = Color(0.45, 0.62, 0.85, 1.0)
+	_apply_menu_shadow(normal_style)
 	var hover_style := normal_style.duplicate()
 	hover_style.bg_color = Color(0.32, 0.48, 0.62, 1.0)
 	var pressed_style := normal_style.duplicate()
 	pressed_style.bg_color = Color(0.16, 0.3, 0.45, 1.0)
+	_apply_menu_shadow(hover_style)
+	_apply_menu_shadow(pressed_style)
 	btn.add_theme_stylebox_override("normal", normal_style)
 	btn.add_theme_stylebox_override("hover", hover_style)
 	btn.add_theme_stylebox_override("pressed", pressed_style)
@@ -520,8 +614,37 @@ func _style_play_button() -> void:
 	play_button.offset_top = -bottom_gap - btn_h
 	play_button.offset_bottom = -bottom_gap
 	play_button.z_index = 2
+	_ensure_play_button_shadow()
 	_ensure_play_level_banner()
 	call_deferred("_update_play_button_pivot")
+
+
+
+func _ensure_play_button_shadow() -> void:
+	if not is_instance_valid(play_button):
+		return
+	var parent: Control = play_button.get_parent() as Control
+	if parent == null:
+		return
+	var shadow: PanelContainer = parent.get_node_or_null("PlayButtonShadow") as PanelContainer
+	if shadow == null:
+		shadow = _make_shadow_panel(28, Color(0.1, 0.42, 0.18, 0.55), UI_SHADOW_SIZE, UI_SHADOW_OFFSET)
+		shadow.name = "PlayButtonShadow"
+		parent.add_child(shadow)
+		parent.move_child(shadow, play_button.get_index())
+	shadow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shadow.anchor_left = play_button.anchor_left
+	shadow.anchor_top = play_button.anchor_top
+	shadow.anchor_right = play_button.anchor_right
+	shadow.anchor_bottom = play_button.anchor_bottom
+	shadow.offset_left = play_button.offset_left
+	shadow.offset_top = play_button.offset_top
+	shadow.offset_right = play_button.offset_right
+	shadow.offset_bottom = play_button.offset_bottom
+	shadow.grow_horizontal = play_button.grow_horizontal
+	shadow.grow_vertical = play_button.grow_vertical
+	shadow.z_index = play_button.z_index - 1
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _apply_play_level_banner_style(label: Label) -> void:
 	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -742,9 +865,7 @@ func _create_shop_offer(title: String, subtitle: String, items: Array, price: St
 	bg_style.border_width_left = 4
 	bg_style.border_width_right = 4
 	bg_style.border_color = color
-	bg_style.shadow_color = Color(0, 0, 0, 0.5)
-	bg_style.shadow_size = 10
-	bg_style.shadow_offset = Vector2(0, 5)
+	_apply_menu_shadow(bg_style, 10, Vector2(0, 5))
 	panel.add_theme_stylebox_override("panel", bg_style)
 	
 	var hbox = HBoxContainer.new()
@@ -796,12 +917,15 @@ func _create_shop_offer(title: String, subtitle: String, items: Array, price: St
 	btn_style.border_width_left = 3
 	btn_style.border_width_right = 3
 	btn_style.border_color = color.lightened(0.3)
+	_apply_menu_shadow(btn_style, UI_SHADOW_SIZE_SOFT, UI_SHADOW_OFFSET_SOFT)
 	
 	var hover_style = btn_style.duplicate()
 	hover_style.bg_color = color.lightened(0.2)
 	
 	var pressed_style = btn_style.duplicate()
 	pressed_style.bg_color = color.darkened(0.2)
+	_apply_menu_shadow(hover_style, UI_SHADOW_SIZE_SOFT, UI_SHADOW_OFFSET_SOFT)
+	_apply_menu_shadow(pressed_style, UI_SHADOW_SIZE_SOFT, UI_SHADOW_OFFSET_SOFT)
 	
 	buy_btn.add_theme_stylebox_override("normal", btn_style)
 	buy_btn.add_theme_stylebox_override("hover", hover_style)
