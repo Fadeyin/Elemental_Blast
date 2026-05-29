@@ -13,9 +13,12 @@ extends Control
 @onready var ranks_tab = $TabContent/RanksTab
 
 @onready var bottom_nav_bg: TextureRect = $BottomNav/NavBackground
-@onready var shop_btn: TextureButton = $BottomNav/NavRow/ShopItem/ShopBtn
-@onready var main_btn: TextureButton = $BottomNav/NavRow/MainItem/MainBtn
-@onready var ranks_btn: TextureButton = $BottomNav/NavRow/RanksItem/RanksBtn
+@onready var shop_btn: TextureButton = $BottomNav/NavRow/ShopItem/Content/VBox/ShopBtn
+@onready var main_btn: TextureButton = $BottomNav/NavRow/MainItem/Content/VBox/MainBtn
+@onready var ranks_btn: TextureButton = $BottomNav/NavRow/RanksItem/Content/VBox/RanksBtn
+@onready var shop_label: Label = $BottomNav/NavRow/ShopItem/Content/VBox/ShopLabel
+@onready var main_label: Label = $BottomNav/NavRow/MainItem/Content/VBox/MainLabel
+@onready var ranks_label: Label = $BottomNav/NavRow/RanksItem/Content/VBox/RanksLabel
 @onready var shop_active_bg: TextureRect = $BottomNav/NavRow/ShopItem/ActiveBg
 @onready var main_active_bg: TextureRect = $BottomNav/NavRow/MainItem/ActiveBg
 @onready var ranks_active_bg: TextureRect = $BottomNav/NavRow/RanksItem/ActiveBg
@@ -39,10 +42,12 @@ const TEX_NAV_SHOP := preload("res://textures/ui_nav_icon_shop.png")
 const TEX_BOTTOM_NAV_BG := preload("res://textures/ui_bottom_nav_bg.png")
 const TEX_BOTTOM_NAV_ACTIVE := preload("res://textures/ui_bottom_nav_active_bg.png")
 const PLAY_BTN_TEX_SIZE := Vector2(1371.0, 474.0)
-const NAV_ICON_SIZE := 56.0
-const NAV_ICON_ACTIVE_SCALE := 1.12
-const NAV_ACTIVE_BG_SCALE := 1.06
-const NAV_INACTIVE_MODULATE := Color(0.78, 0.78, 0.84, 1.0)
+const NAV_ICON_SIZE := 44.0
+const NAV_LABEL_FONT_SIZE := 15
+const NAV_ICON_ACTIVE_MODULATE := Color(1.0, 1.0, 1.0, 1.0)
+const NAV_ICON_INACTIVE_MODULATE := Color(0.18, 0.48, 0.62, 1.0)
+const NAV_LABEL_ACTIVE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
+const NAV_LABEL_INACTIVE_COLOR := Color(0.12, 0.36, 0.5, 1.0)
 const TOP_BAR_HEIGHT := 62.0
 const TOP_BAR_WIDTH := 268.0
 const TOP_BAR_MARGIN_LEFT := 10.0
@@ -349,13 +354,15 @@ func _apply_bottom_nav_visuals() -> void:
 		if is_instance_valid(active_bg):
 			active_bg.texture = TEX_BOTTOM_NAV_ACTIVE
 			active_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			active_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			active_bg.scale = Vector2(NAV_ACTIVE_BG_SCALE, NAV_ACTIVE_BG_SCALE)
-			active_bg.pivot_offset = active_bg.size * 0.5
-	_style_nav_texture_button(ranks_btn, TEX_NAV_LEADERBOARD)
-	_style_nav_texture_button(main_btn, TEX_NAV_HOME)
+			active_bg.stretch_mode = TextureRect.STRETCH_SCALE
 	_style_nav_texture_button(shop_btn, TEX_NAV_SHOP)
-	call_deferred("_center_nav_button_pivots")
+	_style_nav_texture_button(main_btn, TEX_NAV_HOME)
+	_style_nav_texture_button(ranks_btn, TEX_NAV_LEADERBOARD)
+	for nav_label in [shop_label, main_label, ranks_label]:
+		if is_instance_valid(nav_label):
+			nav_label.add_theme_font_size_override("font_size", NAV_LABEL_FONT_SIZE)
+			nav_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.35))
+			nav_label.add_theme_constant_override("outline_size", 2)
 
 func _style_nav_texture_button(btn: TextureButton, tex: Texture2D) -> void:
 	if not is_instance_valid(btn):
@@ -367,14 +374,6 @@ func _style_nav_texture_button(btn: TextureButton, tex: Texture2D) -> void:
 	btn.custom_minimum_size = Vector2(NAV_ICON_SIZE, NAV_ICON_SIZE)
 	btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 	btn.focus_mode = Control.FOCUS_NONE
-
-func _center_nav_button_pivots() -> void:
-	for btn in [shop_btn, main_btn, ranks_btn]:
-		if is_instance_valid(btn):
-			btn.pivot_offset = btn.size * 0.5
-	for active_bg in [shop_active_bg, main_active_bg, ranks_active_bg]:
-		if is_instance_valid(active_bg):
-			active_bg.pivot_offset = active_bg.size * 0.5
 
 func _setup_navigation():
 	shop_btn.pressed.connect(func(): _switch_tab("shop"))
@@ -391,22 +390,23 @@ func _switch_tab(tab_name: String):
 
 func _update_nav_highlight(tab_name: String) -> void:
 	var entries := {
-		"shop": {"btn": shop_btn, "bg": shop_active_bg},
-		"main": {"btn": main_btn, "bg": main_active_bg},
-		"ranks": {"btn": ranks_btn, "bg": ranks_active_bg},
+		"shop": {"btn": shop_btn, "bg": shop_active_bg, "label": shop_label},
+		"main": {"btn": main_btn, "bg": main_active_bg, "label": main_label},
+		"ranks": {"btn": ranks_btn, "bg": ranks_active_bg, "label": ranks_label},
 	}
 	for key in entries.keys():
 		var entry: Dictionary = entries[key]
 		var btn: TextureButton = entry["btn"]
 		var active_bg: TextureRect = entry["bg"]
+		var nav_label: Label = entry["label"]
 		if not is_instance_valid(btn) or not is_instance_valid(active_bg):
 			continue
 		var is_active: bool = str(key) == tab_name
 		active_bg.visible = is_active
-		btn.scale = Vector2.ONE * NAV_ICON_ACTIVE_SCALE if is_active else Vector2.ONE
-		btn.modulate = Color.WHITE if is_active else NAV_INACTIVE_MODULATE
-		if is_active:
-			btn.pivot_offset = btn.size * 0.5
+		btn.scale = Vector2.ONE
+		btn.modulate = NAV_ICON_ACTIVE_MODULATE if is_active else NAV_ICON_INACTIVE_MODULATE
+		if is_instance_valid(nav_label):
+			nav_label.add_theme_color_override("font_color", NAV_LABEL_ACTIVE_COLOR if is_active else NAV_LABEL_INACTIVE_COLOR)
 
 func _on_play_pressed():
 	LevelManager.set_current_level(LevelManager.current_level)
@@ -512,7 +512,7 @@ func _style_play_button() -> void:
 	var btn_w := 400.0
 	var btn_h := btn_w * PLAY_BTN_TEX_SIZE.y / PLAY_BTN_TEX_SIZE.x
 	play_button.custom_minimum_size = Vector2(btn_w, btn_h)
-	var bottom_gap := 132.0
+	var bottom_gap := 142.0
 	play_button.offset_left = -btn_w * 0.5
 	play_button.offset_right = btn_w * 0.5
 	play_button.offset_top = -bottom_gap - btn_h
@@ -527,10 +527,6 @@ func _ensure_play_level_banner() -> void:
 	var old_on_tab := main_tab.get_node_or_null("PlayLevelBanner") if is_instance_valid(main_tab) else null
 	if old_on_tab != null:
 		old_on_tab.queue_free()
-	var existing := play_button.get_node_or_null("PlayLevelOverlay/PlayLevelBanner") as Label
-	if existing != null:
-		_play_level_banner = existing
-		return
 	var overlay := play_button.get_node_or_null("PlayLevelOverlay") as Control
 	if overlay == null:
 		overlay = Control.new()
@@ -538,17 +534,23 @@ func _ensure_play_level_banner() -> void:
 		overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		play_button.add_child(overlay)
-	_play_level_banner = Label.new()
-	_play_level_banner.name = "PlayLevelBanner"
-	_play_level_banner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var existing := overlay.get_node_or_null("PlayLevelBanner") as Label
+	if existing != null:
+		_play_level_banner = existing
+	else:
+		_play_level_banner = Label.new()
+		_play_level_banner.name = "PlayLevelBanner"
+		overlay.add_child(_play_level_banner)
+	_play_level_banner.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_play_level_banner.offset_top = -52.0
+	_play_level_banner.offset_bottom = -8.0
 	_play_level_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_play_level_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_play_level_banner.add_theme_font_size_override("font_size", 40)
+	_play_level_banner.add_theme_font_size_override("font_size", 26)
 	_play_level_banner.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
-	_play_level_banner.add_theme_color_override("font_outline_color", Color(0.12, 0.42, 0.18, 0.95))
-	_play_level_banner.add_theme_constant_override("outline_size", 5)
+	_play_level_banner.add_theme_color_override("font_outline_color", Color(0.08, 0.32, 0.42, 0.95))
+	_play_level_banner.add_theme_constant_override("outline_size", 4)
 	_play_level_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(_play_level_banner)
 
 func _setup_play_button_press_feedback() -> void:
 	if not is_instance_valid(play_button):

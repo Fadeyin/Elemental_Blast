@@ -175,16 +175,16 @@ size_flags_horizontal = 4
 text = "Редактор уровней"
 
 [node name="BottomNav" type="Control" parent="."]
-custom_minimum_size = Vector2(0, 98)
+custom_minimum_size = Vector2(0, 108)
 layout_mode = 1
 anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 22.0
-offset_top = -118.0
-offset_right = -22.0
-offset_bottom = -18.0
+offset_left = 20.0
+offset_top = -128.0
+offset_right = -20.0
+offset_bottom = -20.0
 grow_horizontal = 2
 grow_vertical = 0
 
@@ -204,97 +204,17 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 4.0
-offset_right = -8.0
-offset_bottom = -4.0
+offset_left = 14.0
+offset_top = 6.0
+offset_right = -14.0
+offset_bottom = -6.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 0
 alignment = 1
 
-[node name="RanksItem" type="Control" parent="BottomNav/NavRow"]
-custom_minimum_size = Vector2(0, 88)
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_stretch_ratio = 1.0
-
-[node name="ActiveBg" type="TextureRect" parent="BottomNav/NavRow/RanksItem"]
-visible = false
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -68.0
-offset_top = -34.0
-offset_right = 68.0
-offset_bottom = 34.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="RanksBtn" type="TextureButton" parent="BottomNav/NavRow/RanksItem"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -28.0
-offset_top = -28.0
-offset_right = 28.0
-offset_bottom = 28.0
-grow_horizontal = 2
-grow_vertical = 2
-ignore_texture_size = true
-stretch_mode = 5
-
-[node name="MainItem" type="Control" parent="BottomNav/NavRow"]
-custom_minimum_size = Vector2(0, 88)
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_stretch_ratio = 1.0
-
-[node name="ActiveBg" type="TextureRect" parent="BottomNav/NavRow/MainItem"]
-visible = false
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -68.0
-offset_top = -34.0
-offset_right = 68.0
-offset_bottom = 34.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="MainBtn" type="TextureButton" parent="BottomNav/NavRow/MainItem"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -28.0
-offset_top = -28.0
-offset_right = 28.0
-offset_bottom = 28.0
-grow_horizontal = 2
-grow_vertical = 2
-ignore_texture_size = true
-stretch_mode = 5
-
 [node name="ShopItem" type="Control" parent="BottomNav/NavRow"]
-custom_minimum_size = Vector2(0, 88)
+custom_minimum_size = Vector2(96, 92)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 1.0
@@ -302,36 +222,143 @@ size_flags_stretch_ratio = 1.0
 [node name="ActiveBg" type="TextureRect" parent="BottomNav/NavRow/ShopItem"]
 visible = false
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -68.0
-offset_top = -34.0
-offset_right = 68.0
-offset_bottom = 34.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 2.0
+offset_right = -4.0
+offset_bottom = -2.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 expand_mode = 1
-stretch_mode = 5
+stretch_mode = 6
 
-[node name="ShopBtn" type="TextureButton" parent="BottomNav/NavRow/ShopItem"]
+[node name="Content" type="CenterContainer" parent="BottomNav/NavRow/ShopItem"]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -28.0
-offset_top = -28.0
-offset_right = 28.0
-offset_bottom = 28.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
+
+[node name="VBox" type="VBoxContainer" parent="BottomNav/NavRow/ShopItem/Content"]
+layout_mode = 2
+theme_override_constants/separation = 0
+alignment = 1
+
+[node name="ShopBtn" type="TextureButton" parent="BottomNav/NavRow/ShopItem/Content/VBox"]
+custom_minimum_size = Vector2(44, 44)
+layout_mode = 2
+size_flags_horizontal = 4
 ignore_texture_size = true
 stretch_mode = 5
+
+[node name="ShopLabel" type="Label" parent="BottomNav/NavRow/ShopItem/Content/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "Магазин"
+horizontal_alignment = 1
+
+[node name="MainItem" type="Control" parent="BottomNav/NavRow"]
+custom_minimum_size = Vector2(96, 92)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.0
+
+[node name="ActiveBg" type="TextureRect" parent="BottomNav/NavRow/MainItem"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 2.0
+offset_right = -4.0
+offset_bottom = -2.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Content" type="CenterContainer" parent="BottomNav/NavRow/MainItem"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="VBox" type="VBoxContainer" parent="BottomNav/NavRow/MainItem/Content"]
+layout_mode = 2
+theme_override_constants/separation = 0
+alignment = 1
+
+[node name="MainBtn" type="TextureButton" parent="BottomNav/NavRow/MainItem/Content/VBox"]
+custom_minimum_size = Vector2(44, 44)
+layout_mode = 2
+size_flags_horizontal = 4
+ignore_texture_size = true
+stretch_mode = 5
+
+[node name="MainLabel" type="Label" parent="BottomNav/NavRow/MainItem/Content/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "Главная"
+horizontal_alignment = 1
+
+[node name="RanksItem" type="Control" parent="BottomNav/NavRow"]
+custom_minimum_size = Vector2(96, 92)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.0
+
+[node name="ActiveBg" type="TextureRect" parent="BottomNav/NavRow/RanksItem"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 2.0
+offset_right = -4.0
+offset_bottom = -2.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Content" type="CenterContainer" parent="BottomNav/NavRow/RanksItem"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="VBox" type="VBoxContainer" parent="BottomNav/NavRow/RanksItem/Content"]
+layout_mode = 2
+theme_override_constants/separation = 0
+alignment = 1
+
+[node name="RanksBtn" type="TextureButton" parent="BottomNav/NavRow/RanksItem/Content/VBox"]
+custom_minimum_size = Vector2(44, 44)
+layout_mode = 2
+size_flags_horizontal = 4
+ignore_texture_size = true
+stretch_mode = 5
+
+[node name="RanksLabel" type="Label" parent="BottomNav/NavRow/RanksItem/Content/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "Ранги"
+horizontal_alignment = 1
 
 [node name="VersionLabel" type="Label" parent="."]
 layout_mode = 1
@@ -341,9 +368,9 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -100.0
-offset_top = -148.0
+offset_top = -158.0
 offset_right = -10.0
-offset_bottom = -128.0
+offset_bottom = -138.0
 grow_horizontal = 0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 18
