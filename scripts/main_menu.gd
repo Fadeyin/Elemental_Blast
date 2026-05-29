@@ -45,6 +45,10 @@ const TEX_BOTTOM_NAV_ACTIVE := preload("res://textures/ui_bottom_nav_active_bg.p
 const PLAY_BTN_TEX_SIZE := Vector2(1371.0, 474.0)
 const ROUND_MENU_BTN_SIZE := 60.0
 const ROUND_MENU_BTN_PRESS_SCALE := Vector2(0.92, 0.92)
+const EVENTS_FAB_SIZE := 128.0
+const EVENTS_FAB_ICON_SIZE := 84.0
+const SETTINGS_BTN_SIZE := 68.0
+const SETTINGS_DOTS_FONT_SIZE := 48
 const NAV_ICON_SIZE := 44.0
 const NAV_LABEL_FONT_SIZE := 22
 const NAV_ICON_ACTIVE_MODULATE := Color(1.0, 1.0, 1.0, 1.0)
@@ -151,17 +155,17 @@ func _make_round_menu_button(size: float) -> Button:
 	return btn
 
 func _create_golden_pass_fab() -> void:
-	var fab := _make_round_menu_button(64.0)
+	var fab := _make_round_menu_button(EVENTS_FAB_SIZE)
 	_golden_pass_fab = fab
 	fab.name = "GoldenPassFab"
 	fab.anchor_left = 1.0
 	fab.anchor_top = 0.0
 	fab.anchor_right = 1.0
 	fab.anchor_bottom = 0.0
-	fab.offset_left = -84.0
+	fab.offset_left = -200.0
 	fab.offset_top = 88.0
-	fab.offset_right = -20.0
-	fab.offset_bottom = 152.0
+	fab.offset_right = -72.0
+	fab.offset_bottom = 216.0
 	fab.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	fab.grow_vertical = Control.GROW_DIRECTION_END
 	fab.z_index = 5
@@ -173,7 +177,7 @@ func _create_golden_pass_fab() -> void:
 	var icon := TextureRect.new()
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon.texture = TEX_UI_DAILY_REWARDS
-	icon.custom_minimum_size = Vector2(42, 42)
+	icon.custom_minimum_size = Vector2(EVENTS_FAB_ICON_SIZE, EVENTS_FAB_ICON_SIZE)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon_wrap.add_child(icon)
@@ -243,10 +247,10 @@ func _create_top_bar_settings() -> void:
 	settings_btn.anchor_top = 0.0
 	settings_btn.anchor_right = 1.0
 	settings_btn.anchor_bottom = 0.0
-	settings_btn.offset_left = -72.0
+	settings_btn.offset_left = -80.0
 	settings_btn.offset_top = TOP_BAR_MARGIN_TOP
 	settings_btn.offset_right = -10.0
-	settings_btn.offset_bottom = TOP_BAR_MARGIN_TOP + 60.0
+	settings_btn.offset_bottom = TOP_BAR_MARGIN_TOP + SETTINGS_BTN_SIZE
 	settings_btn.z_index = 10
 	add_child(settings_btn)
 
@@ -316,7 +320,7 @@ func _create_buy_coins_button() -> TextureButton:
 	return btn
 
 func _create_settings_button() -> Button:
-	var btn := _make_round_menu_button(ROUND_MENU_BTN_SIZE)
+	var btn := _make_round_menu_button(SETTINGS_BTN_SIZE)
 	var content := btn.get_node("RoundBtnContent") as Control
 	var dots := Label.new()
 	dots.text = "•••"
@@ -324,7 +328,7 @@ func _create_settings_button() -> Button:
 	dots.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	dots.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	dots.offset_top = -2.0
-	dots.add_theme_font_size_override("font_size", 34)
+	dots.add_theme_font_size_override("font_size", SETTINGS_DOTS_FONT_SIZE)
 	dots.add_theme_color_override("font_color", Color(0.22, 0.12, 0.04, 1.0))
 	dots.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(dots)

@@ -76,18 +76,7 @@ func _build_dialog():
 	var header_spacer = Control.new()
 	header_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header_row.add_child(header_spacer)
-	var close_btn = Button.new()
-	close_btn.text = "✕"
-	close_btn.custom_minimum_size = Vector2(50, 50)
-	var close_style = StyleBoxFlat.new()
-	close_style.bg_color = Color(0.8, 0.2, 0.2, 0.8)
-	close_style.set_corner_radius_all(25)
-	close_btn.add_theme_stylebox_override("normal", close_style)
-	close_btn.add_theme_font_size_override("font_size", 32)
-	close_btn.add_theme_color_override("font_color", Color.WHITE)
-	close_btn.focus_mode = Control.FOCUS_NONE
-	close_btn.mouse_filter = Control.MOUSE_FILTER_STOP
-	close_btn.pressed.connect(func():
+	var close_btn := UiCloseButton.create(func():
 		if not _dialog_closing and not is_queued_for_deletion():
 			_dialog_closing = true
 			_on_close_pressed()

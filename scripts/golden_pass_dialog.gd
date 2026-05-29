@@ -69,12 +69,7 @@ func setup() -> void:
 	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	title.add_theme_constant_override("outline_size", 5)
 	top_row.add_child(title)
-	var close_btn := Button.new()
-	close_btn.text = "✕"
-	close_btn.custom_minimum_size = Vector2(52, 52)
-	close_btn.focus_mode = Control.FOCUS_NONE
-	_style_circle_btn(close_btn, Color(0.45, 0.22, 0.22), Color(0.6, 0.3, 0.3))
-	close_btn.pressed.connect(_on_close_pressed)
+	var close_btn := UiCloseButton.create(_on_close_pressed)
 	top_row.add_child(close_btn)
 	root_v.add_child(top_row)
 	var sub := Label.new()

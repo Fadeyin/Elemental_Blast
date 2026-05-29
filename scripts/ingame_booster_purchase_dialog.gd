@@ -51,14 +51,19 @@ func setup(display_name: String, icon, cost: int, quantity: int, player_coins: i
 	vbox.add_theme_constant_override("separation", 20)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	margin.add_child(vbox)
-	var title = Label.new()
+	var header_row := HBoxContainer.new()
+	header_row.add_theme_constant_override("separation", 12)
+	var title := Label.new()
 	title.text = header_title
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 44)
 	title.add_theme_color_override("font_color", Color(1.0, 0.88, 0.38))
 	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	title.add_theme_constant_override("outline_size", 7)
-	vbox.add_child(title)
+	header_row.add_child(title)
+	header_row.add_child(UiCloseButton.create(_emit_closed))
+	vbox.add_child(header_row)
 	if icon != null:
 		var icon_wrap = CenterContainer.new()
 		var tr = TextureRect.new()
