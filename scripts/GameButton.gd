@@ -5,16 +5,14 @@ extends Button
 var _cached_font_color := Color.WHITE
 var _cached_outline_color := Color(0, 0, 0, 0)
 var _cached_outline_size := 0
+var _builtin_text_hidden := false
 
 
 func _activate_mixed_draw() -> void:
-	_cache_draw_colors()
-	_hide_builtin_text()
+	if not _builtin_text_hidden:
+		_cache_draw_colors()
+		_hide_builtin_text()
 	queue_redraw()
-
-
-func _enter_tree() -> void:
-	_activate_mixed_draw()
 
 
 func _game_fonts_refresh() -> void:
@@ -28,14 +26,15 @@ func _cache_draw_colors() -> void:
 
 
 func _hide_builtin_text() -> void:
+	if _builtin_text_hidden:
+		return
+	_builtin_text_hidden = true
 	add_theme_color_override("font_color", Color(1, 1, 1, 0))
 	add_theme_color_override("font_outline_color", Color(1, 1, 1, 0))
 
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_THEME_CHANGED:
-		_cache_draw_colors()
-		_hide_builtin_text()
 		queue_redraw()
 
 

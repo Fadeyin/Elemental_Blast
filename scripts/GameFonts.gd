@@ -7,6 +7,7 @@ const WEIGHT_DIGIT := 900.0
 
 const GAME_LABEL_SCRIPT := preload("res://scripts/GameLabel.gd")
 const GAME_BUTTON_SCRIPT := preload("res://scripts/GameButton.gd")
+const META_MIXED_ACTIVE := &"game_fonts_mixed_active"
 
 var text_font: Font
 var digit_font: Font
@@ -135,6 +136,8 @@ func _clear_label_script(label: Label) -> void:
 	if label.get_script() == GAME_LABEL_SCRIPT:
 		label.visible_characters = -1
 		label.set_script(null)
+	if label.has_meta(META_MIXED_ACTIVE):
+		label.remove_meta(META_MIXED_ACTIVE)
 
 
 func _clear_button_script(button: Button) -> void:
@@ -142,6 +145,8 @@ func _clear_button_script(button: Button) -> void:
 		button.remove_theme_color_override("font_color")
 		button.remove_theme_color_override("font_outline_color")
 		button.set_script(null)
+	if button.has_meta(META_MIXED_ACTIVE):
+		button.remove_meta(META_MIXED_ACTIVE)
 
 
 func _setup_label(label: Label) -> void:
@@ -154,10 +159,9 @@ func _setup_label(label: Label) -> void:
 		label.remove_theme_font_override("font")
 		if label.get_script() != GAME_LABEL_SCRIPT:
 			label.set_script(GAME_LABEL_SCRIPT)
-		if label.has_method("_activate_mixed_draw"):
-			label._activate_mixed_draw()
-		elif label.has_method("_game_fonts_refresh"):
-			label._game_fonts_refresh()
+			label.set_meta(META_MIXED_ACTIVE, true)
+			if label.has_method("_activate_mixed_draw"):
+				label._activate_mixed_draw()
 		return
 	_clear_label_script(label)
 	label.add_theme_font_override("font", text_font)
@@ -173,10 +177,9 @@ func _setup_button(button: Button) -> void:
 		button.remove_theme_font_override("font")
 		if button.get_script() != GAME_BUTTON_SCRIPT:
 			button.set_script(GAME_BUTTON_SCRIPT)
-		if button.has_method("_activate_mixed_draw"):
-			button._activate_mixed_draw()
-		elif button.has_method("_game_fonts_refresh"):
-			button._game_fonts_refresh()
+			button.set_meta(META_MIXED_ACTIVE, true)
+			if button.has_method("_activate_mixed_draw"):
+				button._activate_mixed_draw()
 		return
 	_clear_button_script(button)
 	button.add_theme_font_override("font", text_font)

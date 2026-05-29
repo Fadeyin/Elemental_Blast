@@ -2,14 +2,14 @@ extends Label
 ## Label с Rubik ExtraBold для букв и Rubik Black для цифр.
 ## Встроенный текст Label скрыт (visible_characters = 0), рисуется только _draw.
 
+var _builtin_text_hidden := false
+
 
 func _activate_mixed_draw() -> void:
-	visible_characters = 0
+	if not _builtin_text_hidden:
+		visible_characters = 0
+		_builtin_text_hidden = true
 	queue_redraw()
-
-
-func _enter_tree() -> void:
-	_activate_mixed_draw()
 
 
 func _game_fonts_refresh() -> void:
