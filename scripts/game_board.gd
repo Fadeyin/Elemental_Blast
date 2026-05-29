@@ -3917,7 +3917,7 @@ func _portal_rect_for_column(origin: Vector2, col_x: int, spawn_y: int) -> Rect2
 	return Rect2(top_left, Vector2(portal_w, portal_h))
 
 func _draw_outlined_countdown(center: Vector2, text: String) -> void:
-	var font := ThemeDB.fallback_font
+	var font: Font = GameFonts.digit_font if GameFonts else ThemeDB.fallback_font
 	var font_size := 30
 	var ts := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
 	var pos := center - Vector2(ts.x * 0.5, ts.y * 0.35)
