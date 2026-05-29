@@ -84,12 +84,12 @@ const INGAME_BOOSTER_ICON_PATHS := [
 ]
 const INGAME_BOOSTER_SLOT_BG := preload("res://textures/ingame_booster_slot_bg.png")
 const INGAME_BOOSTER_COUNT_BG := preload("res://textures/ingame_booster_count_bg.png")
-const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(52, 52)
-const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(34, 34)
-const INGAME_BOOSTER_TEXTURE_SHADOW_OFFSET := Vector2(2, 4)
-const INGAME_BOOSTER_TEXTURE_SHADOW_ALPHA := 0.4
-const INGAME_BOOSTER_SLOT_SHADOW_SIZE := 6
-const INGAME_BOOSTER_SLOT_SHADOW_OFFSET := Vector2(0, 4)
+const INGAME_BOOSTER_BUTTON_SIZE := Vector2(64, 64)
+const INGAME_BOOSTER_SLOT_DISPLAY_SIZE := Vector2(58, 58)
+const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(36, 36)
+const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(22, 22)
+const INGAME_BOOSTER_TEXTURE_SHADOW_OFFSET := Vector2(2, 3)
+const INGAME_BOOSTER_TEXTURE_SHADOW_ALPHA := 0.48
 
 var chips := []
 var enemies := [] # 2D массив здоровья врагов (y: 0..ENEMY_ROWS-1)
@@ -750,17 +750,8 @@ func _run_level1_goals_tutorial_step() -> void:
 	await overlay.begin_goals_step(goals_r, "Уничтожь все цели, чтобы пройти уровень.")
 	_level1_tutorial_advancing_to_goals = false
 
-func _make_ingame_booster_slot_stylebox(tint: Color = Color.WHITE) -> StyleBoxTexture:
-	var style := StyleBoxTexture.new()
-	style.texture = INGAME_BOOSTER_SLOT_BG
-	style.modulate_color = tint
-	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
-	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
-	style.draw_center = true
-	style.shadow_color = Color(0, 0, 0, INGAME_BOOSTER_TEXTURE_SHADOW_ALPHA)
-	style.shadow_size = INGAME_BOOSTER_SLOT_SHADOW_SIZE
-	style.shadow_offset = INGAME_BOOSTER_SLOT_SHADOW_OFFSET
-	return style
+func _make_ingame_booster_button_stylebox() -> StyleBoxEmpty:
+	return StyleBoxEmpty.new()
 
 func _add_ingame_booster_texture_shadow(parent: Control, tex: Texture2D, display_size: Vector2) -> TextureRect:
 	var shadow := TextureRect.new()
@@ -789,43 +780,41 @@ func _add_ingame_booster_centered_texture(parent: Control, tex: Texture2D, displ
 	return icon
 
 func _style_ingame_booster_count_label(label: Label) -> void:
-	label.add_theme_font_size_override("font_size", 20)
+	label.add_theme_font_size_override("font_size", 14)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
-	label.add_theme_constant_override("outline_size", 6)
+	label.add_theme_constant_override("outline_size", 5)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.z_index = 2
+
+func _add_ingame_booster_centered_stack(btn: Button, stack_name: String, display_size: Vector2, z: int) -> Control:
+	var stack := Control.new()
+	stack.name = stack_name
+	stack.custom_minimum_size = display_size
+	stack.size = display_size
+	stack.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.z_index = z
+	btn.add_child(stack)
+	return stack
 
 func _setup_ingame_booster_button_visuals(btn: Button, icon_tex: Texture2D) -> void:
 	btn.text = ""
 	btn.icon = null
 	btn.clip_contents = false
-	var slot_normal := _make_ingame_booster_slot_stylebox(Color.WHITE)
-	var slot_hover := _make_ingame_booster_slot_stylebox(Color(1.08, 1.08, 1.08, 1.0))
-	var slot_pressed := _make_ingame_booster_slot_stylebox(Color(0.92, 0.92, 0.92, 1.0))
-	var slot_disabled := _make_ingame_booster_slot_stylebox(Color(0.55, 0.55, 0.55, 0.85))
-	slot_disabled.shadow_size = 2
-	btn.add_theme_stylebox_override("normal", slot_normal)
-	btn.add_theme_stylebox_override("hover", slot_hover)
-	btn.add_theme_stylebox_override("pressed", slot_pressed)
-	btn.add_theme_stylebox_override("disabled", slot_disabled)
-	btn.add_theme_stylebox_override("focus", slot_normal.duplicate())
-	var icon_area := Control.new()
-	icon_area.name = "IconArea"
-	icon_area.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	icon_area.offset_left = 8
-	icon_area.offset_top = 6
-	icon_area.offset_right = -8
-	icon_area.offset_bottom = -14
-	icon_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	btn.add_child(icon_area)
-	var icon_stack := Control.new()
-	icon_stack.name = "IconStack"
-	icon_stack.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	icon_stack.custom_minimum_size = INGAME_BOOSTER_ICON_DISPLAY_SIZE
-	icon_stack.size = INGAME_BOOSTER_ICON_DISPLAY_SIZE
-	icon_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon_area.add_child(icon_stack)
+	btn.custom_minimum_size = INGAME_BOOSTER_BUTTON_SIZE
+	var transparent_style := _make_ingame_booster_button_stylebox()
+	btn.add_theme_stylebox_override("normal", transparent_style)
+	btn.add_theme_stylebox_override("hover", transparent_style)
+	btn.add_theme_stylebox_override("pressed", transparent_style)
+	btn.add_theme_stylebox_override("disabled", transparent_style)
+	btn.add_theme_stylebox_override("focus", transparent_style)
+	var slot_stack := _add_ingame_booster_centered_stack(btn, "SlotStack", INGAME_BOOSTER_SLOT_DISPLAY_SIZE, 0)
+	_add_ingame_booster_texture_shadow(slot_stack, INGAME_BOOSTER_SLOT_BG, INGAME_BOOSTER_SLOT_DISPLAY_SIZE)
+	var slot_bg := _add_ingame_booster_centered_texture(slot_stack, INGAME_BOOSTER_SLOT_BG, INGAME_BOOSTER_SLOT_DISPLAY_SIZE, "SlotBg")
+	slot_bg.position = Vector2.ZERO
+	var icon_stack := _add_ingame_booster_centered_stack(btn, "IconStack", INGAME_BOOSTER_ICON_DISPLAY_SIZE, 1)
 	if icon_tex != null:
 		_add_ingame_booster_texture_shadow(icon_stack, icon_tex, INGAME_BOOSTER_ICON_DISPLAY_SIZE)
 		var icon_rect := _add_ingame_booster_centered_texture(icon_stack, icon_tex, INGAME_BOOSTER_ICON_DISPLAY_SIZE, "BoosterIcon")
@@ -835,11 +824,12 @@ func _setup_ingame_booster_button_visuals(btn: Button, icon_tex: Texture2D) -> v
 	badge.custom_minimum_size = INGAME_BOOSTER_COUNT_BADGE_SIZE
 	badge.size = INGAME_BOOSTER_COUNT_BADGE_SIZE
 	badge.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	badge.offset_left = -INGAME_BOOSTER_COUNT_BADGE_SIZE.x - 2
-	badge.offset_top = -INGAME_BOOSTER_COUNT_BADGE_SIZE.y - 2
-	badge.offset_right = -2
-	badge.offset_bottom = -2
+	badge.offset_left = -INGAME_BOOSTER_COUNT_BADGE_SIZE.x - 1
+	badge.offset_top = -INGAME_BOOSTER_COUNT_BADGE_SIZE.y - 1
+	badge.offset_right = -1
+	badge.offset_bottom = -1
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.z_index = 2
 	btn.add_child(badge)
 	_add_ingame_booster_texture_shadow(badge, INGAME_BOOSTER_COUNT_BG, INGAME_BOOSTER_COUNT_BADGE_SIZE)
 	var badge_bg := _add_ingame_booster_centered_texture(badge, INGAME_BOOSTER_COUNT_BG, INGAME_BOOSTER_COUNT_BADGE_SIZE, "CountBadgeBg")
