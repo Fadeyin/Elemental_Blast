@@ -29,6 +29,7 @@ func _draw() -> void:
 	var outline_color: Color = get_theme_color("font_outline_color")
 	var outline_size: int = get_theme_constant("outline_size")
 	var rect := Rect2(Vector2.ZERO, size)
+	var use_heavy: bool = has_meta(&"game_fonts_heavy") and bool(get_meta("game_fonts_heavy"))
 	GameFonts.draw_mixed_string_in_rect(
 		self,
 		rect,
@@ -38,5 +39,6 @@ func _draw() -> void:
 		horizontal_alignment,
 		vertical_alignment,
 		outline_color,
-		outline_size
+		outline_size,
+		use_heavy
 	)

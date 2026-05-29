@@ -272,8 +272,8 @@ func _create_coins_display() -> Control:
 	var coins = LevelManager.get_coins() if LevelManager else 0
 	coins_label.text = str(coins)
 	coins_label.add_theme_font_size_override("font_size", 28)
-	coins_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
-	coins_label.add_theme_color_override("font_outline_color", Color(0.3, 0.2, 0.0, 0.9))
+	coins_label.add_theme_color_override("font_color", Color(0.34, 0.20, 0.0, 1.0))
+	coins_label.add_theme_color_override("font_outline_color", Color(0.92, 0.78, 0.38, 0.55))
 	coins_label.add_theme_constant_override("outline_size", 2)
 	coins_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	container.add_child(coins_label)
@@ -654,6 +654,7 @@ func _apply_play_level_banner_style(label: Label) -> void:
 	label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
 	label.add_theme_color_override("font_outline_color", Color(0.05, 0.22, 0.1, 0.75))
 	label.add_theme_constant_override("outline_size", 2)
+	label.set_meta(&"game_fonts_heavy", true)
 
 
 func _ensure_play_level_banner() -> void:

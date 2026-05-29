@@ -70,7 +70,9 @@ static func text_is_digits_only(text: String) -> bool:
 	return true
 
 
-static func font_for_char(ch: String) -> Font:
+static func font_for_char(ch: String, use_heavy: bool = false) -> Font:
+	if use_heavy:
+		return GameFonts.digit_font
 	if is_digit_char(ch):
 		return GameFonts.digit_font
 	return GameFonts.text_font
@@ -202,13 +204,13 @@ static func effective_outline_size(requested: int) -> int:
 	return clampi(requested, 0, 2)
 
 
-func measure_mixed_text_layout(text: String, font_size: int) -> Dictionary:
+func measure_mixed_text_layout(text: String, font_size: int, use_heavy: bool = false) -> Dictionary:
 	var width := 0.0
 	var max_ascent := 0.0
 	var max_descent := 0.0
 	for i in range(text.length()):
 		var ch := text.substr(i, 1)
-		var font := font_for_char(ch)
+		var font := font_for_char(ch, use_heavy)
 		width += font.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
 		max_ascent = maxf(max_ascent, font.get_ascent(font_size))
 		max_descent = maxf(max_descent, font.get_descent(font_size))
@@ -220,8 +222,8 @@ func measure_mixed_text_layout(text: String, font_size: int) -> Dictionary:
 	}
 
 
-func measure_mixed_string(text: String, font_size: int) -> Vector2:
-	var layout := measure_mixed_text_layout(text, font_size)
+func measure_mixed_string(text: String, font_size: int, use_heavy: bool = false) -> Vector2:
+	var layout := measure_mixed_text_layout(text, font_size, use_heavy)
 	return Vector2(layout.width, layout.height)
 
 
@@ -233,17 +235,18 @@ func draw_mixed_string(
 	color: Color,
 	outline_color: Color = Color(0, 0, 0, 0),
 	outline_size: int = 0,
-	shared_ascent: float = -1.0
+	shared_ascent: float = -1.0,
+	use_heavy: bool = false
 ) -> void:
 	if text.is_empty():
 		return
-	var layout := measure_mixed_text_layout(text, font_size)
+	var layout := measure_mixed_text_layout(text, font_size, use_heavy)
 	var max_ascent: float = shared_ascent if shared_ascent >= 0.0 else layout.ascent
 	var outline_px := effective_outline_size(outline_size)
 	var x := baseline_pos.x
 	for i in range(text.length()):
 		var ch := text.substr(i, 1)
-		var font := font_for_char(ch)
+		var font := font_for_char(ch, use_heavy)
 		var y: float = baseline_pos.y + (max_ascent - font.get_ascent(font_size))
 		if outline_px > 0 and outline_color.a > 0.0:
 			for dir: Vector2i in OUTLINE_DIRS:
@@ -271,11 +274,12 @@ func draw_mixed_string_in_rect(
 	h_align: HorizontalAlignment,
 	v_align: VerticalAlignment,
 	outline_color: Color = Color(0, 0, 0, 0),
-	outline_size: int = 0
+	outline_size: int = 0,
+	use_heavy: bool = false
 ) -> void:
 	if text.is_empty():
 		return
-	var layout := measure_mixed_text_layout(text, font_size)
+	var layout := measure_mixed_text_layout(text, font_size, use_heavy)
 	var baseline := rect.position
 	if h_align == HORIZONTAL_ALIGNMENT_CENTER:
 		baseline.x += (rect.size.x - layout.width) * 0.5
@@ -287,4 +291,4 @@ func draw_mixed_string_in_rect(
 		baseline.y += rect.size.y - layout.descent
 	else:
 		baseline.y += layout.ascent
-	draw_mixed_string(canvas, baseline, text, font_size, color, outline_color, outline_size, layout.ascent)
+	draw_mixed_string(canvas, baseline, text, font_size, color, outline_color, outline_size, layout.ascent, use_heavy)
