@@ -133,11 +133,14 @@ func _poll_tracked_text() -> void:
 
 func _clear_label_script(label: Label) -> void:
 	if label.get_script() == GAME_LABEL_SCRIPT:
+		label.visible_characters = -1
 		label.set_script(null)
 
 
 func _clear_button_script(button: Button) -> void:
 	if button.get_script() == GAME_BUTTON_SCRIPT:
+		button.remove_theme_color_override("font_color")
+		button.remove_theme_color_override("font_outline_color")
 		button.set_script(null)
 
 
@@ -148,9 +151,12 @@ func _setup_label(label: Label) -> void:
 		label.add_theme_font_override("font", digit_font)
 		return
 	if text_has_digits(label.text):
+		label.remove_theme_font_override("font")
 		if label.get_script() != GAME_LABEL_SCRIPT:
 			label.set_script(GAME_LABEL_SCRIPT)
-		if label.has_method("_game_fonts_refresh"):
+		if label.has_method("_activate_mixed_draw"):
+			label._activate_mixed_draw()
+		elif label.has_method("_game_fonts_refresh"):
 			label._game_fonts_refresh()
 		return
 	_clear_label_script(label)
@@ -164,9 +170,12 @@ func _setup_button(button: Button) -> void:
 		button.add_theme_font_override("font", digit_font)
 		return
 	if text_has_digits(button.text):
+		button.remove_theme_font_override("font")
 		if button.get_script() != GAME_BUTTON_SCRIPT:
 			button.set_script(GAME_BUTTON_SCRIPT)
-		if button.has_method("_game_fonts_refresh"):
+		if button.has_method("_activate_mixed_draw"):
+			button._activate_mixed_draw()
+		elif button.has_method("_game_fonts_refresh"):
 			button._game_fonts_refresh()
 		return
 	_clear_button_script(button)
