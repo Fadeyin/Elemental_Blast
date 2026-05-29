@@ -12,9 +12,13 @@ extends Control
 @onready var main_tab = $TabContent/MainTab
 @onready var ranks_tab = $TabContent/RanksTab
 
-@onready var shop_btn = $BottomNav/HBox/ShopBtn
-@onready var main_btn = $BottomNav/HBox/MainBtn
-@onready var ranks_btn = $BottomNav/HBox/RanksBtn
+@onready var bottom_nav_bg: TextureRect = $BottomNav/NavBackground
+@onready var shop_btn: TextureButton = $BottomNav/NavRow/ShopItem/ShopBtn
+@onready var main_btn: TextureButton = $BottomNav/NavRow/MainItem/MainBtn
+@onready var ranks_btn: TextureButton = $BottomNav/NavRow/RanksItem/RanksBtn
+@onready var shop_active_bg: TextureRect = $BottomNav/NavRow/ShopItem/ActiveBg
+@onready var main_active_bg: TextureRect = $BottomNav/NavRow/MainItem/ActiveBg
+@onready var ranks_active_bg: TextureRect = $BottomNav/NavRow/RanksItem/ActiveBg
 
 # Путь к игровой сцене
 const GAME_BOARD_SCENE_PATH = "res://scenes/game_board.tscn"
@@ -29,7 +33,16 @@ const TEX_UI_BUY_COINS_BTN := preload("res://textures/ui_buy_coins_button.png")
 const TEX_UI_PLAY_BTN := preload("res://textures/ui_main_menu_play_button.png")
 const TEX_UI_SETTINGS := preload("res://textures/Booster_Hummer.png")
 const TEX_UI_GOLDEN_PASS := preload("res://textures/Chip_Bonus_Rainbow_Ball.png")
+const TEX_NAV_LEADERBOARD := preload("res://textures/ui_nav_icon_leaderboard.png")
+const TEX_NAV_HOME := preload("res://textures/ui_nav_icon_home.png")
+const TEX_NAV_SHOP := preload("res://textures/ui_nav_icon_shop.png")
+const TEX_BOTTOM_NAV_BG := preload("res://textures/ui_bottom_nav_bg.png")
+const TEX_BOTTOM_NAV_ACTIVE := preload("res://textures/ui_bottom_nav_active_bg.png")
 const PLAY_BTN_TEX_SIZE := Vector2(1371.0, 474.0)
+const NAV_ICON_SIZE := 56.0
+const NAV_ICON_ACTIVE_SCALE := 1.12
+const NAV_ACTIVE_BG_SCALE := 1.06
+const NAV_INACTIVE_MODULATE := Color(0.78, 0.78, 0.84, 1.0)
 const TOP_BAR_HEIGHT := 62.0
 const TOP_BAR_WIDTH := 268.0
 const TOP_BAR_MARGIN_LEFT := 10.0
@@ -57,7 +70,7 @@ func _ready():
 		ranks_editor_button.pressed.connect(_on_editor_pressed)
 		_style_secondary_action_button(ranks_editor_button)
 	_setup_ranks_level_controls()
-	
+	_apply_bottom_nav_visuals()
 	_setup_navigation()
 	_update_level_label()
 	_update_version_label()
@@ -327,15 +340,46 @@ func _show_buy_coins_dialog():
 	dialog.confirmed.connect(_on_close)
 	dialog.close_requested.connect(_on_close)
 
+func _apply_bottom_nav_visuals() -> void:
+	if is_instance_valid(bottom_nav_bg):
+		bottom_nav_bg.texture = TEX_BOTTOM_NAV_BG
+		bottom_nav_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		bottom_nav_bg.stretch_mode = TextureRect.STRETCH_SCALE
+	for active_bg in [shop_active_bg, main_active_bg, ranks_active_bg]:
+		if is_instance_valid(active_bg):
+			active_bg.texture = TEX_BOTTOM_NAV_ACTIVE
+			active_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			active_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			active_bg.scale = Vector2(NAV_ACTIVE_BG_SCALE, NAV_ACTIVE_BG_SCALE)
+			active_bg.pivot_offset = active_bg.size * 0.5
+	_style_nav_texture_button(ranks_btn, TEX_NAV_LEADERBOARD)
+	_style_nav_texture_button(main_btn, TEX_NAV_HOME)
+	_style_nav_texture_button(shop_btn, TEX_NAV_SHOP)
+	call_deferred("_center_nav_button_pivots")
+
+func _style_nav_texture_button(btn: TextureButton, tex: Texture2D) -> void:
+	if not is_instance_valid(btn):
+		return
+	btn.texture_normal = tex
+	btn.texture_pressed = tex
+	btn.texture_hover = tex
+	btn.ignore_texture_size = true
+	btn.custom_minimum_size = Vector2(NAV_ICON_SIZE, NAV_ICON_SIZE)
+	btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+	btn.focus_mode = Control.FOCUS_NONE
+
+func _center_nav_button_pivots() -> void:
+	for btn in [shop_btn, main_btn, ranks_btn]:
+		if is_instance_valid(btn):
+			btn.pivot_offset = btn.size * 0.5
+	for active_bg in [shop_active_bg, main_active_bg, ranks_active_bg]:
+		if is_instance_valid(active_bg):
+			active_bg.pivot_offset = active_bg.size * 0.5
+
 func _setup_navigation():
 	shop_btn.pressed.connect(func(): _switch_tab("shop"))
 	main_btn.pressed.connect(func(): _switch_tab("main"))
 	ranks_btn.pressed.connect(func(): _switch_tab("ranks"))
-	
-	# Стилизация навигации
-	var buttons = [shop_btn, main_btn, ranks_btn]
-	for btn in buttons:
-		_style_nav_button(btn)
 
 func _switch_tab(tab_name: String):
 	shop_tab.visible = (tab_name == "shop")
@@ -343,33 +387,26 @@ func _switch_tab(tab_name: String):
 	ranks_tab.visible = (tab_name == "ranks")
 	if tab_name == "ranks":
 		_sync_ranks_level_field_from_manager()
-	
-	# Подсветка активной кнопки
-	shop_btn.modulate = Color(1, 1, 1) if tab_name == "shop" else Color(0.6, 0.6, 0.6)
-	main_btn.modulate = Color(1, 1, 1) if tab_name == "main" else Color(0.6, 0.6, 0.6)
-	ranks_btn.modulate = Color(1, 1, 1) if tab_name == "ranks" else Color(0.6, 0.6, 0.6)
+	_update_nav_highlight(tab_name)
 
-func _style_nav_button(btn: Button):
-	var normal = StyleBoxFlat.new()
-	normal.bg_color = Color(0, 0, 0, 0) # Прозрачный фон
-	normal.border_width_top = 4
-	normal.border_color = Color(0, 0, 0, 0)
-	
-	var hover = normal.duplicate()
-	hover.bg_color = Color(1, 1, 1, 0.05)
-	
-	var pressed = normal.duplicate()
-	pressed.bg_color = Color(1, 1, 1, 0.1)
-	pressed.border_color = Color(0.4, 0.7, 1.0, 1.0) # Синяя полоска сверху
-	
-	btn.add_theme_stylebox_override("normal", normal)
-	btn.add_theme_stylebox_override("hover", hover)
-	btn.add_theme_stylebox_override("pressed", pressed)
-	btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	
-	btn.add_theme_font_size_override("font_size", 24)
-	btn.add_theme_color_override("font_outline_color", Color.BLACK)
-	btn.add_theme_constant_override("outline_size", 4)
+func _update_nav_highlight(tab_name: String) -> void:
+	var entries := {
+		"shop": {"btn": shop_btn, "bg": shop_active_bg},
+		"main": {"btn": main_btn, "bg": main_active_bg},
+		"ranks": {"btn": ranks_btn, "bg": ranks_active_bg},
+	}
+	for key in entries.keys():
+		var entry: Dictionary = entries[key]
+		var btn: TextureButton = entry["btn"]
+		var active_bg: TextureRect = entry["bg"]
+		if not is_instance_valid(btn) or not is_instance_valid(active_bg):
+			continue
+		var is_active := key == tab_name
+		active_bg.visible = is_active
+		btn.scale = Vector2.ONE * NAV_ICON_ACTIVE_SCALE if is_active else Vector2.ONE
+		btn.modulate = Color.WHITE if is_active else NAV_INACTIVE_MODULATE
+		if is_active:
+			btn.pivot_offset = btn.size * 0.5
 
 func _on_play_pressed():
 	LevelManager.set_current_level(LevelManager.current_level)
@@ -475,7 +512,7 @@ func _style_play_button() -> void:
 	var btn_w := 400.0
 	var btn_h := btn_w * PLAY_BTN_TEX_SIZE.y / PLAY_BTN_TEX_SIZE.x
 	play_button.custom_minimum_size = Vector2(btn_w, btn_h)
-	var bottom_gap := 110.0
+	var bottom_gap := 132.0
 	play_button.offset_left = -btn_w * 0.5
 	play_button.offset_right = btn_w * 0.5
 	play_button.offset_top = -bottom_gap - btn_h

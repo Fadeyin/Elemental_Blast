@@ -174,41 +174,164 @@ layout_mode = 2
 size_flags_horizontal = 4
 text = "Редактор уровней"
 
-[node name="BottomNav" type="ColorRect" parent="."]
-custom_minimum_size = Vector2(0, 100)
+[node name="BottomNav" type="Control" parent="."]
+custom_minimum_size = Vector2(0, 98)
 layout_mode = 1
 anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -100.0
+offset_left = 22.0
+offset_top = -118.0
+offset_right = -22.0
+offset_bottom = -18.0
 grow_horizontal = 2
 grow_vertical = 0
-color = Color(0.08, 0.1, 0.12, 0.8)
 
-[node name="HBox" type="HBoxContainer" parent="BottomNav"]
+[node name="NavBackground" type="TextureRect" parent="BottomNav"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 6
+
+[node name="NavRow" type="HBoxContainer" parent="BottomNav"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 4.0
+offset_right = -8.0
+offset_bottom = -4.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
 alignment = 1
 
-[node name="ShopBtn" type="Button" parent="BottomNav/HBox"]
+[node name="RanksItem" type="Control" parent="BottomNav/NavRow"]
+custom_minimum_size = Vector2(0, 88)
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Магазин"
+size_flags_stretch_ratio = 1.0
 
-[node name="MainBtn" type="Button" parent="BottomNav/HBox"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Главная"
+[node name="ActiveBg" type="TextureRect" parent="BottomNav/NavRow/RanksItem"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -68.0
+offset_top = -34.0
+offset_right = 68.0
+offset_bottom = 34.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
 
-[node name="RanksBtn" type="Button" parent="BottomNav/HBox"]
+[node name="RanksBtn" type="TextureButton" parent="BottomNav/NavRow/RanksItem"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -28.0
+offset_top = -28.0
+offset_right = 28.0
+offset_bottom = 28.0
+grow_horizontal = 2
+grow_vertical = 2
+ignore_texture_size = true
+stretch_mode = 5
+
+[node name="MainItem" type="Control" parent="BottomNav/NavRow"]
+custom_minimum_size = Vector2(0, 88)
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Ранги"
+size_flags_stretch_ratio = 1.0
+
+[node name="ActiveBg" type="TextureRect" parent="BottomNav/NavRow/MainItem"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -68.0
+offset_top = -34.0
+offset_right = 68.0
+offset_bottom = 34.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MainBtn" type="TextureButton" parent="BottomNav/NavRow/MainItem"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -28.0
+offset_top = -28.0
+offset_right = 28.0
+offset_bottom = 28.0
+grow_horizontal = 2
+grow_vertical = 2
+ignore_texture_size = true
+stretch_mode = 5
+
+[node name="ShopItem" type="Control" parent="BottomNav/NavRow"]
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.0
+
+[node name="ActiveBg" type="TextureRect" parent="BottomNav/NavRow/ShopItem"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -68.0
+offset_top = -34.0
+offset_right = 68.0
+offset_bottom = 34.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ShopBtn" type="TextureButton" parent="BottomNav/NavRow/ShopItem"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -28.0
+offset_top = -28.0
+offset_right = 28.0
+offset_bottom = 28.0
+grow_horizontal = 2
+grow_vertical = 2
+ignore_texture_size = true
+stretch_mode = 5
 
 [node name="VersionLabel" type="Label" parent="."]
 layout_mode = 1
@@ -218,9 +341,9 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -100.0
-offset_top = -130.0
+offset_top = -148.0
 offset_right = -10.0
-offset_bottom = -110.0
+offset_bottom = -128.0
 grow_horizontal = 0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 18
