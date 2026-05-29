@@ -84,12 +84,12 @@ const INGAME_BOOSTER_ICON_PATHS := [
 ]
 const INGAME_BOOSTER_SLOT_BG := preload("res://textures/ingame_booster_slot_bg.png")
 const INGAME_BOOSTER_COUNT_BG := preload("res://textures/ingame_booster_count_bg.png")
-const INGAME_BOOSTER_BUTTON_SIZE := Vector2(64, 64)
-const INGAME_BOOSTER_SLOT_DISPLAY_SIZE := Vector2(58, 58)
-const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(36, 36)
-const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(22, 22)
-const INGAME_BOOSTER_TEXTURE_SHADOW_OFFSET := Vector2(2, 3)
-const INGAME_BOOSTER_TEXTURE_SHADOW_ALPHA := 0.48
+const INGAME_BOOSTER_BUTTON_SIZE := Vector2(128, 128)
+const INGAME_BOOSTER_SLOT_DISPLAY_SIZE := Vector2(116, 116)
+const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(72, 72)
+const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(44, 44)
+const INGAME_BOOSTER_SILHOUETTE_OFFSET := Vector2(5, 8)
+const INGAME_BOOSTER_SILHOUETTE_ALPHA := 0.58
 
 var chips := []
 var enemies := [] # 2D массив здоровья врагов (y: 0..ENEMY_ROWS-1)
@@ -754,6 +754,39 @@ func _ingame_booster_slot_content_margin() -> int:
 	var margin := int((INGAME_BOOSTER_BUTTON_SIZE.x - INGAME_BOOSTER_SLOT_DISPLAY_SIZE.x) * 0.5)
 	return maxi(margin, 0)
 
+func _configure_ingame_booster_silhouette_rect(rect: TextureRect, tex: Texture2D, display_size: Vector2, offset: Vector2) -> void:
+	rect.texture = tex
+	rect.custom_minimum_size = display_size
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	rect.modulate = Color(0, 0, 0, INGAME_BOOSTER_SILHOUETTE_ALPHA)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var half := display_size * 0.5
+	rect.set_anchors_preset(Control.PRESET_CENTER)
+	rect.offset_left = -half.x + offset.x
+	rect.offset_top = -half.y + offset.y
+	rect.offset_right = half.x + offset.x
+	rect.offset_bottom = half.y + offset.y
+
+func _add_ingame_booster_slot_silhouette(btn: Button) -> void:
+	var layer := Control.new()
+	layer.name = "SlotSilhouetteLayer"
+	layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var shadow := TextureRect.new()
+	shadow.name = "SlotSilhouette"
+	_configure_ingame_booster_silhouette_rect(shadow, INGAME_BOOSTER_SLOT_BG, INGAME_BOOSTER_SLOT_DISPLAY_SIZE, INGAME_BOOSTER_SILHOUETTE_OFFSET)
+	layer.add_child(shadow)
+	btn.add_child(layer)
+	btn.move_child(layer, 0)
+
+func _add_ingame_booster_count_silhouette(badge: PanelContainer) -> void:
+	var shadow := TextureRect.new()
+	shadow.name = "CountSilhouette"
+	_configure_ingame_booster_silhouette_rect(shadow, INGAME_BOOSTER_COUNT_BG, INGAME_BOOSTER_COUNT_BADGE_SIZE, INGAME_BOOSTER_SILHOUETTE_OFFSET)
+	badge.add_child(shadow)
+	badge.move_child(shadow, 0)
+
 func _make_ingame_booster_slot_stylebox(tint: Color = Color.WHITE) -> StyleBoxTexture:
 	var style := StyleBoxTexture.new()
 	style.texture = INGAME_BOOSTER_SLOT_BG
@@ -763,9 +796,6 @@ func _make_ingame_booster_slot_stylebox(tint: Color = Color.WHITE) -> StyleBoxTe
 	style.draw_center = true
 	var slot_margin := _ingame_booster_slot_content_margin()
 	style.set_content_margin_all(slot_margin)
-	style.shadow_color = Color(0, 0, 0, INGAME_BOOSTER_TEXTURE_SHADOW_ALPHA)
-	style.shadow_size = 5
-	style.shadow_offset = INGAME_BOOSTER_TEXTURE_SHADOW_OFFSET
 	return style
 
 func _make_ingame_booster_count_stylebox() -> StyleBoxTexture:
@@ -774,16 +804,13 @@ func _make_ingame_booster_count_stylebox() -> StyleBoxTexture:
 	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	style.draw_center = true
-	style.shadow_color = Color(0, 0, 0, INGAME_BOOSTER_TEXTURE_SHADOW_ALPHA)
-	style.shadow_size = 4
-	style.shadow_offset = INGAME_BOOSTER_TEXTURE_SHADOW_OFFSET
 	return style
 
 func _style_ingame_booster_count_label(label: Label) -> void:
-	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_font_size_override("font_size", 28)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
-	label.add_theme_constant_override("outline_size", 5)
+	label.add_theme_constant_override("outline_size", 8)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
@@ -802,7 +829,7 @@ func _setup_ingame_booster_button_visuals(btn: Button, icon_tex: Texture2D) -> v
 	var slot_hover := _make_ingame_booster_slot_stylebox(Color(1.06, 1.06, 1.06, 1.0))
 	var slot_pressed := _make_ingame_booster_slot_stylebox(Color(0.94, 0.94, 0.94, 1.0))
 	var slot_disabled := _make_ingame_booster_slot_stylebox(Color(0.55, 0.55, 0.55, 0.85))
-	slot_disabled.shadow_size = 2
+	_add_ingame_booster_slot_silhouette(btn)
 	btn.add_theme_stylebox_override("normal", slot_normal)
 	btn.add_theme_stylebox_override("hover", slot_hover)
 	btn.add_theme_stylebox_override("pressed", slot_pressed)
@@ -814,11 +841,12 @@ func _setup_ingame_booster_button_visuals(btn: Button, icon_tex: Texture2D) -> v
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge.add_theme_stylebox_override("panel", _make_ingame_booster_count_stylebox())
 	badge.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	badge.offset_left = -INGAME_BOOSTER_COUNT_BADGE_SIZE.x - 1
-	badge.offset_top = -INGAME_BOOSTER_COUNT_BADGE_SIZE.y - 1
-	badge.offset_right = -1
-	badge.offset_bottom = -1
+	badge.offset_left = -INGAME_BOOSTER_COUNT_BADGE_SIZE.x - 2
+	badge.offset_top = -INGAME_BOOSTER_COUNT_BADGE_SIZE.y - 2
+	badge.offset_right = -2
+	badge.offset_bottom = -2
 	btn.add_child(badge)
+	_add_ingame_booster_count_silhouette(badge)
 	var count_label := Label.new()
 	count_label.name = "CountLabel"
 	count_label.text = "0"
