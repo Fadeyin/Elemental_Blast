@@ -43,7 +43,7 @@ const TEX_BOTTOM_NAV_BG := preload("res://textures/ui_bottom_nav_bg.png")
 const TEX_BOTTOM_NAV_ACTIVE := preload("res://textures/ui_bottom_nav_active_bg.png")
 const PLAY_BTN_TEX_SIZE := Vector2(1371.0, 474.0)
 const NAV_ICON_SIZE := 44.0
-const NAV_LABEL_FONT_SIZE := 15
+const NAV_LABEL_FONT_SIZE := 22
 const NAV_ICON_ACTIVE_MODULATE := Color(1.0, 1.0, 1.0, 1.0)
 const NAV_ICON_INACTIVE_MODULATE := Color(0.18, 0.48, 0.62, 1.0)
 const NAV_LABEL_ACTIVE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
@@ -250,7 +250,7 @@ func _create_coins_display() -> Control:
 	coins_label.add_theme_font_size_override("font_size", 28)
 	coins_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
 	coins_label.add_theme_color_override("font_outline_color", Color(0.3, 0.2, 0.0, 0.9))
-	coins_label.add_theme_constant_override("outline_size", 4)
+	coins_label.add_theme_constant_override("outline_size", 2)
 	coins_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	container.add_child(coins_label)
 	
@@ -362,7 +362,9 @@ func _apply_bottom_nav_visuals() -> void:
 		if is_instance_valid(nav_label):
 			nav_label.add_theme_font_size_override("font_size", NAV_LABEL_FONT_SIZE)
 			nav_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.35))
-			nav_label.add_theme_constant_override("outline_size", 2)
+			nav_label.add_theme_constant_override("outline_size", 1)
+			nav_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			nav_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
 func _style_nav_texture_button(btn: TextureButton, tex: Texture2D) -> void:
 	if not is_instance_valid(btn):
@@ -521,6 +523,16 @@ func _style_play_button() -> void:
 	_ensure_play_level_banner()
 	call_deferred("_update_play_button_pivot")
 
+func _apply_play_level_banner_style(label: Label) -> void:
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 54)
+	label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+	label.add_theme_color_override("font_outline_color", Color(0.05, 0.22, 0.1, 0.75))
+	label.add_theme_constant_override("outline_size", 2)
+
+
 func _ensure_play_level_banner() -> void:
 	if not is_instance_valid(play_button):
 		return
@@ -540,17 +552,11 @@ func _ensure_play_level_banner() -> void:
 	else:
 		_play_level_banner = Label.new()
 		_play_level_banner.name = "PlayLevelBanner"
+		_play_level_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		overlay.add_child(_play_level_banner)
-	_play_level_banner.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_play_level_banner.offset_top = -52.0
-	_play_level_banner.offset_bottom = -8.0
-	_play_level_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_play_level_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_play_level_banner.add_theme_font_size_override("font_size", 26)
-	_play_level_banner.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
-	_play_level_banner.add_theme_color_override("font_outline_color", Color(0.08, 0.32, 0.42, 0.95))
-	_play_level_banner.add_theme_constant_override("outline_size", 4)
-	_play_level_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_apply_play_level_banner_style(_play_level_banner)
+	call_deferred("_refresh_play_level_banner")
+
 
 func _setup_play_button_press_feedback() -> void:
 	if not is_instance_valid(play_button):
@@ -587,6 +593,13 @@ func _update_level_label() -> void:
 	_ensure_play_level_banner()
 	if _play_level_banner != null and is_instance_valid(_play_level_banner):
 		_play_level_banner.text = "Уровень %d" % lvl
+		_refresh_play_level_banner()
+
+func _refresh_play_level_banner() -> void:
+	if _play_level_banner == null or not is_instance_valid(_play_level_banner):
+		return
+	_play_level_banner.queue_redraw()
+
 
 func _update_version_label():
 	if is_instance_valid(version_label):
@@ -653,7 +666,7 @@ func _build_shop_tab():
 	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	scroll.add_theme_constant_override("margin_left", 20)
 	scroll.add_theme_constant_override("margin_right", 20)
-	scroll.add_theme_constant_override("margin_top", 20)
+	scroll.add_theme_constant_override("margin_top", 36)
 	scroll.add_theme_constant_override("margin_bottom", 20)
 	shop_tab_node.add_child(scroll)
 	
@@ -664,10 +677,10 @@ func _build_shop_tab():
 	
 	var title = Label.new()
 	title.text = "МАГАЗИН"
-	title.add_theme_font_size_override("font_size", 48)
+	title.add_theme_font_size_override("font_size", 42)
 	title.add_theme_color_override("font_color", Color.WHITE)
-	title.add_theme_color_override("font_outline_color", Color.BLACK)
-	title.add_theme_constant_override("outline_size", 5)
+	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.65))
+	title.add_theme_constant_override("outline_size", 2)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 	
@@ -676,8 +689,8 @@ func _build_shop_tab():
 	if not LevelManager.is_starter_pack_purchased():
 		var starter = _create_shop_offer(
 			"СТАРТОВЫЙ ПАКЕТ",
-			"🎁 Специальное предложение!",
-			["1000 золотых 🪙", "4 бустера каждого вида 🎮"],
+			"Специальное предложение!",
+			["1000 золотых", "4 бустера каждого вида"],
 			"1$",
 			Color(0.8, 0.3, 0.2, 1.0),
 			"starter",
@@ -689,7 +702,7 @@ func _build_shop_tab():
 	var medium = _create_shop_offer(
 		"СРЕДНИЙ ПАКЕТ",
 		"Отличное предложение",
-		["2500 золотых 🪙", "5 бустеров каждого вида 🎮"],
+		["2500 золотых", "5 бустеров каждого вида"],
 		"5$",
 		Color(0.2, 0.5, 0.8, 1.0),
 		"medium",
@@ -700,8 +713,8 @@ func _build_shop_tab():
 	
 	var best = _create_shop_offer(
 		"САМЫЙ ВЫГОДНЫЙ",
-		"⭐ Лучшее предложение!",
-		["5000 золотых 🪙", "10 бустеров каждого вида 🎮"],
+		"Лучшее предложение!",
+		["5000 золотых", "10 бустеров каждого вида"],
 		"9$",
 		Color(0.6, 0.3, 0.8, 1.0),
 		"best",
@@ -750,7 +763,7 @@ func _create_shop_offer(title: String, subtitle: String, items: Array, price: St
 	title_label.add_theme_font_size_override("font_size", 32)
 	title_label.add_theme_color_override("font_color", color)
 	title_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	title_label.add_theme_constant_override("outline_size", 4)
+	title_label.add_theme_constant_override("outline_size", 2)
 	content_vbox.add_child(title_label)
 	
 	var subtitle_label = Label.new()
@@ -763,7 +776,7 @@ func _create_shop_offer(title: String, subtitle: String, items: Array, price: St
 	
 	for item in items:
 		var item_label = Label.new()
-		item_label.text = "  • " + item
+		item_label.text = "  - " + item
 		item_label.add_theme_font_size_override("font_size", 22)
 		item_label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
 		content_vbox.add_child(item_label)
@@ -793,10 +806,10 @@ func _create_shop_offer(title: String, subtitle: String, items: Array, price: St
 	buy_btn.add_theme_stylebox_override("normal", btn_style)
 	buy_btn.add_theme_stylebox_override("hover", hover_style)
 	buy_btn.add_theme_stylebox_override("pressed", pressed_style)
-	buy_btn.add_theme_font_size_override("font_size", 36)
+	buy_btn.add_theme_font_size_override("font_size", 40)
 	buy_btn.add_theme_color_override("font_color", Color.WHITE)
-	buy_btn.add_theme_color_override("font_outline_color", Color.BLACK)
-	buy_btn.add_theme_constant_override("outline_size", 4)
+	buy_btn.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.6))
+	buy_btn.add_theme_constant_override("outline_size", 2)
 	
 	buy_btn.pressed.connect(_on_shop_purchase.bind(pack_type))
 	hbox.add_child(buy_btn)
@@ -809,7 +822,7 @@ func _create_shop_offer(title: String, subtitle: String, items: Array, price: St
 		badge.add_theme_font_size_override("font_size", 16)
 		badge.add_theme_color_override("font_color", Color(1.0, 0.9, 0.2))
 		badge.add_theme_color_override("font_outline_color", Color(0.5, 0.2, 0.0))
-		badge.add_theme_constant_override("outline_size", 3)
+		badge.add_theme_constant_override("outline_size", 2)
 		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		badge.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 		badge.offset_left = -150

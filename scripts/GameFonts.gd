@@ -5,6 +5,11 @@ const RUBIK_VARIABLE_PATH := "res://fonts/Rubik-Variable.ttf"
 const WEIGHT_TEXT := 800.0
 const WEIGHT_DIGIT := 900.0
 
+const OUTLINE_DIRS: Array[Vector2i] = [
+	Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1),
+	Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(1, 1),
+]
+
 const GAME_LABEL_SCRIPT := preload("res://scripts/GameLabel.gd")
 const GAME_BUTTON_SCRIPT := preload("res://scripts/GameButton.gd")
 const META_MIXED_ACTIVE := &"game_fonts_mixed_active"
@@ -193,40 +198,67 @@ func _setup_line_edit(edit: LineEdit) -> void:
 		edit.add_theme_font_override("font", text_font)
 
 
-func measure_mixed_string(text: String, font_size: int) -> Vector2:
+static func effective_outline_size(requested: int) -> int:
+	return clampi(requested, 0, 2)
+
+
+func measure_mixed_text_layout(text: String, font_size: int) -> Dictionary:
 	var width := 0.0
-	var height := 0.0
+	var max_ascent := 0.0
+	var max_descent := 0.0
 	for i in range(text.length()):
 		var ch := text.substr(i, 1)
 		var font := font_for_char(ch)
-		var char_size := font.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
-		width += char_size.x
-		height = maxf(height, char_size.y)
-	return Vector2(width, height)
+		width += font.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+		max_ascent = maxf(max_ascent, font.get_ascent(font_size))
+		max_descent = maxf(max_descent, font.get_descent(font_size))
+	return {
+		"width": width,
+		"height": max_ascent + max_descent,
+		"ascent": max_ascent,
+		"descent": max_descent,
+	}
+
+
+func measure_mixed_string(text: String, font_size: int) -> Vector2:
+	var layout := measure_mixed_text_layout(text, font_size)
+	return Vector2(layout.width, layout.height)
 
 
 func draw_mixed_string(
 	canvas: CanvasItem,
-	pos: Vector2,
+	baseline_pos: Vector2,
 	text: String,
 	font_size: int,
 	color: Color,
 	outline_color: Color = Color(0, 0, 0, 0),
-	outline_size: int = 0
+	outline_size: int = 0,
+	shared_ascent: float = -1.0
 ) -> void:
 	if text.is_empty():
 		return
-	var x := pos.x
+	var layout := measure_mixed_text_layout(text, font_size)
+	var max_ascent: float = shared_ascent if shared_ascent >= 0.0 else layout.ascent
+	var outline_px := effective_outline_size(outline_size)
+	var x := baseline_pos.x
 	for i in range(text.length()):
 		var ch := text.substr(i, 1)
 		var font := font_for_char(ch)
-		if outline_size > 0 and outline_color.a > 0.0:
-			for ox in range(-outline_size, outline_size + 1):
-				for oy in range(-outline_size, outline_size + 1):
-					if ox == 0 and oy == 0:
-						continue
-					canvas.draw_string(font, Vector2(x + ox, pos.y + oy), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, outline_color)
-		canvas.draw_string(font, Vector2(x, pos.y), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
+		var y: float = baseline_pos.y + (max_ascent - font.get_ascent(font_size))
+		if outline_px > 0 and outline_color.a > 0.0:
+			for dir: Vector2i in OUTLINE_DIRS:
+				for step in range(1, outline_px + 1):
+					var off := Vector2(dir.x * step, dir.y * step)
+					canvas.draw_string(
+						font,
+						Vector2(x, y) + off,
+						ch,
+						HORIZONTAL_ALIGNMENT_LEFT,
+						-1,
+						font_size,
+						outline_color
+					)
+		canvas.draw_string(font, Vector2(x, y), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 		x += font.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
 
 
@@ -243,16 +275,16 @@ func draw_mixed_string_in_rect(
 ) -> void:
 	if text.is_empty():
 		return
-	var text_size := measure_mixed_string(text, font_size)
-	var pos := rect.position
+	var layout := measure_mixed_text_layout(text, font_size)
+	var baseline := rect.position
 	if h_align == HORIZONTAL_ALIGNMENT_CENTER:
-		pos.x += (rect.size.x - text_size.x) * 0.5
+		baseline.x += (rect.size.x - layout.width) * 0.5
 	elif h_align == HORIZONTAL_ALIGNMENT_RIGHT:
-		pos.x += rect.size.x - text_size.x
+		baseline.x += rect.size.x - layout.width
 	if v_align == VERTICAL_ALIGNMENT_CENTER:
-		pos.y += (rect.size.y + text_size.y) * 0.5 - text_size.y * 0.85
+		baseline.y += (rect.size.y - layout.height) * 0.5 + layout.ascent
 	elif v_align == VERTICAL_ALIGNMENT_BOTTOM:
-		pos.y += rect.size.y - text_size.y * 0.15
+		baseline.y += rect.size.y - layout.descent
 	else:
-		pos.y += text_size.y * 0.85
-	draw_mixed_string(canvas, pos, text, font_size, color, outline_color, outline_size)
+		baseline.y += layout.ascent
+	draw_mixed_string(canvas, baseline, text, font_size, color, outline_color, outline_size, layout.ascent)
