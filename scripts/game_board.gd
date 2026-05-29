@@ -74,7 +74,7 @@ const OBSTACLE_EDGE_COLOR := Color(0.25, 0.2, 0.15, 1.0) # Тёмно-корич
 
 # Отступы под UI-панели
 const UI_TOP_MARGIN := 72
-const UI_BOTTOM_MARGIN := 128
+const UI_BOTTOM_MARGIN := 150
 
 const INGAME_BOOSTER_ICON_PATHS := [
 	"res://textures/Booster_Hummer.png",
