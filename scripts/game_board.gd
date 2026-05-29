@@ -76,6 +76,21 @@ const OBSTACLE_EDGE_COLOR := Color(0.25, 0.2, 0.15, 1.0) # Тёмно-корич
 const UI_TOP_MARGIN := 72
 const UI_BOTTOM_MARGIN := 128
 
+const INGAME_BOOSTER_ICON_PATHS := [
+	"res://textures/Booster_Hummer.png",
+	"res://textures/Booster_Arrows.png",
+	"res://textures/Booster_Refresh.png",
+	"res://textures/Booster_Snow.png"
+]
+const INGAME_BOOSTER_SLOT_BG := preload("res://textures/ingame_booster_slot_bg.png")
+const INGAME_BOOSTER_COUNT_BG := preload("res://textures/ingame_booster_count_bg.png")
+const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(52, 52)
+const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(34, 34)
+const INGAME_BOOSTER_TEXTURE_SHADOW_OFFSET := Vector2(2, 4)
+const INGAME_BOOSTER_TEXTURE_SHADOW_ALPHA := 0.4
+const INGAME_BOOSTER_SLOT_SHADOW_SIZE := 6
+const INGAME_BOOSTER_SLOT_SHADOW_OFFSET := Vector2(0, 4)
+
 var chips := []
 var enemies := [] # 2D массив здоровья врагов (y: 0..ENEMY_ROWS-1)
 var enemies_initial_hp := [] # Исходный HP врагов для целей
@@ -735,6 +750,108 @@ func _run_level1_goals_tutorial_step() -> void:
 	await overlay.begin_goals_step(goals_r, "Уничтожь все цели, чтобы пройти уровень.")
 	_level1_tutorial_advancing_to_goals = false
 
+func _make_ingame_booster_slot_stylebox(tint: Color = Color.WHITE) -> StyleBoxTexture:
+	var style := StyleBoxTexture.new()
+	style.texture = INGAME_BOOSTER_SLOT_BG
+	style.modulate_color = tint
+	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	style.draw_center = true
+	style.shadow_color = Color(0, 0, 0, INGAME_BOOSTER_TEXTURE_SHADOW_ALPHA)
+	style.shadow_size = INGAME_BOOSTER_SLOT_SHADOW_SIZE
+	style.shadow_offset = INGAME_BOOSTER_SLOT_SHADOW_OFFSET
+	return style
+
+func _add_ingame_booster_texture_shadow(parent: Control, tex: Texture2D, display_size: Vector2) -> TextureRect:
+	var shadow := TextureRect.new()
+	shadow.name = "TextureShadow"
+	shadow.texture = tex
+	shadow.custom_minimum_size = display_size
+	shadow.size = display_size
+	shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	shadow.modulate = Color(0, 0, 0, INGAME_BOOSTER_TEXTURE_SHADOW_ALPHA)
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shadow.position = INGAME_BOOSTER_TEXTURE_SHADOW_OFFSET
+	parent.add_child(shadow)
+	return shadow
+
+func _add_ingame_booster_centered_texture(parent: Control, tex: Texture2D, display_size: Vector2, node_name: String) -> TextureRect:
+	var icon := TextureRect.new()
+	icon.name = node_name
+	icon.texture = tex
+	icon.custom_minimum_size = display_size
+	icon.size = display_size
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(icon)
+	return icon
+
+func _style_ingame_booster_count_label(label: Label) -> void:
+	label.add_theme_font_size_override("font_size", 20)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_outline_color", Color.BLACK)
+	label.add_theme_constant_override("outline_size", 6)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+
+func _setup_ingame_booster_button_visuals(btn: Button, icon_tex: Texture2D) -> void:
+	btn.text = ""
+	btn.icon = null
+	btn.clip_contents = false
+	var slot_normal := _make_ingame_booster_slot_stylebox(Color.WHITE)
+	var slot_hover := _make_ingame_booster_slot_stylebox(Color(1.08, 1.08, 1.08, 1.0))
+	var slot_pressed := _make_ingame_booster_slot_stylebox(Color(0.92, 0.92, 0.92, 1.0))
+	var slot_disabled := _make_ingame_booster_slot_stylebox(Color(0.55, 0.55, 0.55, 0.85))
+	slot_disabled.shadow_size = 2
+	btn.add_theme_stylebox_override("normal", slot_normal)
+	btn.add_theme_stylebox_override("hover", slot_hover)
+	btn.add_theme_stylebox_override("pressed", slot_pressed)
+	btn.add_theme_stylebox_override("disabled", slot_disabled)
+	btn.add_theme_stylebox_override("focus", slot_normal.duplicate())
+	var icon_area := Control.new()
+	icon_area.name = "IconArea"
+	icon_area.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	icon_area.offset_left = 8
+	icon_area.offset_top = 6
+	icon_area.offset_right = -8
+	icon_area.offset_bottom = -14
+	icon_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(icon_area)
+	var icon_stack := Control.new()
+	icon_stack.name = "IconStack"
+	icon_stack.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	icon_stack.custom_minimum_size = INGAME_BOOSTER_ICON_DISPLAY_SIZE
+	icon_stack.size = INGAME_BOOSTER_ICON_DISPLAY_SIZE
+	icon_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon_area.add_child(icon_stack)
+	if icon_tex != null:
+		_add_ingame_booster_texture_shadow(icon_stack, icon_tex, INGAME_BOOSTER_ICON_DISPLAY_SIZE)
+		var icon_rect := _add_ingame_booster_centered_texture(icon_stack, icon_tex, INGAME_BOOSTER_ICON_DISPLAY_SIZE, "BoosterIcon")
+		icon_rect.position = Vector2.ZERO
+	var badge := Control.new()
+	badge.name = "CountBadge"
+	badge.custom_minimum_size = INGAME_BOOSTER_COUNT_BADGE_SIZE
+	badge.size = INGAME_BOOSTER_COUNT_BADGE_SIZE
+	badge.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	badge.offset_left = -INGAME_BOOSTER_COUNT_BADGE_SIZE.x - 2
+	badge.offset_top = -INGAME_BOOSTER_COUNT_BADGE_SIZE.y - 2
+	badge.offset_right = -2
+	badge.offset_bottom = -2
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(badge)
+	_add_ingame_booster_texture_shadow(badge, INGAME_BOOSTER_COUNT_BG, INGAME_BOOSTER_COUNT_BADGE_SIZE)
+	var badge_bg := _add_ingame_booster_centered_texture(badge, INGAME_BOOSTER_COUNT_BG, INGAME_BOOSTER_COUNT_BADGE_SIZE, "CountBadgeBg")
+	badge_bg.position = Vector2.ZERO
+	var count_label := Label.new()
+	count_label.name = "CountLabel"
+	count_label.text = "0"
+	count_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_style_ingame_booster_count_label(count_label)
+	badge.add_child(count_label)
+
 func _init_ui():
 	# Настройка верхней панели
 	if has_node("CanvasUI/UIRoot/TopBarBg"):
@@ -847,87 +964,16 @@ func _init_ui():
 
 	# Оформление кнопок бустеров
 	var booster_types = [BoosterType.HAMMER, BoosterType.ROW_BLAST, BoosterType.SHUFFLE, BoosterType.FREEZE]
-	var icon_paths = [
-		"res://textures/Booster_Hummer.png",
-		"res://textures/Booster_Arrows.png",
-		"res://textures/Booster_Refresh.png",
-		"res://textures/Booster_Snow.png"
-	]
-	
 	for i in range(4):
 		var name = "Booster" + str(i+1)
 		if has_node("CanvasUI/UIRoot/BottomBar/" + name):
 			var btn: Button = get_node("CanvasUI/UIRoot/BottomBar/" + name)
-			
-			# Загрузка иконки
-			if icon_paths[i] != "":
-				var tex = load(icon_paths[i])
-				if tex:
-					btn.icon = tex
-					btn.expand_icon = true
-					btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-					btn.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
-			
-			# Настройка шрифта для счетчика (теперь отдельная метка в углу)
-			var count_label = Label.new()
-			count_label.name = "CountLabel"
-			count_label.text = "0"
-			count_label.add_theme_font_size_override("font_size", 28)
-			count_label.add_theme_color_override("font_color", Color.WHITE)
-			count_label.add_theme_color_override("font_outline_color", Color.BLACK)
-			count_label.add_theme_constant_override("outline_size", 8)
-			
-			# Тень для текста
-			count_label.add_theme_constant_override("shadow_offset_x", 2)
-			count_label.add_theme_constant_override("shadow_offset_y", 2)
-			count_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.5))
-			
-			# Позиционирование: правый нижний угол кнопки
-			count_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-			count_label.offset_left = -40
-			count_label.offset_top = -40
-			count_label.offset_right = -5
-			count_label.offset_bottom = -5
-			count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-			count_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-			count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			
-			btn.add_child(count_label)
-			btn.text = "" # Очищаем основной текст кнопки
-			btn.clip_contents = false
-			
-			# Создание красивого стиля (идеально круглые кнопки)
-			var normal := StyleBoxFlat.new()
-			normal.bg_color = Color(0.15, 0.2, 0.3, 0.85) # Глубокий синий
-			normal.set_corner_radius_all(40) # Идеальный круг для кнопок 80x80
-			normal.border_width_left = 3
-			normal.border_width_top = 3
-			normal.border_width_right = 3
-			normal.border_width_bottom = 3
-			normal.border_color = Color(0.8, 0.7, 0.3, 1.0) # Золотистая рамка
-			normal.shadow_color = Color(0, 0, 0, 0.4)
-			normal.shadow_size = 4
-			normal.shadow_offset = Vector2(0, 3)
-			
-			var hover := normal.duplicate()
-			hover.bg_color = Color(0.25, 0.35, 0.5, 0.9)
-			hover.border_color = Color(1.0, 0.9, 0.5, 1.0)
-			
-			var active_style := normal.duplicate()
-			active_style.bg_color = Color(0.9, 0.7, 0.2, 1.0) # Яркое золото при активации
-			active_style.border_color = Color(1.0, 1.0, 0.8, 1.0)
-			active_style.shadow_offset = Vector2(0, 1)
-			
-			var disabled := normal.duplicate()
-			disabled.bg_color = Color(0.1, 0.1, 0.1, 0.6)
-			disabled.border_color = Color(0.3, 0.3, 0.3, 1.0)
-			disabled.shadow_size = 0
-			
-			btn.add_theme_stylebox_override("normal", normal)
-			btn.add_theme_stylebox_override("hover", hover)
-			btn.add_theme_stylebox_override("pressed", active_style)
-			btn.add_theme_stylebox_override("disabled", disabled)
-			
+			var icon_tex: Texture2D = null
+			if i < INGAME_BOOSTER_ICON_PATHS.size():
+				var loaded = load(INGAME_BOOSTER_ICON_PATHS[i])
+				if loaded is Texture2D:
+					icon_tex = loaded
+			_setup_ingame_booster_button_visuals(btn, icon_tex)
 			var type = booster_types[i]
 			btn.pressed.connect(func(): _on_booster_clicked(type, btn))
 			btn.focus_mode = Control.FOCUS_NONE
@@ -1000,12 +1046,7 @@ func _show_buy_booster_dialog(lm_type: int) -> void:
 		LevelManager.BoosterType.SHUFFLE: "Перемешивание",
 		LevelManager.BoosterType.FREEZE: "Заморозка"
 	}
-	var shop_icon_paths = [
-		"res://textures/Booster_Hummer.png",
-		"res://textures/Booster_Arrows.png",
-		"res://textures/Booster_Refresh.png",
-		"res://textures/Booster_Snow.png"
-	]
+	var shop_icon_paths := INGAME_BOOSTER_ICON_PATHS
 	var booster_name = booster_names.get(lm_type, "Бустер")
 	var cost = LevelManager.INGAME_BOOSTER_PACK_COST
 	var pack_qty = LevelManager.get_ingame_booster_pack_quantity(lm_type)
@@ -1146,9 +1187,9 @@ func _update_ui():
 			var btn: Button = get_node(btn_path)
 			var lm_type = _convert_to_lm_booster_type(type)
 			var count = LevelManager.get_booster_count(lm_type)
-			if btn.has_node("CountLabel"):
-				var lbl: Label = btn.get_node("CountLabel")
-				lbl.text = str(count)
+			var count_lbl := btn.get_node_or_null("CountBadge/CountLabel") as Label
+			if count_lbl != null:
+				count_lbl.text = str(count)
 			var unlocked: bool = LevelManager.is_ingame_booster_unlocked_at_current_level(lm_type)
 			btn.disabled = not unlocked
 	_update_booster_buttons_visual()
