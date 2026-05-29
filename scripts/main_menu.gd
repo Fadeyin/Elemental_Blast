@@ -401,7 +401,7 @@ func _update_nav_highlight(tab_name: String) -> void:
 		var active_bg: TextureRect = entry["bg"]
 		if not is_instance_valid(btn) or not is_instance_valid(active_bg):
 			continue
-		var is_active := key == tab_name
+		var is_active: bool = str(key) == tab_name
 		active_bg.visible = is_active
 		btn.scale = Vector2.ONE * NAV_ICON_ACTIVE_SCALE if is_active else Vector2.ONE
 		btn.modulate = Color.WHITE if is_active else NAV_INACTIVE_MODULATE
