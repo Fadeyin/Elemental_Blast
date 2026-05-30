@@ -790,51 +790,71 @@ func _style_ingame_booster_count_label(label: Label) -> void:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
+func _set_control_center_offsets(control: Control, display_size: Vector2) -> void:
+	var half := display_size * 0.5
+	control.set_anchors_preset(Control.PRESET_CENTER)
+	control.offset_left = -half.x
+	control.offset_top = -half.y
+	control.offset_right = half.x
+	control.offset_bottom = half.y
+	control.custom_minimum_size = display_size
+
 func _setup_ingame_booster_button_visuals(btn: Button, icon_tex: Texture2D) -> void:
 	btn.text = ""
+	btn.icon = null
 	btn.clip_contents = false
 	btn.custom_minimum_size = INGAME_BOOSTER_BUTTON_SIZE
-	btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	btn.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
-	btn.expand_icon = true
-	if icon_tex != null:
-		btn.icon = icon_tex
-	btn.add_theme_constant_override("icon_max_width", int(INGAME_BOOSTER_ICON_DISPLAY_SIZE.x))
-	btn.add_theme_constant_override("icon_max_height", int(INGAME_BOOSTER_ICON_DISPLAY_SIZE.y))
 	var empty_style := StyleBoxEmpty.new()
 	btn.add_theme_stylebox_override("normal", empty_style)
 	btn.add_theme_stylebox_override("hover", empty_style)
 	btn.add_theme_stylebox_override("pressed", empty_style)
 	btn.add_theme_stylebox_override("disabled", empty_style)
 	btn.add_theme_stylebox_override("focus", empty_style)
+	var visual_root := Control.new()
+	visual_root.name = "BoosterVisualRoot"
+	visual_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	visual_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(visual_root)
 	var slot_center := CenterContainer.new()
 	slot_center.name = "SlotCenter"
 	slot_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	slot_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	btn.add_child(slot_center)
-	btn.move_child(slot_center, 0)
+	visual_root.add_child(slot_center)
 	var slot_panel := PanelContainer.new()
 	slot_panel.name = "SlotPanel"
 	slot_panel.custom_minimum_size = INGAME_BOOSTER_SLOT_DISPLAY_SIZE
 	slot_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	slot_panel.add_theme_stylebox_override("panel", _make_ingame_booster_slot_stylebox(Color.WHITE))
 	slot_center.add_child(slot_panel)
+	if icon_tex != null:
+		var icon_rect := TextureRect.new()
+		icon_rect.name = "BoosterIcon"
+		icon_rect.texture = icon_tex
+		icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_set_control_center_offsets(icon_rect, INGAME_BOOSTER_ICON_DISPLAY_SIZE)
+		visual_root.add_child(icon_rect)
+	var badge_anchor := Control.new()
+	badge_anchor.name = "BadgeAnchor"
+	badge_anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_set_control_center_offsets(badge_anchor, INGAME_BOOSTER_ICON_DISPLAY_SIZE)
+	visual_root.add_child(badge_anchor)
 	var badge := PanelContainer.new()
 	badge.name = "CountBadge"
 	badge.custom_minimum_size = INGAME_BOOSTER_COUNT_BADGE_SIZE
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge.add_theme_stylebox_override("panel", _make_ingame_booster_count_stylebox())
 	badge.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	badge.offset_left = -INGAME_BOOSTER_COUNT_BADGE_SIZE.x - 2
-	badge.offset_top = -INGAME_BOOSTER_COUNT_BADGE_SIZE.y - 2
-	badge.offset_right = -2
-	badge.offset_bottom = -2
-	btn.add_child(badge)
+	badge.offset_left = -INGAME_BOOSTER_COUNT_BADGE_SIZE.x + 2
+	badge.offset_top = -INGAME_BOOSTER_COUNT_BADGE_SIZE.y + 2
+	badge.offset_right = 2
+	badge.offset_bottom = 2
+	badge_anchor.add_child(badge)
 	var count_label := Label.new()
 	count_label.name = "CountLabel"
 	count_label.text = "0"
-	count_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	count_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	count_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_style_ingame_booster_count_label(count_label)
 	badge.add_child(count_label)
@@ -1177,7 +1197,7 @@ func _update_ui():
 			var btn: Button = get_node(btn_path)
 			var lm_type = _convert_to_lm_booster_type(type)
 			var count = LevelManager.get_booster_count(lm_type)
-			var count_lbl := btn.get_node_or_null("CountBadge/CountLabel") as Label
+			var count_lbl := btn.get_node_or_null("BoosterVisualRoot/BadgeAnchor/CountBadge/CountLabel") as Label
 			if count_lbl != null:
 				count_lbl.text = str(count)
 			var unlocked: bool = LevelManager.is_ingame_booster_unlocked_at_current_level(lm_type)
