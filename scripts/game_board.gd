@@ -85,13 +85,13 @@ const INGAME_BOOSTER_ICON_PATHS := [
 const INGAME_BOOSTER_SLOT_BG := preload("res://textures/ingame_booster_slot_bg.png")
 const INGAME_BOOSTER_COUNT_BG := preload("res://textures/ingame_booster_count_bg.png")
 const INGAME_BOOSTER_BUTTON_SIZE := Vector2(128, 128)
-const INGAME_BOOSTER_SLOT_DISPLAY_SIZE := Vector2(94, 94)
-const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(44, 44)
-const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(34, 34)
+const INGAME_BOOSTER_SLOT_DISPLAY_SIZE := Vector2(47, 47)
+const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(40, 40)
+const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(17, 17)
 const INGAME_BOOSTER_PODOZHKA_SHADOW_COLOR := Color(0, 0, 0, 0.65)
-const INGAME_BOOSTER_PODOZHKA_SHADOW_SIZE := 15
-const INGAME_BOOSTER_PODOZHKA_SHADOW_OFFSET := Vector2(0, 6)
-const INGAME_BOOSTER_COUNT_SHADOW_SIZE := 10
+const INGAME_BOOSTER_PODOZHKA_SHADOW_SIZE := 10
+const INGAME_BOOSTER_PODOZHKA_SHADOW_OFFSET := Vector2(0, 4)
+const INGAME_BOOSTER_COUNT_SHADOW_SIZE := 6
 
 var chips := []
 var enemies := [] # 2D массив здоровья врагов (y: 0..ENEMY_ROWS-1)
@@ -789,10 +789,10 @@ func _make_ingame_booster_count_stylebox() -> StyleBoxTexture:
 	return style
 
 func _style_ingame_booster_count_label(label: Label) -> void:
-	label.add_theme_font_size_override("font_size", 20)
+	label.add_theme_font_size_override("font_size", 12)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
-	label.add_theme_constant_override("outline_size", 8)
+	label.add_theme_constant_override("outline_size", 4)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
