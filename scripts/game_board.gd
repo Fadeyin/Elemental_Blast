@@ -87,7 +87,9 @@ const INGAME_BOOSTER_COUNT_BG := preload("res://textures/ingame_booster_count_bg
 const INGAME_BOOSTER_BUTTON_SIZE := Vector2(128, 128)
 const INGAME_BOOSTER_SLOT_DISPLAY_SIZE := Vector2(64, 64)
 const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(40, 40)
-const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(17, 17)
+const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(26, 26)
+const INGAME_BOOSTER_BOTTOM_BAR_SEPARATION := 6
+const INGAME_BOOSTER_COUNT_BADGE_DIAGONAL_OUTSET := Vector2(5, 5)
 const INGAME_BOOSTER_PODOZHKA_SHADOW_COLOR := Color(0, 0, 0, 0.65)
 const INGAME_BOOSTER_PODOZHKA_SHADOW_SIZE := 10
 const INGAME_BOOSTER_PODOZHKA_SHADOW_OFFSET := Vector2(0, 4)
@@ -783,10 +785,10 @@ func _make_ingame_booster_count_stylebox() -> StyleBoxTexture:
 	return style
 
 func _style_ingame_booster_count_label(label: Label) -> void:
-	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_font_size_override("font_size", 17)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
-	label.add_theme_constant_override("outline_size", 4)
+	label.add_theme_constant_override("outline_size", 6)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
@@ -838,7 +840,7 @@ func _setup_ingame_booster_button_visuals(btn: Button, icon_tex: Texture2D) -> v
 	var badge_anchor := Control.new()
 	badge_anchor.name = "BadgeAnchor"
 	badge_anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_set_control_center_offsets(badge_anchor, INGAME_BOOSTER_ICON_DISPLAY_SIZE)
+	_set_control_center_offsets(badge_anchor, INGAME_BOOSTER_SLOT_DISPLAY_SIZE)
 	visual_root.add_child(badge_anchor)
 	var badge := PanelContainer.new()
 	badge.name = "CountBadge"
@@ -846,10 +848,10 @@ func _setup_ingame_booster_button_visuals(btn: Button, icon_tex: Texture2D) -> v
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge.add_theme_stylebox_override("panel", _make_ingame_booster_count_stylebox())
 	badge.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	badge.offset_left = -INGAME_BOOSTER_COUNT_BADGE_SIZE.x + 2
-	badge.offset_top = -INGAME_BOOSTER_COUNT_BADGE_SIZE.y + 2
-	badge.offset_right = 2
-	badge.offset_bottom = 2
+	badge.offset_left = -INGAME_BOOSTER_COUNT_BADGE_SIZE.x + 4
+	badge.offset_top = -INGAME_BOOSTER_COUNT_BADGE_SIZE.y + 4
+	badge.offset_right = INGAME_BOOSTER_COUNT_BADGE_DIAGONAL_OUTSET.x
+	badge.offset_bottom = INGAME_BOOSTER_COUNT_BADGE_DIAGONAL_OUTSET.y
 	badge_anchor.add_child(badge)
 	var count_label := Label.new()
 	count_label.name = "CountLabel"
@@ -971,8 +973,9 @@ func _init_ui():
 
 	# Оформление кнопок бустеров
 	if has_node("CanvasUI/UIRoot/BottomBar"):
-		var bottom_bar: Control = get_node("CanvasUI/UIRoot/BottomBar")
+		var bottom_bar: HBoxContainer = get_node("CanvasUI/UIRoot/BottomBar")
 		bottom_bar.clip_contents = false
+		bottom_bar.add_theme_constant_override("separation", INGAME_BOOSTER_BOTTOM_BAR_SEPARATION)
 	var booster_types = [BoosterType.HAMMER, BoosterType.ROW_BLAST, BoosterType.SHUFFLE, BoosterType.FREEZE]
 	for i in range(4):
 		var name = "Booster" + str(i+1)
