@@ -791,15 +791,6 @@ func _style_ingame_booster_count_label(label: Label) -> void:
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.z_index = 1
 
-func _set_control_center_offsets(control: Control, display_size: Vector2) -> void:
-	var half := display_size * 0.5
-	control.set_anchors_preset(Control.PRESET_CENTER)
-	control.offset_left = -half.x
-	control.offset_top = -half.y
-	control.offset_right = half.x
-	control.offset_bottom = half.y
-	control.custom_minimum_size = display_size
-
 func _add_ingame_booster_centered_icon(parent: Control, icon_tex: Texture2D) -> TextureRect:
 	var icon_rect := TextureRect.new()
 	icon_rect.name = "BoosterIcon"
@@ -807,7 +798,9 @@ func _add_ingame_booster_centered_icon(parent: Control, icon_tex: Texture2D) -> 
 	icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_set_control_center_offsets(icon_rect, INGAME_BOOSTER_ICON_DISPLAY_SIZE)
+	var icon_size := INGAME_BOOSTER_ICON_DISPLAY_SIZE
+	icon_rect.set_anchors_preset(Control.PRESET_CENTER)
+	icon_rect.set_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_KEEP_SIZE, icon_size.x, icon_size.y)
 	parent.add_child(icon_rect)
 	return icon_rect
 
