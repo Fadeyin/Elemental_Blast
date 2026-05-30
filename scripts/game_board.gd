@@ -85,7 +85,7 @@ const INGAME_BOOSTER_ICON_PATHS := [
 const INGAME_BOOSTER_SLOT_BG := preload("res://textures/ingame_booster_slot_bg.png")
 const INGAME_BOOSTER_COUNT_BG := preload("res://textures/ingame_booster_count_bg.png")
 const INGAME_BOOSTER_BUTTON_SIZE := Vector2(128, 128)
-const INGAME_BOOSTER_SLOT_DISPLAY_SIZE := Vector2(47, 47)
+const INGAME_BOOSTER_SLOT_DISPLAY_SIZE := Vector2(64, 64)
 const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(40, 40)
 const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(17, 17)
 const INGAME_BOOSTER_PODOZHKA_SHADOW_COLOR := Color(0, 0, 0, 0.65)
@@ -752,10 +752,6 @@ func _run_level1_goals_tutorial_step() -> void:
 	await overlay.begin_goals_step(goals_r, "Уничтожь все цели, чтобы пройти уровень.")
 	_level1_tutorial_advancing_to_goals = false
 
-func _ingame_booster_slot_content_margin() -> int:
-	var margin := int((INGAME_BOOSTER_BUTTON_SIZE.x - INGAME_BOOSTER_SLOT_DISPLAY_SIZE.x) * 0.5)
-	return maxi(margin, 0)
-
 func _apply_ingame_booster_podlozhka_shadow(style: StyleBoxTexture, shadow_size: int = INGAME_BOOSTER_PODOZHKA_SHADOW_SIZE) -> void:
 	style.shadow_color = INGAME_BOOSTER_PODOZHKA_SHADOW_COLOR
 	style.shadow_size = shadow_size
@@ -774,8 +770,6 @@ func _make_ingame_booster_slot_stylebox(tint: Color = Color.WHITE) -> StyleBoxTe
 	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	style.draw_center = true
-	var slot_margin := _ingame_booster_slot_content_margin()
-	style.set_content_margin_all(slot_margin)
 	_apply_ingame_booster_podlozhka_shadow(style)
 	return style
 
@@ -807,16 +801,24 @@ func _setup_ingame_booster_button_visuals(btn: Button, icon_tex: Texture2D) -> v
 		btn.icon = icon_tex
 	btn.add_theme_constant_override("icon_max_width", int(INGAME_BOOSTER_ICON_DISPLAY_SIZE.x))
 	btn.add_theme_constant_override("icon_max_height", int(INGAME_BOOSTER_ICON_DISPLAY_SIZE.y))
-	var slot_normal := _make_ingame_booster_slot_stylebox(Color.WHITE)
-	var slot_hover := _make_ingame_booster_slot_stylebox(Color(1.06, 1.06, 1.06, 1.0))
-	var slot_pressed := _make_ingame_booster_slot_stylebox(Color(0.94, 0.94, 0.94, 1.0))
-	var slot_disabled := _make_ingame_booster_slot_stylebox(Color(0.55, 0.55, 0.55, 0.85))
-	slot_disabled.shadow_size = 8
-	btn.add_theme_stylebox_override("normal", slot_normal)
-	btn.add_theme_stylebox_override("hover", slot_hover)
-	btn.add_theme_stylebox_override("pressed", slot_pressed)
-	btn.add_theme_stylebox_override("disabled", slot_disabled)
-	btn.add_theme_stylebox_override("focus", slot_normal.duplicate())
+	var empty_style := StyleBoxEmpty.new()
+	btn.add_theme_stylebox_override("normal", empty_style)
+	btn.add_theme_stylebox_override("hover", empty_style)
+	btn.add_theme_stylebox_override("pressed", empty_style)
+	btn.add_theme_stylebox_override("disabled", empty_style)
+	btn.add_theme_stylebox_override("focus", empty_style)
+	var slot_center := CenterContainer.new()
+	slot_center.name = "SlotCenter"
+	slot_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	slot_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(slot_center)
+	btn.move_child(slot_center, 0)
+	var slot_panel := PanelContainer.new()
+	slot_panel.name = "SlotPanel"
+	slot_panel.custom_minimum_size = INGAME_BOOSTER_SLOT_DISPLAY_SIZE
+	slot_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot_panel.add_theme_stylebox_override("panel", _make_ingame_booster_slot_stylebox(Color.WHITE))
+	slot_center.add_child(slot_panel)
 	var badge := PanelContainer.new()
 	badge.name = "CountBadge"
 	badge.custom_minimum_size = INGAME_BOOSTER_COUNT_BADGE_SIZE
