@@ -85,12 +85,13 @@ const INGAME_BOOSTER_ICON_PATHS := [
 const INGAME_BOOSTER_SLOT_BG := preload("res://textures/ingame_booster_slot_bg.png")
 const INGAME_BOOSTER_COUNT_BG := preload("res://textures/ingame_booster_count_bg.png")
 const INGAME_BOOSTER_BUTTON_SIZE := Vector2(128, 128)
-const INGAME_BOOSTER_SLOT_DISPLAY_SIZE := Vector2(112, 112)
-const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(50, 50)
-const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(40, 40)
-const INGAME_BOOSTER_PODOZHKA_SHADOW_COLOR := Color(0, 0, 0, 0.6)
-const INGAME_BOOSTER_PODOZHKA_SHADOW_SIZE := 12
-const INGAME_BOOSTER_PODOZHKA_SHADOW_OFFSET := Vector2(0, 5)
+const INGAME_BOOSTER_SLOT_DISPLAY_SIZE := Vector2(94, 94)
+const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(44, 44)
+const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(34, 34)
+const INGAME_BOOSTER_PODOZHKA_SHADOW_COLOR := Color(0, 0, 0, 0.65)
+const INGAME_BOOSTER_PODOZHKA_SHADOW_SIZE := 15
+const INGAME_BOOSTER_PODOZHKA_SHADOW_OFFSET := Vector2(0, 6)
+const INGAME_BOOSTER_COUNT_SHADOW_SIZE := 10
 
 var chips := []
 var enemies := [] # 2D массив здоровья врагов (y: 0..ENEMY_ROWS-1)
@@ -755,10 +756,16 @@ func _ingame_booster_slot_content_margin() -> int:
 	var margin := int((INGAME_BOOSTER_BUTTON_SIZE.x - INGAME_BOOSTER_SLOT_DISPLAY_SIZE.x) * 0.5)
 	return maxi(margin, 0)
 
-func _apply_ingame_booster_podlozhka_shadow(style: StyleBoxTexture) -> void:
+func _apply_ingame_booster_podlozhka_shadow(style: StyleBoxTexture, shadow_size: int = INGAME_BOOSTER_PODOZHKA_SHADOW_SIZE) -> void:
 	style.shadow_color = INGAME_BOOSTER_PODOZHKA_SHADOW_COLOR
-	style.shadow_size = INGAME_BOOSTER_PODOZHKA_SHADOW_SIZE
+	style.shadow_size = shadow_size
 	style.shadow_offset = INGAME_BOOSTER_PODOZHKA_SHADOW_OFFSET
+	var expand_side := shadow_size + 2
+	var expand_bottom := shadow_size + int(INGAME_BOOSTER_PODOZHKA_SHADOW_OFFSET.y) + 2
+	style.expand_margin_left = expand_side
+	style.expand_margin_top = expand_side
+	style.expand_margin_right = expand_side
+	style.expand_margin_bottom = expand_bottom
 
 func _make_ingame_booster_slot_stylebox(tint: Color = Color.WHITE) -> StyleBoxTexture:
 	var style := StyleBoxTexture.new()
@@ -778,11 +785,11 @@ func _make_ingame_booster_count_stylebox() -> StyleBoxTexture:
 	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	style.draw_center = true
-	_apply_ingame_booster_podlozhka_shadow(style)
+	_apply_ingame_booster_podlozhka_shadow(style, INGAME_BOOSTER_COUNT_SHADOW_SIZE)
 	return style
 
 func _style_ingame_booster_count_label(label: Label) -> void:
-	label.add_theme_font_size_override("font_size", 24)
+	label.add_theme_font_size_override("font_size", 20)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
 	label.add_theme_constant_override("outline_size", 8)
@@ -804,7 +811,7 @@ func _setup_ingame_booster_button_visuals(btn: Button, icon_tex: Texture2D) -> v
 	var slot_hover := _make_ingame_booster_slot_stylebox(Color(1.06, 1.06, 1.06, 1.0))
 	var slot_pressed := _make_ingame_booster_slot_stylebox(Color(0.94, 0.94, 0.94, 1.0))
 	var slot_disabled := _make_ingame_booster_slot_stylebox(Color(0.55, 0.55, 0.55, 0.85))
-	slot_disabled.shadow_size = 6
+	slot_disabled.shadow_size = 8
 	btn.add_theme_stylebox_override("normal", slot_normal)
 	btn.add_theme_stylebox_override("hover", slot_hover)
 	btn.add_theme_stylebox_override("pressed", slot_pressed)
@@ -941,6 +948,9 @@ func _init_ui():
 		cc.add_child(c_count)
 
 	# Оформление кнопок бустеров
+	if has_node("CanvasUI/UIRoot/BottomBar"):
+		var bottom_bar: Control = get_node("CanvasUI/UIRoot/BottomBar")
+		bottom_bar.clip_contents = false
 	var booster_types = [BoosterType.HAMMER, BoosterType.ROW_BLAST, BoosterType.SHUFFLE, BoosterType.FREEZE]
 	for i in range(4):
 		var name = "Booster" + str(i+1)
