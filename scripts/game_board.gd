@@ -2225,61 +2225,22 @@ func _trigger_chip_at(x: int, y: int, trigger_move: bool = true):
 		BOMB_CHIP_IDX:
 			_activate_bomb(x, y, trigger_move)
 
-func _draw_bomb_chip(top_left: Vector2, size_v: Vector2):
-	var tex = BONUS_TEXTURES[BOMB_CHIP_IDX]
-	if tex:
-		var tex_size = tex.get_size()
-		var aspect = tex_size.x / tex_size.y
-		
-		# Сохраняем пропорции: берем высоту за основу и вычисляем ширину
-		var scale_factor = 1.25
-		var target_h = size_v.y * scale_factor
-		var target_w = target_h * aspect
-		
-		var adj_size = Vector2(target_w, target_h)
-		var offset = (adj_size - size_v) * 0.5
-		var bomb_rect = Rect2(top_left - offset, adj_size)
-		
-		# Тень
-		draw_texture_rect(tex, Rect2(bomb_rect.position + CHIP_SHADOW_OFFSET * 0.5, bomb_rect.size), false, CHIP_SHADOW_COLOR)
-		# Основная текстура
-		draw_texture_rect(tex, bomb_rect, false)
-		
-func _draw_row_bonus_chip(top_left: Vector2, size_v: Vector2):
-	var tex = BONUS_TEXTURES[ROW_BONUS_CHIP_IDX]
-	if tex:
-		var tex_size = tex.get_size()
-		var aspect = tex_size.x / tex_size.y
-		
-		var target_h = size_v.y
-		var target_w = target_h * aspect
-		
-		var adj_size = Vector2(target_w, target_h)
-		var offset = (adj_size - size_v) * 0.5
-		var rocket_rect = Rect2(top_left - offset, adj_size)
-		
-		# Тень
-		draw_texture_rect(tex, Rect2(rocket_rect.position + CHIP_SHADOW_OFFSET * 0.5, rocket_rect.size), false, CHIP_SHADOW_COLOR)
-		# Основная текстура
-		draw_texture_rect(tex, rocket_rect, false)
-		
-func _draw_rainbow_chip(top_left: Vector2, size_v: Vector2):
-	var tex = BONUS_TEXTURES[RAINBOW_CHIP_IDX]
-	if tex:
-		var tex_size = tex.get_size()
-		var aspect = tex_size.x / tex_size.y
-		
-		var target_h = size_v.y
-		var target_w = target_h * aspect
-		
-		var adj_size = Vector2(target_w, target_h)
-		var offset = (adj_size - size_v) * 0.5
-		var rainbow_rect = Rect2(top_left - offset, adj_size)
-		
-		# Тень
-		draw_texture_rect(tex, Rect2(rainbow_rect.position + CHIP_SHADOW_OFFSET * 0.5, rainbow_rect.size), false, CHIP_SHADOW_COLOR)
-		# Основная текстура
-		draw_texture_rect(tex, rainbow_rect, false)
+func _draw_bonus_chip(top_left: Vector2, size_v: Vector2, bonus_idx: int) -> void:
+	var tex: Texture2D = BONUS_TEXTURES.get(bonus_idx)
+	if tex == null:
+		return
+	var chip_rect := _fit_texture_rect_preserve_aspect(tex, Rect2(top_left, size_v))
+	draw_texture_rect(tex, Rect2(chip_rect.position + CHIP_SHADOW_OFFSET * 0.5, chip_rect.size), false, CHIP_SHADOW_COLOR)
+	draw_texture_rect(tex, chip_rect, false)
+
+func _draw_bomb_chip(top_left: Vector2, size_v: Vector2) -> void:
+	_draw_bonus_chip(top_left, size_v, BOMB_CHIP_IDX)
+
+func _draw_row_bonus_chip(top_left: Vector2, size_v: Vector2) -> void:
+	_draw_bonus_chip(top_left, size_v, ROW_BONUS_CHIP_IDX)
+
+func _draw_rainbow_chip(top_left: Vector2, size_v: Vector2) -> void:
+	_draw_bonus_chip(top_left, size_v, RAINBOW_CHIP_IDX)
 		
 func _draw_chip(top_left: Vector2, size_v: Vector2, color_idx: int):
 	if color_idx >= 0 and color_idx < CHIP_TEXTURES.size():
