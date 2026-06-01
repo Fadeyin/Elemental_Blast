@@ -46,10 +46,8 @@ const CHIP_SHADOW_OFFSET := Vector2(0, 6)
 const CHIP_SHADOW_COLOR := Color(0, 0, 0, 0.25)
 const FIELD_GAP_BASE := 8.0 # Минимальный зазор между полосой сердец и зоной фишек
 const HEART_STRIP_HEIGHT := 52.0 # Полоса между врагами и фишками — здесь рисуются сердца
-const LIFE_HEART_FILL_COLOR := Color(0.92, 0.28, 0.42, 1.0)
-const LIFE_HEART_HIGHLIGHT_COLOR := Color(1.0, 0.55, 0.62, 0.55)
-const LIFE_HEART_OUTLINE_COLOR := Color(0.55, 0.12, 0.22, 1.0)
-const LIFE_HEART_EMPTY_OUTLINE_COLOR := Color(0.45, 0.45, 0.52, 1.0)
+const LIFE_HEART_TEXTURE := preload("res://textures/life_heart.png")
+const LIFE_HEART_EMPTY_TEXTURE := preload("res://textures/life_heart_outline.png")
 const CHIP_HIGHLIGHT_ALPHA := 0.08
 const FALL_DURATION := 0.2
 const RAINBOW_CHIP_IDX := -2
@@ -2267,45 +2265,28 @@ func _get_monster_color(hp: int) -> Color:
 		return Color(0.95, 0.85, 0.25, 1) # жёлтый
 	return Color(1.00, 0.60, 0.20, 1) # запасной (янтарный)
 
-func _heart_polygon_points(center: Vector2, size: float, segment_count: int = 28) -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	pts.resize(segment_count)
-	var scale := size / 17.0
-	for i in segment_count:
-		var t := float(i) / float(segment_count) * TAU
-		var sx := sin(t)
-		var x := 16.0 * sx * sx * sx
-		var y := -(13.0 * cos(t) - 5.0 * cos(2.0 * t) - 2.0 * cos(3.0 * t) - cos(4.0 * t))
-		pts[i] = center + Vector2(x * scale, y * scale)
-	return pts
-
-func _draw_life_heart(center: Vector2, size: float, filled: bool) -> void:
-	var pts := _heart_polygon_points(center, size)
-	var outline_w := maxf(2.0, size * 0.09)
-	if filled:
-		draw_colored_polygon(pts, LIFE_HEART_FILL_COLOR)
-		var highlight := _heart_polygon_points(center + Vector2(-size * 0.12, -size * 0.18), size * 0.42, 20)
-		draw_colored_polygon(highlight, LIFE_HEART_HIGHLIGHT_COLOR)
-		var closed := pts.duplicate()
-		closed.append(pts[0])
-		draw_polyline(closed, LIFE_HEART_OUTLINE_COLOR, outline_w, true)
-	else:
-		var closed_empty := pts.duplicate()
-		closed_empty.append(pts[0])
-		draw_polyline(closed_empty, LIFE_HEART_EMPTY_OUTLINE_COLOR, outline_w, true)
-
 func _draw_global_lives_bar_strip(origin_x: float, center_y: float, total_width: float) -> void:
-	var pad_x := CELL_SIZE * 0.06
+	var pad_x := CELL_SIZE * 0.04
 	var usable_w := total_width - pad_x * 2.0
-	var gap := CELL_SIZE * 0.04
-	var slot_w := (usable_w - gap * float(TOTAL_LIVES_PER_LEVEL - 1)) / float(TOTAL_LIVES_PER_LEVEL)
-	var heart_size := minf(slot_w * 0.92, HEART_STRIP_HEIGHT * 0.68)
-	var row_w := heart_size * float(TOTAL_LIVES_PER_LEVEL) + gap * float(TOTAL_LIVES_PER_LEVEL - 1)
-	var start_x := origin_x + pad_x + (usable_w - row_w) * 0.5
+	var slot_w := usable_w / float(TOTAL_LIVES_PER_LEVEL)
+	var max_heart_h := HEART_STRIP_HEIGHT * 0.78
+	var max_heart_w := slot_w * 0.9
+	var tex_size := LIFE_HEART_TEXTURE.get_size()
+	if tex_size.x <= 0.0 or tex_size.y <= 0.0:
+		return
+	var tex_aspect := tex_size.x / tex_size.y
+	var heart_h := max_heart_h
+	var heart_w := heart_h * tex_aspect
+	if heart_w > max_heart_w:
+		heart_w = max_heart_w
+		heart_h = heart_w / tex_aspect
 	for i in TOTAL_LIVES_PER_LEVEL:
-		var cx := start_x + float(i) * (heart_size + gap) + heart_size * 0.5
 		var filled := i < _player_lives_remaining
-		_draw_life_heart(Vector2(cx, center_y), heart_size, filled)
+		var tex: Texture2D = LIFE_HEART_TEXTURE if filled else LIFE_HEART_EMPTY_TEXTURE
+		var slot_left := origin_x + pad_x + float(i) * slot_w
+		var bounds := Rect2(slot_left, center_y - heart_h * 0.5, slot_w, heart_h)
+		var draw_rect := _fit_texture_rect_preserve_aspect(tex, bounds)
+		draw_texture_rect(tex, draw_rect, false)
 
 func _draw_monster_health_bar(top_left: Vector2, width: float, hp: int, max_hp: int, alpha: float = 1.0):
 	if max_hp <= 0:
