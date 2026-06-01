@@ -2263,38 +2263,45 @@ func _get_monster_color(hp: int) -> Color:
 		return Color(0.95, 0.85, 0.25, 1) # жёлтый
 	return Color(1.00, 0.60, 0.20, 1) # запасной (янтарный)
 
+func _heart_polygon_points(center: Vector2, size: float, segment_count: int = 28) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	pts.resize(segment_count)
+	var scale := size / 17.0
+	for i in segment_count:
+		var t := float(i) / float(segment_count) * TAU
+		var sx := sin(t)
+		var x := 16.0 * sx * sx * sx
+		var y := -(13.0 * cos(t) - 5.0 * cos(2.0 * t) - 2.0 * cos(3.0 * t) - cos(4.0 * t))
+		pts[i] = center + Vector2(x * scale, y * scale)
+	return pts
+
+func _draw_life_heart(center: Vector2, size: float, filled: bool) -> void:
+	var pts := _heart_polygon_points(center, size)
+	var outline_w := maxf(2.0, size * 0.09)
+	if filled:
+		draw_colored_polygon(pts, LIFE_HEART_FILL_COLOR)
+		var highlight := _heart_polygon_points(center + Vector2(-size * 0.12, -size * 0.18), size * 0.42, 20)
+		draw_colored_polygon(highlight, LIFE_HEART_HIGHLIGHT_COLOR)
+		var closed := pts.duplicate()
+		closed.append(pts[0])
+		draw_polyline(closed, LIFE_HEART_OUTLINE_COLOR, outline_w, true)
+	else:
+		var closed_empty := pts.duplicate()
+		closed_empty.append(pts[0])
+		draw_polyline(closed_empty, LIFE_HEART_EMPTY_OUTLINE_COLOR, outline_w, true)
+
 func _draw_global_lives_bar_strip(origin_x: float, center_y: float, total_width: float) -> void:
-	var pad_x = CELL_SIZE * 0.08
-	var bar_w = total_width - pad_x * 2.0
-	var bar_h = HEART_STRIP_HEIGHT * 0.42
-	var bx = origin_x + pad_x
-	var by = center_y - bar_h * 0.5
-	var frame = Rect2(Vector2(bx, by), Vector2(bar_w, bar_h))
-	var bg = StyleBoxFlat.new()
-	bg.bg_color = Color(0.12, 0.13, 0.18, 1.0)
-	bg.set_corner_radius_all(8.0)
-	bg.border_width_left = 2
-	bg.border_width_top = 2
-	bg.border_width_right = 2
-	bg.border_width_bottom = 2
-	bg.border_color = Color(0.42, 0.36, 0.18, 0.95)
-	draw_style_box(bg, frame)
-	var inner_margin = 5.0
-	var seg_area_w = bar_w - inner_margin * 2.0
-	var gap = 3.0
-	var seg_w = (seg_area_w - gap * float(TOTAL_LIVES_PER_LEVEL - 1)) / float(TOTAL_LIVES_PER_LEVEL)
-	var ix = bx + inner_margin
-	var iy = by + inner_margin * 0.35
-	var seg_h = bar_h - inner_margin * 1.5
+	var pad_x := CELL_SIZE * 0.06
+	var usable_w := total_width - pad_x * 2.0
+	var gap := CELL_SIZE * 0.04
+	var slot_w := (usable_w - gap * float(TOTAL_LIVES_PER_LEVEL - 1)) / float(TOTAL_LIVES_PER_LEVEL)
+	var heart_size := minf(slot_w * 0.92, HEART_STRIP_HEIGHT * 0.68)
+	var row_w := heart_size * float(TOTAL_LIVES_PER_LEVEL) + gap * float(TOTAL_LIVES_PER_LEVEL - 1)
+	var start_x := origin_x + pad_x + (usable_w - row_w) * 0.5
 	for i in TOTAL_LIVES_PER_LEVEL:
-		var seg_rect = Rect2(Vector2(ix + float(i) * (seg_w + gap), iy), Vector2(seg_w, seg_h))
-		var sb = StyleBoxFlat.new()
-		sb.set_corner_radius_all(4.0)
-		if i < _player_lives_remaining:
-			sb.bg_color = Color(0.92, 0.28, 0.42, 1.0)
-		else:
-			sb.bg_color = Color(0.28, 0.28, 0.34, 1.0)
-		draw_style_box(sb, seg_rect)
+		var cx := start_x + float(i) * (heart_size + gap) + heart_size * 0.5
+		var filled := i < _player_lives_remaining
+		_draw_life_heart(Vector2(cx, center_y), heart_size, filled)
 
 func _draw_monster_health_bar(top_left: Vector2, width: float, hp: int, max_hp: int, alpha: float = 1.0):
 	if max_hp <= 0:
