@@ -70,7 +70,6 @@ const HEALTH_BAR_HEIGHT := 4.0
 const HEALTH_BAR_MARGIN := 2.0
 const HEALTH_BAR_BG_COLOR := Color(0.2, 0.2, 0.2, 0.6)
 const HEALTH_BAR_HEALTH_COLOR := Color(0.2, 0.8, 0.2, 0.9)
-const HEALTH_BAR_DAMAGE_COLOR := Color(0.9, 0.2, 0.2, 0.7)
 
 # Константы препятствий
 const OBSTACLE_COLOR := Color(0.4, 0.35, 0.3, 1.0) # Коричневый (стена)
@@ -1469,14 +1468,16 @@ func _apply_damage_to_enemy_cell(tx: int, ty: int) -> void:
 						enemies[cy][cx] = 0
 						enemies_initial_hp[cy][cx] = 0
 						_boss_anchor_of[cy][cx] = Vector2i(-1, -1)
+				var boss_span_dead := _boss_cell_span_from_cells(g.get("cells", []))
 				_boss_registry.erase(key)
 				_decrement_level_target_for_init_hp(BOSS_GOAL_VISUAL_HP)
 				_needs_ui_update = true
 				_enemy_death_anims.append({
-					"x": anc.x, "y": anc.y, "t": 0.0, "d": 0.35,
-					"hp": 0, "init": BOSS_GOAL_VISUAL_HP, "id": mid
+					"x": anc.x, "y": anc.y, "t": 0.0, "d": 0.45,
+					"hp": 0, "init": int(g.get("max_hp", BOSS_GOAL_VISUAL_HP)), "id": mid,
+					"is_boss": true, "boss_span": boss_span_dead
 				})
-				_monster_shakes[mid] = {"t": 0.0, "d": 0.35, "intensity": 15.0}
+				_monster_shakes[mid] = {"t": 0.0, "d": 0.45, "intensity": 12.0}
 			return
 	enemies[ty][tx] -= 1
 	_enemies_hit_this_turn[ty][tx] = true
@@ -1487,11 +1488,6 @@ func _apply_damage_to_enemy_cell(tx: int, ty: int) -> void:
 		var init_hp: int = int(enemies_initial_hp[ty][tx])
 		_decrement_level_target_for_init_hp(int(init_hp))
 		_needs_ui_update = true
-		_enemy_death_anims.append({
-			"x": tx, "y": ty, "t": 0.0, "d": 0.35,
-			"hp": 0, "init": init_hp, "id": mid2
-		})
-		_monster_shakes[mid2] = {"t": 0.0, "d": 0.35, "intensity": 15.0}
 
 func _rebuild_level_targets_from_field() -> void:
 	_level_targets.clear()
@@ -1805,10 +1801,10 @@ func _draw():
 				if int(ma2.fx) == bax and int(ma2.fy) == bay:
 					anchor_ma = ma2
 					break
-			var k = clamp(anchor_ma.t / anchor_ma.d, 0.0, 1.0)
-			k = pow(k, 0.8)
-			var ix = lerp(float(anchor_ma.fx), float(anchor_ma.tx), k)
-			var iy = lerp(float(anchor_ma.fy), float(anchor_ma.ty), k)
+			var move_prog := clamp(anchor_ma.t / anchor_ma.d, 0.0, 1.0)
+			var origin_mv := _boss_interpolated_origin(bk_m, move_prog)
+			var ix := origin_mv.x
+			var iy := origin_mv.y
 			var span_mv := Vector2i(1, 1)
 			var tex_mv := -1
 			if _boss_registry.has(bk_m):
@@ -1862,19 +1858,32 @@ func _draw():
 			"spawn_scale": spawn_scale_ma
 		})
 	
-	# Затем умирающие (чтобы они тряслись и исчезали)
+	# Умирающий босс: сжатие к одной клетке в верхнем левом углу занятой области
 	for da in _enemy_death_anims:
-		var alpha = 1.0 - (da.t / da.d)
+		if not bool(da.get("is_boss", false)):
+			continue
+		var shrink_k := clamp(da.t / da.d, 0.0, 1.0)
+		shrink_k = pow(shrink_k, 0.85)
+		var boss_span_d: Vector2i = da.get("boss_span", Vector2i(1, 1))
+		var full_size := _boss_draw_size(boss_span_d)
+		var one_cell := _enemy_chip_draw_size()
+		var alpha_b := 1.0 - shrink_k * 0.35
+		var span_w_d := lerpf(float(boss_span_d.x), 1.0, shrink_k)
+		var span_h_d := lerpf(float(boss_span_d.y), 1.0, shrink_k)
 		monsters_to_draw.append({
 			"x": float(da.x),
 			"y": float(da.y),
 			"hp": int(da.hp),
 			"init_hp": int(da.init),
 			"id": da.id,
-			"sort_y": float(da.y),
-			"alpha": alpha,
-			"heart_strip_death": bool(da.get("in_heart_strip", false)),
-			"attack_warn": 0.0
+			"sort_y": float(da.y) + span_h_d - 1.0,
+			"alpha": alpha_b,
+			"attack_warn": 0.0,
+			"draw_size": full_size.lerp(one_cell, shrink_k),
+			"texture_tier": BOSS_TEXTURE_TIER,
+			"boss_span_w": span_w_d,
+			"boss_span_h": span_h_d,
+			"preserve_texture_aspect": true
 		})
 	
 	# Затем статичные (те, которые не двигаются в данный момент)
@@ -2084,17 +2093,6 @@ func _draw():
 		draw_circle(Vector2(cx, cy), proj_r * 0.8, p.color) # Цветная оболочка
 		# Блик
 		draw_circle(Vector2(cx - proj_r * 0.3, cy - proj_r * 0.3), proj_r * 0.2, Color.WHITE)
-
-	# Анимации смерти врагов (вспышка поверх клетки)
-	for da in _enemy_death_anims:
-		var k3 = clamp(da.t / da.d, 0.0, 1.0)
-		var ex = origin.x + float(da.x) * CELL_SIZE + CELL_SIZE * 0.5
-		var ey = origin.y + float(da.y) * ENEMY_CELL_HEIGHT + ENEMY_CELL_HEIGHT * 0.5
-		var max_r = ENEMY_CELL_HEIGHT * 0.45
-		var rr = max_r * (0.6 + 0.4 * k3)
-		var alpha = 1.0 - k3
-		draw_circle(Vector2(ex, ey), rr, Color(1.0, 0.9, 0.3, alpha * 0.9))
-		draw_circle(Vector2(ex, ey), rr * 0.7, Color(0.6, 0.2, 0.8, alpha * 0.6))
 
 	# Анимации движения врагов
 	# (Теперь отрисовываются вместе со статичными монстрами выше для корректной сортировки по Y)
@@ -2312,12 +2310,6 @@ func _draw_monster_health_bar(top_left: Vector2, width: float, hp: int, max_hp: 
 		green_color.a *= alpha
 		draw_rect(Rect2(bar_x, bar_y, green_width, HEALTH_BAR_HEIGHT), green_color)
 	
-	if hp < max_hp and hp > 0:
-		var damage_width := bar_width * (1.0 - health_ratio)
-		var red_color := HEALTH_BAR_DAMAGE_COLOR
-		red_color.a *= alpha
-		draw_rect(Rect2(bar_x + bar_width * health_ratio, bar_y, damage_width, HEALTH_BAR_HEIGHT), red_color)
-
 func _fit_texture_rect_preserve_aspect(tex: Texture2D, bounds: Rect2) -> Rect2:
 	var tex_size: Vector2 = tex.get_size()
 	if tex_size.x <= 0.0 or tex_size.y <= 0.0 or bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
@@ -2375,11 +2367,6 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 		# Сам монстр
 		draw_texture_rect(tex, rect, false, mod_color)
 		
-		# Визуальный урон (трещины поверх текстуры)
-		var damage = initial_hp - hp
-		if damage > 0:
-			_draw_monster_cracks(rect.position, rect.size, damage, monster_id, alpha)
-		
 		# Добавляем ледяной эффект поверх
 		if _freeze_turns > 0:
 			var r = anim_size.x * 0.45
@@ -2423,12 +2410,7 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 				draw_center + Vector2(r*0.2, -r*0.9)
 			]), horn_color)
 		
-		# 4. Трещины
-		var damage = initial_hp - hp
-		if damage > 0:
-			_draw_monster_cracks(anim_top_left, anim_size, damage, monster_id, alpha)
-
-		# 5. Глаза
+		# 4. Глаза
 		var eye_r = r * 0.25
 		var eye_spacing = r * 0.4
 		for side in [-1, 1]:
@@ -2438,8 +2420,6 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 			eye_bg.a *= alpha
 			draw_circle(eye_pos, eye_r, eye_bg)
 			var pupil_pos = eye_pos
-			if damage > 0:
-				pupil_pos += Vector2(sin(monster_id + hp + side), cos(monster_id + hp)) * 2.0
 			var p_color = Color.BLACK
 			p_color.a *= alpha
 			draw_circle(pupil_pos, eye_r * 0.5, p_color)
@@ -2452,11 +2432,7 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 		var m_w = r * 0.5
 		var mouth_color = Color.BLACK
 		mouth_color.a *= alpha
-		if damage > 0:
-			draw_line(Vector2(draw_center.x - m_w, mouth_y + 4), Vector2(draw_center.x, mouth_y - 2), mouth_color, 3.0)
-			draw_line(Vector2(draw_center.x, mouth_y - 2), Vector2(draw_center.x + m_w, mouth_y + 4), mouth_color, 3.0)
-		else:
-			draw_line(Vector2(draw_center.x - m_w, mouth_y), Vector2(draw_center.x + m_w, mouth_y), mouth_color, 2.0)
+		draw_line(Vector2(draw_center.x - m_w, mouth_y), Vector2(draw_center.x + m_w, mouth_y), mouth_color, 2.0)
 	
 	_draw_monster_health_bar(health_bar_top_left, health_bar_width, hp, initial_hp, alpha)
 
@@ -2540,30 +2516,6 @@ func _draw_player_zone_overlay():
 	var line_start = Vector2(player_rect.position.x + 10, player_rect.position.y + 2)
 	var line_end = Vector2(player_rect.end.x - 10, player_rect.position.y + 2)
 	draw_line(line_start, line_end, highlight_color, 2.0)
-
-func _draw_monster_cracks(pos: Vector2, size: Vector2, damage_level: int, seed_val: int, alpha: float = 1.0):
-	var rng = RandomNumberGenerator.new()
-	rng.seed = seed_val
-	var crack_color = Color(0, 0, 0, 0.5 * alpha)
-	
-	# Чем больше урон, тем больше основных веток трещин
-	for i in range(damage_level * 2):
-		var start = pos + Vector2(rng.randf_range(0.2, 0.8) * size.x, rng.randf_range(0.2, 0.8) * size.y)
-		var end = start + Vector2(rng.randf_range(-0.4, 0.4) * size.x, rng.randf_range(-0.4, 0.4) * size.y)
-		
-		# Ограничиваем трещины внутри тела
-		end.x = clamp(end.x, pos.x + 5, pos.x + size.x - 5)
-		end.y = clamp(end.y, pos.y + 5, pos.y + size.y - 5)
-		
-		draw_line(start, end, crack_color, 1.5)
-		
-		# Маленькие ответвления для реализма
-		if rng.randf() > 0.5:
-			var branch_end = end + Vector2(rng.randf_range(-0.2, 0.2) * size.x, rng.randf_range(-0.2, 0.2) * size.y)
-			branch_end.x = clamp(branch_end.x, pos.x + 5, pos.x + size.x - 5)
-			branch_end.y = clamp(branch_end.y, pos.y + 5, pos.y + size.y - 5)
-			draw_line(end, branch_end, crack_color, 1.0)
-
 
 func _process(delta: float) -> void:
 	if _enemy_attack_warn_pending:
@@ -3626,14 +3578,37 @@ func _boss_cell_span_from_cells(cells: Array) -> Vector2i:
 		max_y = maxi(max_y, cy)
 	return Vector2i(max_x - min_x + 1, max_y - min_y + 1)
 
+func _enemy_chip_draw_size() -> Vector2:
+	return Vector2(CELL_SIZE * CHIP_SIZE_FACTOR, ENEMY_CELL_HEIGHT * CHIP_SIZE_FACTOR)
+
 func _boss_draw_size(span: Vector2i) -> Vector2:
 	return Vector2(
 		float(span.x) * CELL_SIZE * CHIP_SIZE_FACTOR - 8.0,
-		float(span.y) * CELL_SIZE * CHIP_SIZE_FACTOR - 8.0
+		float(span.y) * ENEMY_CELL_HEIGHT * CHIP_SIZE_FACTOR - 8.0
 	)
 
 func _boss_visual_span_rows(span: Vector2i) -> float:
-	return float(span.y) * float(CELL_SIZE) / float(ENEMY_CELL_HEIGHT)
+	return float(span.y)
+
+func _boss_interpolated_origin(boss_key: String, progress: float) -> Vector2:
+	var min_fx := 9999
+	var min_fy := 9999
+	var min_tx := 9999
+	var min_ty := 9999
+	var found := false
+	for ma2 in _enemy_move_anims:
+		if str(ma2.get("boss_key", "")) != boss_key:
+			continue
+		found = true
+		min_fx = mini(min_fx, int(ma2.fx))
+		min_fy = mini(min_fy, int(ma2.fy))
+		min_tx = mini(min_tx, int(ma2.tx))
+		min_ty = mini(min_ty, int(ma2.ty))
+	if not found:
+		return Vector2.ZERO
+	var k := clamp(progress, 0.0, 1.0)
+	k = pow(k, 0.8)
+	return Vector2(lerp(float(min_fx), float(min_tx), k), lerp(float(min_fy), float(min_ty), k))
 
 func _enemy_moves_include_last_row_attack(moves: Array) -> bool:
 	for m in moves:

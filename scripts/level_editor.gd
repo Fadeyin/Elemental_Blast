@@ -807,9 +807,15 @@ func _refresh_grid_visuals() -> void:
 			btn.text = ""
 			btn.modulate = Color(1, 1, 1, 1)
 			btn.self_modulate = Color(1, 1, 1, 1)
+			btn.clip_contents = true
 			btn.tooltip_text = "x=%d y=%d" % [x, y]
 			var key = "%d:%d" % [x, y]
 			var icon: TextureRect = btn.get_node("MonsterIcon")
+			icon.offset_left = 6
+			icon.offset_top = 4
+			icon.offset_right = -6
+			icon.offset_bottom = -16
+			icon.z_index = 0
 			var hp_bg: ColorRect = btn.get_node("HpBg")
 			var hp_fg: ColorRect = btn.get_node("HpFg")
 			var top_label: Label = btn.get_node("TopLabel")
@@ -858,6 +864,13 @@ func _refresh_grid_visuals() -> void:
 					var bhp_v := int(bd.get("hp", 1))
 					var bw_v := int(bd.get("bw", 1))
 					var bh_v := int(bd.get("bh", 1))
+					var cell_sz := _last_grid_cell_size if _last_grid_cell_size > 0 else GRID_CELL_MIN_SIZE
+					var gap_x := float(_grid.get_theme_constant("h_separation"))
+					var gap_y := float(_grid.get_theme_constant("v_separation"))
+					btn.clip_contents = false
+					icon.z_index = 4
+					icon.offset_right = -6.0 + float(bw_v - 1) * (float(cell_sz) + gap_x)
+					icon.offset_bottom = -16.0 + float(bh_v - 1) * (float(cell_sz) + gap_y)
 					top_label.text = ("Б%d×%d %d" % [bw_v, bh_v, bhp_v]) + ((" " + top_label.text) if top_label.text != "" else "")
 					hp_bg.visible = true
 					hp_fg.visible = true
