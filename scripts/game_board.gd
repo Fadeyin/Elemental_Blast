@@ -1880,14 +1880,15 @@ func _draw():
 				"attack_warn": 0.0
 			})
 			continue
-		var shrink_k := clamp(da.t / da.d, 0.0, 1.0)
-		shrink_k = pow(shrink_k, 0.85)
+		var death_t: float = float(da.t)
+		var death_d: float = maxf(float(da.d), 0.001)
+		var shrink_k: float = pow(clamp(death_t / death_d, 0.0, 1.0), 0.85)
 		var boss_span_d: Vector2i = da.get("boss_span", Vector2i(1, 1))
-		var full_size := _boss_draw_size(boss_span_d)
-		var one_cell := _enemy_chip_draw_size()
-		var alpha_b := 1.0 - shrink_k * 0.35
-		var span_w_d := lerpf(float(boss_span_d.x), 1.0, shrink_k)
-		var span_h_d := lerpf(float(boss_span_d.y), 1.0, shrink_k)
+		var full_size: Vector2 = _boss_draw_size(boss_span_d)
+		var one_cell: Vector2 = _enemy_chip_draw_size()
+		var alpha_b: float = 1.0 - shrink_k * 0.35
+		var span_w_d: float = lerpf(float(boss_span_d.x), 1.0, shrink_k)
+		var span_h_d: float = lerpf(float(boss_span_d.y), 1.0, shrink_k)
 		monsters_to_draw.append({
 			"x": float(da.x),
 			"y": float(da.y),
