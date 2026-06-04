@@ -28,14 +28,16 @@ const BONUS_TEXTURES := {
 	ROW_BONUS_CHIP_IDX: preload("res://textures/Chip_Bonus_Arrows.png"),
 	BOMB_CHIP_IDX: preload("res://textures/Chip_Bonus_Bomb.png")
 }
+const BOSS_TEXTURE_TIER := 100
 const MONSTER_TEXTURES := {
 	1: preload("res://textures/Monster_1_lvl.png"),
 	2: preload("res://textures/Monster_2_lvl.png"),
 	3: preload("res://textures/Monster_3_lvl.png"),
 	4: preload("res://textures/Monster_4_lvl.png"),
 	5: preload("res://textures/Monster_5_lvl.png"),
-	# Цель уровня для многоячеечного босса (иконка как у монстра 1 уровня)
-	50: preload("res://textures/Monster_1_lvl.png")
+	BOSS_TEXTURE_TIER: preload("res://textures/Monster_Boss.png"),
+	# Цель уровня для многоячеечного босса
+	50: preload("res://textures/Monster_Boss.png")
 }
 const BOSS_GOAL_VISUAL_HP := 50
 # Смещение босса по полю: раз в N завершённых ходов игрока; попадания фишками не «замораживают» босса. Атака по полосе сердец планируется каждый вражеский шаг при контакте.
@@ -1812,9 +1814,9 @@ func _draw():
 			if _boss_registry.has(bk_m):
 				var g_mv: Dictionary = _boss_registry[bk_m]
 				span_mv = _boss_cell_span_from_cells(g_mv.get("cells", []))
-				tex_mv = int(g_mv.get("sprite", 1))
+				tex_mv = BOSS_TEXTURE_TIER
 			else:
-				tex_mv = int(anchor_ma.get("boss_tex", 1))
+				tex_mv = BOSS_TEXTURE_TIER
 			var boss_size_mv := _boss_draw_size(span_mv)
 			var boss_visual_rows_mv := _boss_visual_span_rows(span_mv)
 			ma_boss_done[bk_m] = true
@@ -1909,7 +1911,7 @@ func _draw():
 						"alpha": 1.0,
 						"attack_warn": warn_flash,
 						"draw_size": boss_size_st,
-						"texture_tier": int(g_st.get("sprite", 1)),
+						"texture_tier": BOSS_TEXTURE_TIER,
 						"boss_span_w": float(span_st.x),
 						"boss_span_h": boss_visual_rows_st,
 						"preserve_texture_aspect": true
@@ -3534,7 +3536,6 @@ func _plan_boss_group_moves(ax: int, ay: int, moves: Array, occupied_next: Array
 	var cells: Array = g.get("cells", [])
 	var cur_hp := maxi(0, int(g.get("hp", 0)))
 	var max_hp := maxi(1, int(g.get("max_hp", cur_hp)))
-	var spr := maxi(1, int(g.get("sprite", 1)))
 	var any_on_heart := false
 	for c in cells:
 		if int(c.y) == _heart_row_y:
@@ -3570,7 +3571,7 @@ func _plan_boss_group_moves(ax: int, ay: int, moves: Array, occupied_next: Array
 			moves.append({
 				"fx": cx, "fy": cy, "tx": cx, "ty": cy + 1,
 				"hp": cur_hp, "init": max_hp, "outcome": "normal",
-				"boss_key": key, "boss_tex": spr
+				"boss_key": key, "boss_tex": BOSS_TEXTURE_TIER
 			})
 			occupied_next[cy][cx] = false
 			occupied_next[cy + 1][cx] = true
@@ -3605,7 +3606,7 @@ func _plan_boss_group_moves(ax: int, ay: int, moves: Array, occupied_next: Array
 			moves.append({
 				"fx": cx, "fy": cy, "tx": nx, "ty": cy,
 				"hp": cur_hp, "init": max_hp, "outcome": "normal",
-				"boss_key": key, "boss_tex": spr
+				"boss_key": key, "boss_tex": BOSS_TEXTURE_TIER
 			})
 			occupied_next[cy][cx] = false
 			occupied_next[cy][nx] = true

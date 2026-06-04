@@ -8,12 +8,14 @@ const ROWS := 16
 const LEVEL_PATH_TEMPLATE := "res://levels/level_%03d.json"
 const USER_LEVEL_DIR := "user://editor_levels"
 const USER_LEVEL_PATH_TEMPLATE := USER_LEVEL_DIR + "/level_%03d.json"
+const BOSS_TEXTURE_TIER := 100
 const MONSTER_TEXTURES := {
 	1: preload("res://textures/Monster_1_lvl.png"),
 	2: preload("res://textures/Monster_2_lvl.png"),
 	3: preload("res://textures/Monster_3_lvl.png"),
 	4: preload("res://textures/Monster_4_lvl.png"),
-	5: preload("res://textures/Monster_5_lvl.png")
+	5: preload("res://textures/Monster_5_lvl.png"),
+	BOSS_TEXTURE_TIER: preload("res://textures/Monster_Boss.png")
 }
 const OBSTACLE_COLOR := Color(0.4, 0.35, 0.3, 1.0)
 const WALL_COLOR := Color(0.36, 0.38, 0.45, 1.0)
@@ -852,8 +854,7 @@ func _refresh_grid_visuals() -> void:
 				btn.self_modulate = BOSS_CELL_COLOR
 				btn.tooltip_text += " | босс"
 				if bool(bd.get("is_anchor", false)):
-					var spr_b := clampi(int(bd.get("sprite", 1)), 1, 5)
-					icon.texture = MONSTER_TEXTURES.get(spr_b, null)
+					icon.texture = MONSTER_TEXTURES.get(BOSS_TEXTURE_TIER, null)
 					var bhp_v := int(bd.get("hp", 1))
 					var bw_v := int(bd.get("bw", 1))
 					var bh_v := int(bd.get("bh", 1))
