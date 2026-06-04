@@ -60,6 +60,8 @@ const MIN_NORMAL_CLUSTER_POP := 2
 const BG_COLOR := Color(0.52, 0.58, 0.68, 1) # Пастельный светло-синий фон
 const GAME_BG_TEXTURE := preload("res://textures/Game_Backgound.png")
 const ENEMY_TILE_TEXTURE := preload("res://textures/Floor_Enemy_Tile_.png")
+const WALL_TEXTURE := preload("res://textures/obstacle_wall.png")
+const BOSS_DRAW_SCALE := 2.0
 const PORTAL_SPAWN_TEXTURE := preload("res://textures/ui_portal_spawn.png")
 const PORTAL_TEX_SIZE := Vector2(838.0, 844.0)
 const PORTAL_DRAW_WIDTH := 74.0
@@ -1867,7 +1869,9 @@ func _draw():
 	# Умирающие монстры (затухание) и босс (сжатие к верхнему левому углу)
 	for da in _enemy_death_anims:
 		if not bool(da.get("is_boss", false)):
-			var alpha: float = 1.0 - float(da.t) / float(da.d)
+			var death_t_norm: float = float(da.t)
+			var death_d_norm: float = maxf(float(da.d), 0.001)
+			var alpha: float = 1.0 - death_t_norm / death_d_norm
 			monsters_to_draw.append({
 				"x": float(da.x),
 				"y": float(da.y),
@@ -2476,16 +2480,13 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 
 func _draw_obstacle(top_left: Vector2, size: Vector2, hp: int, max_hp: int, is_unbreakable: bool = false):
 	if is_unbreakable:
-		var wall_base = Color(0.36, 0.38, 0.45, 1.0)
-		var wall_edge = Color(0.2, 0.22, 0.3, 1.0)
+		var wall_bounds := Rect2(top_left, size)
 		draw_rect(Rect2(top_left + Vector2(2, 2), size - Vector2(4, 4)), Color(0, 0, 0, 0.35))
-		draw_rect(Rect2(top_left, size), wall_base)
-		draw_line(top_left, top_left + Vector2(size.x, 0), wall_edge, 3.0)
-		draw_line(top_left, top_left + Vector2(0, size.y), wall_edge, 3.0)
-		draw_line(top_left + Vector2(size.x, 0), top_left + size, wall_edge, 3.0)
-		draw_line(top_left + Vector2(0, size.y), top_left + size, wall_edge, 3.0)
-		draw_line(top_left + Vector2(4, 4), top_left + size - Vector2(4, 4), Color(1, 1, 1, 0.18), 2.0)
-		draw_line(Vector2(top_left.x + size.x - 4, top_left.y + 4), Vector2(top_left.x + 4, top_left.y + size.y - 4), Color(1, 1, 1, 0.18), 2.0)
+		if WALL_TEXTURE:
+			var wall_rect := _fit_texture_rect_preserve_aspect(WALL_TEXTURE, wall_bounds)
+			draw_texture_rect(WALL_TEXTURE, wall_rect, false)
+		else:
+			draw_rect(wall_bounds, Color(0.36, 0.38, 0.45, 1.0))
 		return
 
 	var base_color = OBSTACLE_COLOR
@@ -3620,10 +3621,11 @@ func _enemy_chip_draw_size() -> Vector2:
 	return Vector2(CELL_SIZE * CHIP_SIZE_FACTOR, ENEMY_CELL_HEIGHT * CHIP_SIZE_FACTOR)
 
 func _boss_draw_size(span: Vector2i) -> Vector2:
-	return Vector2(
+	var base_size := Vector2(
 		float(span.x) * CELL_SIZE * CHIP_SIZE_FACTOR - 8.0,
 		float(span.y) * ENEMY_CELL_HEIGHT * CHIP_SIZE_FACTOR - 8.0
 	)
+	return base_size * BOSS_DRAW_SCALE
 
 func _boss_visual_span_rows(span: Vector2i) -> float:
 	return float(span.y)

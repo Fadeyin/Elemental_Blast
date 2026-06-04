@@ -23,6 +23,7 @@ const GRID_CELL_MIN_SIZE := 46
 const GRID_CELL_MAX_SIZE := 82
 const BOSS_CELL_COLOR := Color(0.52, 0.22, 0.62, 1.0)
 const TEX_UI_PORTAL := preload("res://textures/ui_portal_spawn.png")
+const TEX_WALL := preload("res://textures/obstacle_wall.png")
 
 enum BrushMode { START_MONSTER, SCHEDULED_MONSTER, OBSTACLE, BOSS, ERASE }
 
@@ -828,7 +829,8 @@ func _refresh_grid_visuals() -> void:
 				var obs = obstacle_map[key]
 				var typ = str(obs.get("type", "breakable"))
 				if typ == "wall":
-					btn.self_modulate = WALL_COLOR
+					btn.self_modulate = Color(1, 1, 1, 1)
+					icon.texture = TEX_WALL
 					top_label.text = "W"
 				else:
 					btn.self_modulate = OBSTACLE_COLOR
