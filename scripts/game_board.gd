@@ -70,6 +70,7 @@ const HEALTH_BAR_HEIGHT := 4.0
 const HEALTH_BAR_MARGIN := 2.0
 const HEALTH_BAR_BG_COLOR := Color(0.2, 0.2, 0.2, 0.6)
 const HEALTH_BAR_HEALTH_COLOR := Color(0.2, 0.8, 0.2, 0.9)
+const HEALTH_BAR_DAMAGE_COLOR := Color(0.9, 0.2, 0.2, 0.7)
 
 # Константы препятствий
 const OBSTACLE_COLOR := Color(0.4, 0.35, 0.3, 1.0) # Коричневый (стена)
@@ -1488,6 +1489,11 @@ func _apply_damage_to_enemy_cell(tx: int, ty: int) -> void:
 		var init_hp: int = int(enemies_initial_hp[ty][tx])
 		_decrement_level_target_for_init_hp(int(init_hp))
 		_needs_ui_update = true
+		_enemy_death_anims.append({
+			"x": tx, "y": ty, "t": 0.0, "d": 0.35,
+			"hp": 0, "init": init_hp, "id": mid2
+		})
+		_monster_shakes[mid2] = {"t": 0.0, "d": 0.35, "intensity": 15.0}
 
 func _rebuild_level_targets_from_field() -> void:
 	_level_targets.clear()
@@ -1861,7 +1867,7 @@ func _draw():
 	# Умирающие монстры (затухание) и босс (сжатие к верхнему левому углу)
 	for da in _enemy_death_anims:
 		if not bool(da.get("is_boss", false)):
-			var alpha := 1.0 - (da.t / da.d)
+			var alpha: float = 1.0 - float(da.t) / float(da.d)
 			monsters_to_draw.append({
 				"x": float(da.x),
 				"y": float(da.y),
@@ -2106,6 +2112,19 @@ func _draw():
 		# Блик
 		draw_circle(Vector2(cx - proj_r * 0.3, cy - proj_r * 0.3), proj_r * 0.2, Color.WHITE)
 
+	# Анимации смерти обычных врагов (вспышка поверх клетки)
+	for da in _enemy_death_anims:
+		if bool(da.get("is_boss", false)):
+			continue
+		var k3 = clamp(da.t / da.d, 0.0, 1.0)
+		var ex = origin.x + float(da.x) * CELL_SIZE + CELL_SIZE * 0.5
+		var ey = origin.y + float(da.y) * ENEMY_CELL_HEIGHT + ENEMY_CELL_HEIGHT * 0.5
+		var max_r = ENEMY_CELL_HEIGHT * 0.45
+		var rr = max_r * (0.6 + 0.4 * k3)
+		var flash_alpha = 1.0 - k3
+		draw_circle(Vector2(ex, ey), rr, Color(1.0, 0.9, 0.3, flash_alpha * 0.9))
+		draw_circle(Vector2(ex, ey), rr * 0.7, Color(0.6, 0.2, 0.8, flash_alpha * 0.6))
+
 	# Анимации движения врагов
 	# (Теперь отрисовываются вместе со статичными монстрами выше для корректной сортировки по Y)
 	
@@ -2322,6 +2341,12 @@ func _draw_monster_health_bar(top_left: Vector2, width: float, hp: int, max_hp: 
 		green_color.a *= alpha
 		draw_rect(Rect2(bar_x, bar_y, green_width, HEALTH_BAR_HEIGHT), green_color)
 	
+	if hp < max_hp and hp > 0:
+		var damage_width := bar_width * (1.0 - health_ratio)
+		var red_color := HEALTH_BAR_DAMAGE_COLOR
+		red_color.a *= alpha
+		draw_rect(Rect2(bar_x + bar_width * health_ratio, bar_y, damage_width, HEALTH_BAR_HEIGHT), red_color)
+
 func _fit_texture_rect_preserve_aspect(tex: Texture2D, bounds: Rect2) -> Rect2:
 	var tex_size: Vector2 = tex.get_size()
 	if tex_size.x <= 0.0 or tex_size.y <= 0.0 or bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
