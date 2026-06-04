@@ -1858,9 +1858,21 @@ func _draw():
 			"spawn_scale": spawn_scale_ma
 		})
 	
-	# Умирающий босс: сжатие к одной клетке в верхнем левом углу занятой области
+	# Умирающие монстры (затухание) и босс (сжатие к верхнему левому углу)
 	for da in _enemy_death_anims:
 		if not bool(da.get("is_boss", false)):
+			var alpha := 1.0 - (da.t / da.d)
+			monsters_to_draw.append({
+				"x": float(da.x),
+				"y": float(da.y),
+				"hp": int(da.hp),
+				"init_hp": int(da.init),
+				"id": da.id,
+				"sort_y": float(da.y),
+				"alpha": alpha,
+				"heart_strip_death": bool(da.get("in_heart_strip", false)),
+				"attack_warn": 0.0
+			})
 			continue
 		var shrink_k := clamp(da.t / da.d, 0.0, 1.0)
 		shrink_k = pow(shrink_k, 0.85)
