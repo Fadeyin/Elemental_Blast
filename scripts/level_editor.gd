@@ -833,7 +833,16 @@ func _refresh_grid_visuals() -> void:
 					icon.texture = TEX_WALL
 					top_label.text = "W"
 				else:
-					btn.self_modulate = OBSTACLE_COLOR
+					btn.self_modulate = Color(1, 1, 1, 1)
+					icon.texture = TEX_WALL
+					var cell_sz_b := _last_grid_cell_size if _last_grid_cell_size > 0 else GRID_CELL_MIN_SIZE
+					btn.clip_contents = false
+					icon.z_index = 3
+					var overflow_b := float(cell_sz_b) * 0.5
+					icon.offset_left = 6.0 - overflow_b
+					icon.offset_top = 4.0 - overflow_b
+					icon.offset_right = -6.0 - overflow_b
+					icon.offset_bottom = -16.0 - overflow_b
 					var ohp = int(obs.get("hp", 1))
 					top_label.text = "O%d" % ohp
 					hp_bg.visible = true

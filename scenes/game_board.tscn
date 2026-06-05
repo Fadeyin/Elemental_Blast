@@ -36,24 +36,21 @@ mouse_filter = 2
 color = Color(0.1, 0.12, 0.16, 0.7)
 
 [node name="TopBar" type="HBoxContainer" parent="CanvasUI/UIRoot"]
-custom_minimum_size = Vector2(0, 96)
+custom_minimum_size = Vector2(0, 88)
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_left = 24.0
-offset_right = -24.0
-offset_bottom = 96.0
+offset_left = 16.0
+offset_right = -16.0
+offset_bottom = 88.0
 grow_horizontal = 2
-theme_override_constants/separation = 40
-
-[node name="Spacer" type="Control" parent="CanvasUI/UIRoot/TopBar"]
-layout_mode = 2
-size_flags_horizontal = 3
+theme_override_constants/separation = 14
+alignment = 1
 
 [node name="GoalsContainer" type="HBoxContainer" parent="CanvasUI/UIRoot/TopBar"]
 layout_mode = 2
-theme_override_constants/separation = 16
-alignment = 2
+theme_override_constants/separation = 14
+alignment = 1
 
 [node name="BottomBar" type="HBoxContainer" parent="CanvasUI/UIRoot"]
 layout_mode = 1

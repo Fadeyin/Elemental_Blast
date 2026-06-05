@@ -61,7 +61,12 @@ const BG_COLOR := Color(0.52, 0.58, 0.68, 1) # Пастельный светло
 const GAME_BG_TEXTURE := preload("res://textures/Game_Backgound.png")
 const ENEMY_TILE_TEXTURE := preload("res://textures/Floor_Enemy_Tile_.png")
 const WALL_TEXTURE := preload("res://textures/obstacle_wall.png")
+const BREAKABLE_WALL_TEXTURE_SCALE := 2.0
 const BOSS_DRAW_SCALE := 2.0
+const UI_TOP_TOOLBAR_BG := preload("res://textures/ui_main_menu_toolbar_bg.png")
+const VILLAIN_PORTRAIT_TEXTURE := preload("res://textures/ui_evil_wizard_portrait.png")
+const VILLAIN_PORTRAIT_SIZE := Vector2(76, 76)
+const GOALS_FRAME_MIN_SIZE := Vector2(240, 68)
 const PORTAL_SPAWN_TEXTURE := preload("res://textures/ui_portal_spawn.png")
 const PORTAL_TEX_SIZE := Vector2(838.0, 844.0)
 const PORTAL_DRAW_WIDTH := 74.0
@@ -79,7 +84,7 @@ const OBSTACLE_COLOR := Color(0.4, 0.35, 0.3, 1.0) # Коричневый (ст�
 const OBSTACLE_EDGE_COLOR := Color(0.25, 0.2, 0.15, 1.0) # Тёмно-коричневый (края)
 
 # Отступы под UI-панели
-const UI_TOP_MARGIN := 72
+const UI_TOP_MARGIN := 88
 const UI_BOTTOM_MARGIN := 150
 
 const INGAME_BOOSTER_ICON_PATHS := [
@@ -889,93 +894,9 @@ func _init_ui():
 		border.add_theme_stylebox_override("panel", sb)
 		bg.add_child(border)
 	
-	# Полная пересборка TopBar для надежности отображения жизней и монет
 	var tb = find_child("TopBar", true, false)
-	if tb:
-		tb.custom_minimum_size.y = UI_TOP_MARGIN
-		tb.offset_bottom = UI_TOP_MARGIN
-		tb.alignment = BoxContainer.ALIGNMENT_BEGIN
-		tb.add_theme_constant_override("separation", 30)
-		
-		# Удаляем старые контейнеры жизней и монет; блок ходов (Moves*) оставляем из сцены
-		for child in tb.get_children():
-			if child.name.begins_with("Lives") or child.name.begins_with("Coins"):
-				child.name = "deleted_" + child.name
-				child.queue_free()
-		
-		# 1. Жизни — шкала из 10 делений (общий пул на уровень)
-		var lc = VBoxContainer.new()
-		lc.name = "LivesContainerNew"
-		lc.custom_minimum_size = Vector2(160, 0)
-		lc.add_theme_constant_override("separation", 6)
-		lc.alignment = BoxContainer.ALIGNMENT_CENTER
-		tb.add_child(lc)
-		tb.move_child(lc, 0)
-		
-		var l_title = Label.new()
-		l_title.text = "ЖИЗНИ"
-		l_title.add_theme_font_size_override("font_size", 14)
-		l_title.add_theme_color_override("font_color", Color(0.85, 0.9, 0.95))
-		l_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lc.add_child(l_title)
-		
-		var seg_wrap = PanelContainer.new()
-		seg_wrap.name = "LivesBarWrap"
-		var wrap_sb = StyleBoxFlat.new()
-		wrap_sb.bg_color = Color(0.06, 0.07, 0.1, 1.0)
-		wrap_sb.set_corner_radius_all(6)
-		wrap_sb.border_width_left = 2
-		wrap_sb.border_width_top = 2
-		wrap_sb.border_width_right = 2
-		wrap_sb.border_width_bottom = 2
-		wrap_sb.border_color = Color(0.55, 0.48, 0.22, 1.0)
-		wrap_sb.content_margin_left = 4
-		wrap_sb.content_margin_top = 4
-		wrap_sb.content_margin_right = 4
-		wrap_sb.content_margin_bottom = 4
-		seg_wrap.add_theme_stylebox_override("panel", wrap_sb)
-		lc.add_child(seg_wrap)
-		
-		var seg_row = HBoxContainer.new()
-		seg_row.name = "LivesSegments"
-		seg_row.add_theme_constant_override("separation", 3)
-		seg_row.alignment = BoxContainer.ALIGNMENT_CENTER
-		for i in TOTAL_LIVES_PER_LEVEL:
-			var seg = Panel.new()
-			seg.name = "LifeSeg_%d" % i
-			seg.custom_minimum_size = Vector2(11, 22)
-			var sb = StyleBoxFlat.new()
-			sb.bg_color = Color(0.85, 0.22, 0.28, 1.0)
-			sb.set_corner_radius_all(3)
-			seg.add_theme_stylebox_override("panel", sb)
-			seg_row.add_child(seg)
-		seg_wrap.add_child(seg_row)
-		
-		# 2. Монеты (после жизней)
-		var cc = VBoxContainer.new()
-		cc.name = "CoinsContainerNew"
-		cc.custom_minimum_size = Vector2(110, 0)
-		cc.add_theme_constant_override("separation", -8)
-		cc.alignment = BoxContainer.ALIGNMENT_CENTER
-		tb.add_child(cc)
-		tb.move_child(cc, 1)
-		
-		var c_title = Label.new()
-		c_title.text = "МОНЕТЫ"
-		c_title.add_theme_font_size_override("font_size", 14)
-		c_title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
-		c_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		cc.add_child(c_title)
-		
-		var c_count = Label.new()
-		c_count.name = "CoinsCount"
-		c_count.text = str(LevelManager.get_coins())
-		c_count.add_theme_font_size_override("font_size", 38)
-		c_count.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
-		c_count.add_theme_color_override("font_outline_color", Color(0.3, 0.2, 0.0, 0.9))
-		c_count.add_theme_constant_override("outline_size", 5)
-		c_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		cc.add_child(c_count)
+	if tb is HBoxContainer:
+		_setup_level_top_bar(tb as HBoxContainer)
 
 	# Оформление кнопок бустеров
 	if has_node("CanvasUI/UIRoot/BottomBar"):
@@ -997,6 +918,74 @@ func _init_ui():
 			btn.pressed.connect(func(): _on_booster_clicked(type, btn))
 			btn.focus_mode = Control.FOCUS_NONE
 	_connect_ui_root_layout_refresh()
+
+func _setup_level_top_bar(tb: HBoxContainer) -> void:
+	tb.custom_minimum_size.y = UI_TOP_MARGIN
+	tb.offset_bottom = UI_TOP_MARGIN
+	tb.alignment = BoxContainer.ALIGNMENT_CENTER
+	tb.add_theme_constant_override("separation", 14)
+	for child in tb.get_children():
+		if child.name.begins_with("Lives") or child.name.begins_with("Coins") or child.name == "Spacer":
+			child.queue_free()
+	var portrait := tb.get_node_or_null("VillainPortrait")
+	if portrait == null:
+		portrait = TextureRect.new()
+		portrait.name = "VillainPortrait"
+		tb.add_child(portrait)
+		tb.move_child(portrait, 0)
+	if portrait is TextureRect:
+		var portrait_rect := portrait as TextureRect
+		portrait_rect.texture = VILLAIN_PORTRAIT_TEXTURE
+		portrait_rect.custom_minimum_size = VILLAIN_PORTRAIT_SIZE
+		portrait_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		portrait_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		portrait_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var flex_spacer := tb.get_node_or_null("TopBarFlexSpacer")
+	if flex_spacer == null:
+		flex_spacer = Control.new()
+		flex_spacer.name = "TopBarFlexSpacer"
+		flex_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tb.add_child(flex_spacer)
+	if flex_spacer is Control:
+		(flex_spacer as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tb.move_child(flex_spacer, 1)
+	var goals_frame := tb.get_node_or_null("GoalsFrame")
+	if goals_frame == null:
+		goals_frame = Control.new()
+		goals_frame.name = "GoalsFrame"
+		goals_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tb.add_child(goals_frame)
+		var frame_bg := TextureRect.new()
+		frame_bg.name = "GoalsFrameBg"
+		frame_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		frame_bg.texture = UI_TOP_TOOLBAR_BG
+		frame_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		frame_bg.stretch_mode = TextureRect.STRETCH_SCALE
+		frame_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		goals_frame.add_child(frame_bg)
+		var goals_center := CenterContainer.new()
+		goals_center.name = "GoalsCenter"
+		goals_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		goals_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		goals_frame.add_child(goals_center)
+	if goals_frame is Control:
+		var goals_panel := goals_frame as Control
+		goals_panel.custom_minimum_size = GOALS_FRAME_MIN_SIZE
+		goals_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		tb.move_child(goals_panel, 2)
+		var goals_center_node := goals_panel.get_node_or_null("GoalsCenter")
+		var gc := tb.get_node_or_null("GoalsContainer")
+		if gc == null:
+			gc = find_child("GoalsContainer", true, false)
+		if gc and goals_center_node and gc.get_parent() != goals_center_node:
+			var gc_parent := gc.get_parent()
+			if gc_parent:
+				gc_parent.remove_child(gc)
+			goals_center_node.add_child(gc)
+		if gc is HBoxContainer:
+			var goals_row := gc as HBoxContainer
+			goals_row.alignment = BoxContainer.ALIGNMENT_CENTER
+			goals_row.add_theme_constant_override("separation", 14)
 
 func _connect_ui_root_layout_refresh() -> void:
 	var ui_root := find_child("UIRoot", true, false)
@@ -1121,32 +1110,6 @@ func _update_booster_buttons_visual() -> void:
 			btn.modulate = base_mod
 
 func _update_ui():
-	# Обновление шкалы жизней (10 сегментов)
-	var seg_row = find_child("LivesSegments", true, false)
-	if seg_row:
-		for i in TOTAL_LIVES_PER_LEVEL:
-			var seg = seg_row.get_node_or_null("LifeSeg_%d" % i)
-			if seg == null:
-				continue
-			var filled = i < _player_lives_remaining
-			var sb = seg.get_theme_stylebox("panel")
-			if sb is StyleBoxFlat:
-				var sbf = (sb as StyleBoxFlat).duplicate() as StyleBoxFlat
-				if filled:
-					sbf.bg_color = Color(0.92, 0.28, 0.38, 1.0)
-				else:
-					sbf.bg_color = Color(0.22, 0.22, 0.26, 1.0)
-				seg.add_theme_stylebox_override("panel", sbf)
-
-	# Обновление монет
-	var coins_lbl = find_child("CoinsCount", true, false)
-	if coins_lbl:
-		coins_lbl.text = str(LevelManager.get_coins())
-		coins_lbl.add_theme_font_size_override("font_size", 38)
-		coins_lbl.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
-		coins_lbl.add_theme_color_override("font_outline_color", Color(0.3, 0.2, 0.0, 0.9))
-		coins_lbl.add_theme_constant_override("outline_size", 5)
-
 	# Обновление целей в GoalsContainer
 	if has_node("CanvasUI/UIRoot/TopBar/GoalsContainer"):
 		var gc: HBoxContainer = get_node("CanvasUI/UIRoot/TopBar/GoalsContainer")
@@ -2478,44 +2441,24 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 	
 	_draw_monster_health_bar(health_bar_top_left, health_bar_width, hp, initial_hp, alpha)
 
+func _draw_wall_texture_in_cell(top_left: Vector2, size: Vector2, display_scale: float = 1.0) -> void:
+	var wall_bounds := Rect2(top_left, size)
+	draw_rect(Rect2(top_left + Vector2(2, 2), size - Vector2(4, 4)), Color(0, 0, 0, 0.35))
+	if not WALL_TEXTURE:
+		draw_rect(wall_bounds, Color(0.36, 0.38, 0.45, 1.0))
+		return
+	var wall_rect := _fit_texture_rect_preserve_aspect(WALL_TEXTURE, wall_bounds)
+	if display_scale != 1.0:
+		var wall_center := wall_rect.get_center()
+		wall_rect.size *= display_scale
+		wall_rect.position = wall_center - wall_rect.size * 0.5
+	draw_texture_rect(WALL_TEXTURE, wall_rect, false)
+
 func _draw_obstacle(top_left: Vector2, size: Vector2, hp: int, max_hp: int, is_unbreakable: bool = false):
 	if is_unbreakable:
-		var wall_bounds := Rect2(top_left, size)
-		draw_rect(Rect2(top_left + Vector2(2, 2), size - Vector2(4, 4)), Color(0, 0, 0, 0.35))
-		if WALL_TEXTURE:
-			var wall_rect := _fit_texture_rect_preserve_aspect(WALL_TEXTURE, wall_bounds)
-			draw_texture_rect(WALL_TEXTURE, wall_rect, false)
-		else:
-			draw_rect(wall_bounds, Color(0.36, 0.38, 0.45, 1.0))
+		_draw_wall_texture_in_cell(top_left, size, 1.0)
 		return
-
-	var base_color = OBSTACLE_COLOR
-	var edge_color = OBSTACLE_EDGE_COLOR
-	
-	draw_rect(Rect2(top_left + Vector2(2, 2), size - Vector2(4, 4)), Color(0, 0, 0, 0.3))
-	draw_rect(Rect2(top_left, size), base_color)
-	
-	draw_line(top_left, top_left + Vector2(size.x, 0), edge_color, 3.0)
-	draw_line(top_left, top_left + Vector2(0, size.y), edge_color, 3.0)
-	draw_line(top_left + Vector2(size.x, 0), top_left + size, edge_color, 3.0)
-	draw_line(top_left + Vector2(0, size.y), top_left + size, edge_color, 3.0)
-	
-	var block_pattern = [
-		[0.0, 0.0, 0.5, 0.33],
-		[0.5, 0.0, 1.0, 0.33],
-		[0.0, 0.33, 0.4, 0.66],
-		[0.4, 0.33, 1.0, 0.66],
-		[0.0, 0.66, 0.6, 1.0],
-		[0.6, 0.66, 1.0, 1.0]
-	]
-	
-	for block in block_pattern:
-		var bx = top_left.x + size.x * block[0]
-		var by = top_left.y + size.y * block[1]
-		var bw = size.x * (block[2] - block[0])
-		var bh = size.y * (block[3] - block[1])
-		draw_rect(Rect2(bx, by, bw, bh), edge_color, false, 1.5)
-	
+	_draw_wall_texture_in_cell(top_left, size, BREAKABLE_WALL_TEXTURE_SCALE)
 	_draw_monster_health_bar(top_left, size.x, hp, max_hp, 1.0)
 
 func _draw_player_zone_overlay():
