@@ -1627,7 +1627,9 @@ func _recompute_field_layout(vp_size: Vector2) -> void:
 
 func _field_board_transform() -> Transform2D:
 	_recompute_field_layout(_get_layout_viewport_size())
-	return Transform2D(_field_layout_scale, 0.0, 0.0, _field_layout_scale, _field_layout_origin.x, _field_layout_origin.y)
+	var xform := Transform2D.IDENTITY.scaled(Vector2(_field_layout_scale, _field_layout_scale))
+	xform.origin = _field_layout_origin
+	return xform
 
 func _board_local_to_viewport(local: Vector2) -> Vector2:
 	return _field_board_transform() * local
