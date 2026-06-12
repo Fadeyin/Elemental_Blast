@@ -64,12 +64,12 @@ const WALL_TEXTURE := preload("res://textures/obstacle_wall.png")
 const BREAKABLE_WALL_TEXTURE_SCALE := 2.0
 const BOSS_DRAW_SCALE := 2.0
 const VILLAIN_PORTRAIT_TEXTURE := preload("res://textures/ui_evil_wizard_portrait.png")
-const VILLAIN_PORTRAIT_SIZE := Vector2(112, 112)
-const MONSTERS_COUNT_FRAME_MIN_SIZE := Vector2(210, 74)
-const MONSTERS_COUNT_FRAME_OVERLAP := 38
+const VILLAIN_PORTRAIT_SIZE := Vector2(168, 168)
+const MONSTERS_COUNT_FRAME_MIN_SIZE := Vector2(315, 111)
+const MONSTERS_COUNT_FRAME_OVERLAP := 57
 const MONSTERS_REMAINING_CAPTION := "Осталось монстров"
-const MONSTERS_COUNT_CAPTION_FONT_SIZE := 20
-const MONSTERS_COUNT_NUMBER_FONT_SIZE := 56
+const MONSTERS_COUNT_CAPTION_FONT_SIZE := 30
+const MONSTERS_COUNT_NUMBER_FONT_SIZE := 84
 const MONSTERS_COUNT_TEXT_COLOR := Color(0.98, 0.94, 0.82, 1.0)
 const MONSTERS_COUNT_FRAME_PURPLE := Color(0.42, 0.18, 0.62, 1.0)
 const MONSTERS_COUNT_FRAME_GOLD := Color(0.93, 0.76, 0.28, 1.0)
@@ -90,7 +90,7 @@ const OBSTACLE_COLOR := Color(0.4, 0.35, 0.3, 1.0) # Коричневый (ст�
 const OBSTACLE_EDGE_COLOR := Color(0.25, 0.2, 0.15, 1.0) # Тёмно-коричневый (края)
 
 # Отступы под UI-панели
-const UI_TOP_MARGIN := 88
+const UI_TOP_MARGIN := 132
 const UI_BOTTOM_MARGIN := 150
 
 const INGAME_BOOSTER_ICON_PATHS := [
@@ -815,15 +815,15 @@ func _make_monsters_remaining_frame_stylebox() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = MONSTERS_COUNT_FRAME_PURPLE
 	style.border_color = MONSTERS_COUNT_FRAME_GOLD
-	style.set_border_width_all(3)
-	style.set_corner_radius_all(22)
-	style.content_margin_left = MONSTERS_COUNT_FRAME_OVERLAP + 10
-	style.content_margin_right = 18
-	style.content_margin_top = 6
-	style.content_margin_bottom = 4
+	style.set_border_width_all(5)
+	style.set_corner_radius_all(33)
+	style.content_margin_left = MONSTERS_COUNT_FRAME_OVERLAP + 15
+	style.content_margin_right = 27
+	style.content_margin_top = 9
+	style.content_margin_bottom = 6
 	style.shadow_color = Color(0, 0, 0, 0.45)
-	style.shadow_size = 5
-	style.shadow_offset = Vector2(0, 3)
+	style.shadow_size = 8
+	style.shadow_offset = Vector2(0, 5)
 	return style
 
 func _style_monsters_remaining_caption_label(label: Label) -> void:
@@ -832,14 +832,14 @@ func _style_monsters_remaining_caption_label(label: Label) -> void:
 	label.add_theme_font_size_override("font_size", MONSTERS_COUNT_CAPTION_FONT_SIZE)
 	label.add_theme_color_override("font_color", MONSTERS_COUNT_TEXT_COLOR)
 	label.add_theme_color_override("font_outline_color", Color(0.15, 0.05, 0.2, 0.85))
-	label.add_theme_constant_override("outline_size", 3)
+	label.add_theme_constant_override("outline_size", 5)
 
 func _style_monsters_remaining_count_label(label: Label) -> void:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", MONSTERS_COUNT_NUMBER_FONT_SIZE)
 	label.add_theme_color_override("font_color", MONSTERS_COUNT_TEXT_COLOR)
 	label.add_theme_color_override("font_outline_color", Color(0.12, 0.04, 0.18, 0.95))
-	label.add_theme_constant_override("outline_size", 5)
+	label.add_theme_constant_override("outline_size", 8)
 
 func _style_ingame_booster_count_label(label: Label) -> void:
 	label.add_theme_font_size_override("font_size", 17)
@@ -998,7 +998,7 @@ func _setup_level_top_bar(tb: HBoxContainer) -> void:
 		count_layout.name = "MonstersCountLayout"
 		count_layout.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		count_layout.alignment = BoxContainer.ALIGNMENT_CENTER
-		count_layout.add_theme_constant_override("separation", -2)
+		count_layout.add_theme_constant_override("separation", -3)
 		count_layout.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		count_frame.add_child(count_layout)
 		var caption_label := Label.new()

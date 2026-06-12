@@ -26,23 +26,23 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="TopBarBg" type="ColorRect" parent="CanvasUI/UIRoot"]
-custom_minimum_size = Vector2(0, 96)
+custom_minimum_size = Vector2(0, 144)
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_bottom = 96.0
+offset_bottom = 144.0
 grow_horizontal = 2
 mouse_filter = 2
 color = Color(0, 0, 0, 0)
 
 [node name="TopBar" type="HBoxContainer" parent="CanvasUI/UIRoot"]
-custom_minimum_size = Vector2(0, 88)
+custom_minimum_size = Vector2(0, 132)
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_left = 16.0
 offset_right = -16.0
-offset_bottom = 88.0
+offset_bottom = 132.0
 grow_horizontal = 2
 theme_override_constants/separation = 14
 alignment = 1
