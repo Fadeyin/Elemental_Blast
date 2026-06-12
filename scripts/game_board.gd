@@ -218,8 +218,12 @@ func _boot_async() -> void:
 	var init_err: String = _execute_board_initialization()
 	if init_err != "":
 		push_error("[GameBoard] " + init_err)
+		if WebSmokeTestBridge and WebSmokeTestBridge.is_active():
+			WebSmokeTestBridge.report_error(init_err)
 		_show_board_load_failure_overlay(init_err)
 		return
+	if WebSmokeTestBridge and WebSmokeTestBridge.is_active():
+		WebSmokeTestBridge.report_phase("game_board_ready")
 	call_deferred("_start_level1_tutorial_if_needed")
 	call_deferred("_start_hammer_booster_tutorial_if_needed")
 	call_deferred("_start_row_blast_booster_tutorial_if_needed")

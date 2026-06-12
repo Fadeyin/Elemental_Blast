@@ -97,6 +97,8 @@ func _ready():
 	LevelManager.coins_changed.connect(_on_coins_changed)
 	LevelManager.boosters_changed.connect(_on_boosters_changed)
 	LevelManager.golden_pass_state_changed.connect(_on_golden_pass_state_changed)
+	if WebSmokeTestBridge and WebSmokeTestBridge.is_active():
+		call_deferred("_run_web_smoke_test_main_menu_flow")
 
 func _on_boosters_changed():
 	_build_shop_tab()
@@ -453,6 +455,13 @@ func _update_nav_highlight(tab_name: String) -> void:
 		btn.modulate = NAV_ICON_ACTIVE_MODULATE if is_active else NAV_ICON_INACTIVE_MODULATE
 		if is_instance_valid(nav_label):
 			nav_label.add_theme_color_override("font_color", NAV_LABEL_ACTIVE_COLOR if is_active else NAV_LABEL_INACTIVE_COLOR)
+
+func _run_web_smoke_test_main_menu_flow() -> void:
+	WebSmokeTestBridge.report_phase("main_menu_ready")
+	await get_tree().create_timer(1.0).timeout
+	if not is_inside_tree():
+		return
+	_on_play_pressed()
 
 func _on_play_pressed():
 	LevelManager.set_current_level(LevelManager.current_level)

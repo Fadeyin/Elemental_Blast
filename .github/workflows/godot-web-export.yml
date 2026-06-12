@@ -204,3 +204,36 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
         timeout-minutes: 5
+
+  smoke-test:
+    name: Web Smoke Test
+    runs-on: ubuntu-latest
+    needs: export-web
+    steps:
+      - name: Download web build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: build/web
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install smoke test dependencies
+        run: pip install -r tests/web_smoke/requirements.txt
+
+      - name: Install Playwright Chromium
+        run: playwright install chromium --with-deps
+
+      - name: Smoke test build artifact
+        run: python tests/web_smoke/smoke_test.py --serve-dir build/web --port 8765
+
+      - name: Smoke test GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        run: |
+          python tests/web_smoke/smoke_test.py \
+            --base-url https://fadeyin.github.io/Elemental_Blast \
+            --pages-max-attempts 9 \
+            --pages-wait-seconds 20

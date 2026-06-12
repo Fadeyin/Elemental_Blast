@@ -25,6 +25,7 @@ GameFonts="*res://scripts/GameFonts.gd"
 LogCopyService="*res://scripts/LogCopyService.gd"
 VersionManager="*res://scripts/VersionManager.gd"
 LevelManager="*res://scripts/LevelManager.gd"
+WebSmokeTestBridge="*res://scripts/web_smoke_test_bridge.gd"
 
 [display]
 

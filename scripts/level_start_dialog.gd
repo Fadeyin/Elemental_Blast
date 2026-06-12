@@ -26,6 +26,8 @@ var _mort_helmet_tutorial_overlay: Control = null
 func setup():
 	_build_dialog()
 	_maybe_show_mort_helmet_tutorial()
+	if WebSmokeTestBridge and WebSmokeTestBridge.is_active():
+		call_deferred("_run_web_smoke_test_level_start_flow")
 
 func _build_dialog():
 	# Полупрозрачный фон (клик вне панели — закрыть без старта)
@@ -665,6 +667,14 @@ func _on_dimmer_gui_input(event: InputEvent) -> void:
 func _on_close_pressed() -> void:
 	_return_selected_prelevel_boosts_to_inventory()
 	queue_free()
+
+func _run_web_smoke_test_level_start_flow() -> void:
+	WebSmokeTestBridge.report_phase("level_start_dialog_ready")
+	await get_tree().create_timer(0.75).timeout
+	if _dialog_closing or is_queued_for_deletion():
+		return
+	_dialog_closing = true
+	_on_start_pressed()
 
 func _on_start_pressed():
 	var mort_bonuses = LevelManager.get_mort_helmet_bonus_chips() if LevelManager else {}
