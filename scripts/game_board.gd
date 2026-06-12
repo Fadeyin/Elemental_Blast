@@ -63,10 +63,16 @@ const ENEMY_TILE_TEXTURE := preload("res://textures/Floor_Enemy_Tile_.png")
 const WALL_TEXTURE := preload("res://textures/obstacle_wall.png")
 const BREAKABLE_WALL_TEXTURE_SCALE := 2.0
 const BOSS_DRAW_SCALE := 2.0
-const UI_TOP_TOOLBAR_BG := preload("res://textures/ui_main_menu_toolbar_bg.png")
 const VILLAIN_PORTRAIT_TEXTURE := preload("res://textures/ui_evil_wizard_portrait.png")
-const VILLAIN_PORTRAIT_SIZE := Vector2(76, 76)
-const GOALS_FRAME_MIN_SIZE := Vector2(240, 68)
+const VILLAIN_PORTRAIT_SIZE := Vector2(112, 112)
+const MONSTERS_COUNT_FRAME_MIN_SIZE := Vector2(210, 74)
+const MONSTERS_COUNT_FRAME_OVERLAP := 38
+const MONSTERS_REMAINING_CAPTION := "Осталось монстров"
+const MONSTERS_COUNT_CAPTION_FONT_SIZE := 20
+const MONSTERS_COUNT_NUMBER_FONT_SIZE := 56
+const MONSTERS_COUNT_TEXT_COLOR := Color(0.98, 0.94, 0.82, 1.0)
+const MONSTERS_COUNT_FRAME_PURPLE := Color(0.42, 0.18, 0.62, 1.0)
+const MONSTERS_COUNT_FRAME_GOLD := Color(0.93, 0.76, 0.28, 1.0)
 const PORTAL_SPAWN_TEXTURE := preload("res://textures/ui_portal_spawn.png")
 const PORTAL_TEX_SIZE := Vector2(838.0, 844.0)
 const PORTAL_DRAW_WIDTH := 74.0
@@ -397,10 +403,16 @@ func _get_player_field_rect_viewport() -> Rect2:
 	return Rect2(tl, br - tl)
 
 func _get_goals_container_rect_viewport() -> Rect2:
-	var gc = find_child("GoalsContainer", true, false)
-	if gc == null:
+	var panel = find_child("MonstersRemainingPanel", true, false)
+	if panel == null:
 		return Rect2()
-	return gc.get_global_rect()
+	return panel.get_global_rect()
+
+func _get_total_remaining_monsters() -> int:
+	var total := 0
+	for hp in _level_targets:
+		total += int(_level_targets[hp])
+	return total
 
 func _on_level1_tutorial_after_enemy_intro() -> void:
 	if _level1_tutorial_phase != 1:
@@ -795,6 +807,36 @@ func _make_ingame_booster_count_stylebox() -> StyleBoxTexture:
 	_apply_ingame_booster_podlozhka_shadow(style, INGAME_BOOSTER_COUNT_SHADOW_SIZE)
 	return style
 
+func _make_monsters_remaining_frame_stylebox() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = MONSTERS_COUNT_FRAME_PURPLE
+	style.border_color = MONSTERS_COUNT_FRAME_GOLD
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(22)
+	style.content_margin_left = MONSTERS_COUNT_FRAME_OVERLAP + 10
+	style.content_margin_right = 18
+	style.content_margin_top = 6
+	style.content_margin_bottom = 4
+	style.shadow_color = Color(0, 0, 0, 0.45)
+	style.shadow_size = 5
+	style.shadow_offset = Vector2(0, 3)
+	return style
+
+func _style_monsters_remaining_caption_label(label: Label) -> void:
+	label.text = MONSTERS_REMAINING_CAPTION
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", MONSTERS_COUNT_CAPTION_FONT_SIZE)
+	label.add_theme_color_override("font_color", MONSTERS_COUNT_TEXT_COLOR)
+	label.add_theme_color_override("font_outline_color", Color(0.15, 0.05, 0.2, 0.85))
+	label.add_theme_constant_override("outline_size", 3)
+
+func _style_monsters_remaining_count_label(label: Label) -> void:
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", MONSTERS_COUNT_NUMBER_FONT_SIZE)
+	label.add_theme_color_override("font_color", MONSTERS_COUNT_TEXT_COLOR)
+	label.add_theme_color_override("font_outline_color", Color(0.12, 0.04, 0.18, 0.95))
+	label.add_theme_constant_override("outline_size", 5)
+
 func _style_ingame_booster_count_label(label: Label) -> void:
 	label.add_theme_font_size_override("font_size", 17)
 	label.add_theme_color_override("font_color", Color.WHITE)
@@ -873,26 +915,12 @@ func _setup_ingame_booster_button_visuals(btn: Button, icon_tex: Texture2D) -> v
 	badge.add_child(count_label)
 
 func _init_ui():
-	# Настройка верхней панели
+	# Верхняя зона под тултип: прозрачная подложка, сам блок рисуется в TopBar по центру.
 	if has_node("CanvasUI/UIRoot/TopBarBg"):
 		var bg = get_node("CanvasUI/UIRoot/TopBarBg")
 		bg.custom_minimum_size.y = UI_TOP_MARGIN
 		bg.offset_bottom = UI_TOP_MARGIN
-		
-		# Создаем золотую окантовку через StyleBox
-		var border = Panel.new()
-		border.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		border.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		
-		var sb = StyleBoxFlat.new()
-		sb.bg_color = Color(0.1, 0.12, 0.16, 1.0) # Полностью непрозрачный
-		sb.border_width_bottom = 3
-		sb.border_color = Color(0.8, 0.7, 0.3, 1.0) # Золото
-		sb.shadow_color = Color(0, 0, 0, 0.5)
-		sb.shadow_size = 4
-		
-		border.add_theme_stylebox_override("panel", sb)
-		bg.add_child(border)
+		bg.color = Color(0, 0, 0, 0)
 	
 	var tb = find_child("TopBar", true, false)
 	if tb is HBoxContainer:
@@ -923,69 +951,77 @@ func _setup_level_top_bar(tb: HBoxContainer) -> void:
 	tb.custom_minimum_size.y = UI_TOP_MARGIN
 	tb.offset_bottom = UI_TOP_MARGIN
 	tb.alignment = BoxContainer.ALIGNMENT_CENTER
-	tb.add_theme_constant_override("separation", 14)
+	tb.add_theme_constant_override("separation", 0)
 	for child in tb.get_children():
 		if child.name.begins_with("Lives") or child.name.begins_with("Coins") or child.name == "Spacer":
 			child.queue_free()
-	var portrait := tb.get_node_or_null("VillainPortrait")
-	if portrait == null:
-		portrait = TextureRect.new()
+		elif child.name in ["VillainPortrait", "TopBarFlexSpacer", "GoalsFrame", "GoalsContainer"]:
+			child.queue_free()
+	var left_spacer := tb.get_node_or_null("TopBarLeftSpacer")
+	if left_spacer == null:
+		left_spacer = Control.new()
+		left_spacer.name = "TopBarLeftSpacer"
+		left_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tb.add_child(left_spacer)
+	if left_spacer is Control:
+		(left_spacer as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var monsters_panel := tb.get_node_or_null("MonstersRemainingPanel")
+	if monsters_panel == null:
+		monsters_panel = HBoxContainer.new()
+		monsters_panel.name = "MonstersRemainingPanel"
+		monsters_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		monsters_panel.alignment = BoxContainer.ALIGNMENT_CENTER
+		monsters_panel.add_theme_constant_override("separation", -MONSTERS_COUNT_FRAME_OVERLAP)
+		tb.add_child(monsters_panel)
+		var portrait := TextureRect.new()
 		portrait.name = "VillainPortrait"
-		tb.add_child(portrait)
-		tb.move_child(portrait, 0)
-	if portrait is TextureRect:
-		var portrait_rect := portrait as TextureRect
-		portrait_rect.texture = VILLAIN_PORTRAIT_TEXTURE
-		portrait_rect.custom_minimum_size = VILLAIN_PORTRAIT_SIZE
-		portrait_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		portrait_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		portrait_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var flex_spacer := tb.get_node_or_null("TopBarFlexSpacer")
-	if flex_spacer == null:
-		flex_spacer = Control.new()
-		flex_spacer.name = "TopBarFlexSpacer"
-		flex_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tb.add_child(flex_spacer)
-	if flex_spacer is Control:
-		(flex_spacer as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tb.move_child(flex_spacer, 1)
-	var goals_frame := tb.get_node_or_null("GoalsFrame")
-	if goals_frame == null:
-		goals_frame = Control.new()
-		goals_frame.name = "GoalsFrame"
-		goals_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tb.add_child(goals_frame)
-		var frame_bg := TextureRect.new()
-		frame_bg.name = "GoalsFrameBg"
-		frame_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		frame_bg.texture = UI_TOP_TOOLBAR_BG
-		frame_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		frame_bg.stretch_mode = TextureRect.STRETCH_SCALE
-		frame_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		goals_frame.add_child(frame_bg)
-		var goals_center := CenterContainer.new()
-		goals_center.name = "GoalsCenter"
-		goals_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		goals_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		goals_frame.add_child(goals_center)
-	if goals_frame is Control:
-		var goals_panel := goals_frame as Control
-		goals_panel.custom_minimum_size = GOALS_FRAME_MIN_SIZE
-		goals_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		tb.move_child(goals_panel, 2)
-		var goals_center_node := goals_panel.get_node_or_null("GoalsCenter")
-		var gc := tb.get_node_or_null("GoalsContainer")
-		if gc == null:
-			gc = find_child("GoalsContainer", true, false)
-		if gc and goals_center_node and gc.get_parent() != goals_center_node:
-			var gc_parent := gc.get_parent()
-			if gc_parent:
-				gc_parent.remove_child(gc)
-			goals_center_node.add_child(gc)
-		if gc is HBoxContainer:
-			var goals_row := gc as HBoxContainer
-			goals_row.alignment = BoxContainer.ALIGNMENT_CENTER
-			goals_row.add_theme_constant_override("separation", 14)
+		portrait.texture = VILLAIN_PORTRAIT_TEXTURE
+		portrait.custom_minimum_size = VILLAIN_PORTRAIT_SIZE
+		portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		portrait.z_index = 2
+		portrait.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		monsters_panel.add_child(portrait)
+		var count_frame := Panel.new()
+		count_frame.name = "MonstersCountFrame"
+		count_frame.custom_minimum_size = MONSTERS_COUNT_FRAME_MIN_SIZE
+		count_frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		count_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		count_frame.add_theme_stylebox_override("panel", _make_monsters_remaining_frame_stylebox())
+		monsters_panel.add_child(count_frame)
+		var count_layout := VBoxContainer.new()
+		count_layout.name = "MonstersCountLayout"
+		count_layout.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		count_layout.alignment = BoxContainer.ALIGNMENT_CENTER
+		count_layout.add_theme_constant_override("separation", -2)
+		count_layout.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		count_frame.add_child(count_layout)
+		var caption_label := Label.new()
+		caption_label.name = "MonstersCaptionLabel"
+		caption_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_style_monsters_remaining_caption_label(caption_label)
+		count_layout.add_child(caption_label)
+		var count_label := Label.new()
+		count_label.name = "MonstersCountLabel"
+		count_label.text = "0"
+		count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_style_monsters_remaining_count_label(count_label)
+		count_layout.add_child(count_label)
+	if monsters_panel is Control:
+		(monsters_panel as Control).size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		(monsters_panel as Control).size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var right_spacer := tb.get_node_or_null("TopBarRightSpacer")
+	if right_spacer == null:
+		right_spacer = Control.new()
+		right_spacer.name = "TopBarRightSpacer"
+		right_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tb.add_child(right_spacer)
+	if right_spacer is Control:
+		(right_spacer as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tb.move_child(left_spacer, 0)
+	tb.move_child(monsters_panel, 1)
+	tb.move_child(right_spacer, 2)
 
 func _connect_ui_root_layout_refresh() -> void:
 	var ui_root := find_child("UIRoot", true, false)
@@ -1110,55 +1146,14 @@ func _update_booster_buttons_visual() -> void:
 			btn.modulate = base_mod
 
 func _update_ui():
-	# Обновление целей в GoalsContainer
-	if has_node("CanvasUI/UIRoot/TopBar/GoalsContainer"):
-		var gc: HBoxContainer = get_node("CanvasUI/UIRoot/TopBar/GoalsContainer")
-		# Очищаем старые элементы целей
-		for child in gc.get_children():
-			child.queue_free()
-		
+	var count_label := find_child("MonstersCountLabel", true, false) as Label
+	if count_label != null:
 		if _level_targets.is_empty():
-			var l = Label.new()
-			l.text = "НЕТ ЦЕЛЕЙ"
-			l.add_theme_font_size_override("font_size", 28)
-			l.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-			l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.6))
-			l.add_theme_constant_override("outline_size", 3)
-			gc.add_child(l)
+			count_label.text = "0"
+			count_label.modulate = Color(0.7, 0.7, 0.7, 1.0)
 		else:
-			var keys: Array = _level_targets.keys()
-			keys.sort_custom(func(a, b) -> bool: return int(a) < int(b))
-			for hp in keys:
-				var count = int(_level_targets[hp])
-				if count > 0:
-					var item = HBoxContainer.new()
-					item.add_theme_constant_override("separation", 8)
-					
-					# Иконка цели (теперь текстура монстра)
-					var icon = TextureRect.new()
-					var m_tex = MONSTER_TEXTURES.get(hp)
-					if m_tex:
-						icon.texture = m_tex
-						icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-						icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-						icon.custom_minimum_size = Vector2(48, 48)
-					else:
-						# Фолбэк на цветной квадрат
-						var rect = ColorRect.new()
-						rect.custom_minimum_size = Vector2(32, 32)
-						rect.color = _get_monster_color(hp)
-						icon.add_child(rect)
-					
-					var lbl = Label.new()
-					lbl.text = str(count)
-					lbl.add_theme_font_size_override("font_size", 36)
-					lbl.add_theme_color_override("font_color", Color.WHITE)
-					lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-					lbl.add_theme_constant_override("outline_size", 4)
-					
-					item.add_child(icon)
-					item.add_child(lbl)
-					gc.add_child(item)
+			count_label.text = str(_get_total_remaining_monsters())
+			count_label.modulate = Color(1, 1, 1, 1.0)
 
 	# Обновление кнопок бустеров (названия и количество)
 	var booster_types = [BoosterType.HAMMER, BoosterType.ROW_BLAST, BoosterType.SHUFFLE, BoosterType.FREEZE]
