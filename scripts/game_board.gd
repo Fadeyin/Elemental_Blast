@@ -92,6 +92,7 @@ const OBSTACLE_EDGE_COLOR := Color(0.25, 0.2, 0.15, 1.0) # Тёмно-корич
 # Отступы под UI-панели
 const UI_TOP_MARGIN := 132
 const UI_BOTTOM_MARGIN := 150
+const FIELD_SIDE_MARGIN := 20.0
 
 const INGAME_BOOSTER_ICON_PATHS := [
 	"res://textures/Booster_Hummer.png",
@@ -202,6 +203,8 @@ var _enemy_rows_effective: int = ENEMY_ROWS
 var _heart_row_y: int = ENEMY_ROWS - 1
 var _field_gap_total: float = FIELD_GAP_BASE + HEART_STRIP_HEIGHT
 var _fatal_load_overlay_layer: CanvasLayer = null
+var _field_layout_scale: float = 1.0
+var _field_layout_origin: Vector2 = Vector2.ZERO
 
 func _ready():
 	randomize()
@@ -390,20 +393,17 @@ func _attach_level1_tutorial_overlay() -> Control:
 	return overlay
 
 func _get_enemy_field_rect_viewport() -> Rect2:
-	var vp_size = _get_layout_viewport_size()
-	var origin = _board_pixel_origin()
-	var sz = Vector2(float(COLS) * CELL_SIZE, float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT)
-	var tl = to_global(origin)
-	var br = to_global(origin + sz)
+	var top_left_local := Vector2.ZERO
+	var bottom_right_local := Vector2(float(COLS) * CELL_SIZE, float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT)
+	var tl = to_global(_board_local_to_viewport(top_left_local))
+	var br = to_global(_board_local_to_viewport(bottom_right_local))
 	return Rect2(tl, br - tl)
 
 func _get_player_field_rect_viewport() -> Rect2:
-	var vp_size = _get_layout_viewport_size()
-	var origin = _board_pixel_origin()
-	var top_y = origin.y + float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + _field_gap_total
-	var sz = Vector2(float(COLS) * CELL_SIZE, float(PLAYER_ROWS) * CELL_SIZE)
-	var tl = to_global(Vector2(origin.x, top_y))
-	var br = to_global(Vector2(origin.x, top_y) + sz)
+	var top_left_local := Vector2(0.0, float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + _field_gap_total)
+	var bottom_right_local := top_left_local + Vector2(float(COLS) * CELL_SIZE, float(PLAYER_ROWS) * CELL_SIZE)
+	var tl = to_global(_board_local_to_viewport(top_left_local))
+	var br = to_global(_board_local_to_viewport(bottom_right_local))
 	return Rect2(tl, br - tl)
 
 func _get_goals_container_rect_viewport() -> Rect2:
@@ -1607,19 +1607,37 @@ func _get_layout_viewport_size() -> Vector2:
 		s.y = maxf(s.y, fallback.y)
 	return s
 
-func _board_pixel_origin() -> Vector2:
-	return _grid_origin(_get_layout_viewport_size())
+func _natural_field_size() -> Vector2:
+	return Vector2(
+		float(COLS * CELL_SIZE),
+		float(ENEMY_ROWS * ENEMY_CELL_HEIGHT + PLAYER_ROWS * CELL_SIZE + _field_gap_total)
+	)
 
-func _grid_origin(vp_size: Vector2) -> Vector2:
-	var grid_size := Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT + PLAYER_ROWS * CELL_SIZE + _field_gap_total)
-	var ox := (vp_size.x - grid_size.x) * 0.5
+func _recompute_field_layout(vp_size: Vector2) -> void:
+	var natural := _natural_field_size()
+	var avail_w := maxf(64.0, vp_size.x - 2.0 * FIELD_SIDE_MARGIN)
+	_field_layout_scale = minf(1.0, avail_w / natural.x)
+	var grid_w := natural.x * _field_layout_scale
+	var grid_h := natural.y * _field_layout_scale
+	_field_layout_origin.x = (vp_size.x - grid_w) * 0.5
 	var usable_h := vp_size.y - UI_TOP_MARGIN - UI_BOTTOM_MARGIN
-	var oy := ((usable_h - grid_size.y) * 0.95) + UI_TOP_MARGIN
-	var max_ox := maxf(0.0, vp_size.x - grid_size.x)
-	var max_oy := maxf(0.0, vp_size.y - grid_size.y)
-	ox = clampf(ox, 0.0, max_ox)
-	oy = clampf(oy, 0.0, max_oy)
-	return Vector2(ox, oy)
+	var oy := ((usable_h - grid_h) * 0.95) + UI_TOP_MARGIN
+	var max_oy := maxf(UI_TOP_MARGIN, vp_size.y - grid_h)
+	_field_layout_origin.y = clampf(oy, UI_TOP_MARGIN, max_oy)
+
+func _field_board_transform() -> Transform2D:
+	_recompute_field_layout(_get_layout_viewport_size())
+	return Transform2D(_field_layout_scale, 0.0, 0.0, _field_layout_scale, _field_layout_origin.x, _field_layout_origin.y)
+
+func _board_local_to_viewport(local: Vector2) -> Vector2:
+	return _field_board_transform() * local
+
+func _viewport_to_board_local(viewport_pos: Vector2) -> Vector2:
+	return _field_board_transform().affine_inverse() * viewport_pos
+
+func _board_pixel_origin() -> Vector2:
+	_recompute_field_layout(_get_layout_viewport_size())
+	return _field_layout_origin
 
 func _on_viewport_size_changed():
 	_update_ui()
@@ -1628,18 +1646,18 @@ func _on_viewport_size_changed():
 func _draw():
 	var vp_size = _get_layout_viewport_size()
 	draw_rect(Rect2(Vector2.ZERO, vp_size), BG_COLOR)
-	var origin = _board_pixel_origin()
-	
-	# Применяем тряску экрана к началу координат
+	if GAME_BG_TEXTURE:
+		draw_texture_rect(GAME_BG_TEXTURE, Rect2(Vector2.ZERO, vp_size), false)
+	var shake_offset := Vector2.ZERO
 	for vfx in _board_vfx:
 		if vfx.type == "shake":
 			var k_shake = 1.0 - (vfx.t / vfx.d)
-			origin += Vector2(randf_range(-1, 1), randf_range(-1, 1)) * vfx.intensity * k_shake
-	
+			shake_offset += Vector2(randf_range(-1, 1), randf_range(-1, 1)) * vfx.intensity * k_shake
+	var field_xform := _field_board_transform()
+	field_xform.origin += shake_offset
+	draw_set_transform_matrix(field_xform)
+	var origin := Vector2.ZERO
 	var grid_size = Vector2(COLS * CELL_SIZE, ROWS * CELL_SIZE + _field_gap_total)
-
-	if GAME_BG_TEXTURE:
-		draw_texture_rect(GAME_BG_TEXTURE, Rect2(Vector2.ZERO, vp_size), false)
 
 	# Заливка зон
 	var enemy_rect = Rect2(origin, Vector2(COLS * CELL_SIZE, ENEMY_ROWS * ENEMY_CELL_HEIGHT))
@@ -2098,18 +2116,19 @@ func _draw():
 	# ОТРИСОВКА BOARD VFX
 	for vfx in _board_vfx:
 		var k = vfx.t / vfx.d
+		var vfx_pos := _viewport_to_board_local(vfx.pos)
 		match vfx.type:
 			"shockwave":
 				var wave_r = CELL_SIZE * 2.0 * k
 				var alpha = 1.0 - k
-				draw_arc(vfx.pos, wave_r, 0, TAU, 32, Color(vfx.color.r, vfx.color.g, vfx.color.b, alpha), 4.0 * (1.0 - k))
-				draw_circle(vfx.pos, wave_r * 0.5, Color(vfx.color.r, vfx.color.g, vfx.color.b, alpha * 0.3))
+				draw_arc(vfx_pos, wave_r, 0, TAU, 32, Color(vfx.color.r, vfx.color.g, vfx.color.b, alpha), 4.0 * (1.0 - k))
+				draw_circle(vfx_pos, wave_r * 0.5, Color(vfx.color.r, vfx.color.g, vfx.color.b, alpha * 0.3))
 			"bomb_explosion":
 				# Центральная вспышка
 				var flash_size = CELL_SIZE * 0.6 * (1.0 - k * 0.5)
 				var alpha = 1.0 - k
-				draw_circle(vfx.pos, flash_size, Color(vfx.color.r, vfx.color.g, vfx.color.b, alpha))
-				draw_circle(vfx.pos, flash_size * 0.5, Color(1, 1, 1, alpha * 0.8))
+				draw_circle(vfx_pos, flash_size, Color(vfx.color.r, vfx.color.g, vfx.color.b, alpha))
+				draw_circle(vfx_pos, flash_size * 0.5, Color(1, 1, 1, alpha * 0.8))
 				
 				# Лучи в 4 стороны (крест)
 				var ray_length = CELL_SIZE * (0.3 + k * 0.7) # От центра к краю клетки
@@ -2117,25 +2136,25 @@ func _draw():
 				var ray_color = Color(vfx.color.r, vfx.color.g, vfx.color.b, alpha)
 				
 				# Горизонтальные лучи
-				draw_line(vfx.pos - Vector2(ray_length, 0), vfx.pos - Vector2(CELL_SIZE, 0), ray_color, ray_w)
-				draw_line(vfx.pos + Vector2(ray_length, 0), vfx.pos + Vector2(CELL_SIZE, 0), ray_color, ray_w)
+				draw_line(vfx_pos - Vector2(ray_length, 0), vfx_pos - Vector2(CELL_SIZE, 0), ray_color, ray_w)
+				draw_line(vfx_pos + Vector2(ray_length, 0), vfx_pos + Vector2(CELL_SIZE, 0), ray_color, ray_w)
 				
 				# Вертикальные лучи
-				draw_line(vfx.pos - Vector2(0, ray_length), vfx.pos - Vector2(0, CELL_SIZE), ray_color, ray_w)
-				draw_line(vfx.pos + Vector2(0, ray_length), vfx.pos + Vector2(0, CELL_SIZE), ray_color, ray_w)
+				draw_line(vfx_pos - Vector2(0, ray_length), vfx_pos - Vector2(0, CELL_SIZE), ray_color, ray_w)
+				draw_line(vfx_pos + Vector2(0, ray_length), vfx_pos + Vector2(0, CELL_SIZE), ray_color, ray_w)
 			"beam":
 				var length = COLS * CELL_SIZE
 				var w = CELL_SIZE * 0.8 * (1.0 - k)
-				draw_line(vfx.pos - Vector2(length, 0), vfx.pos + Vector2(length, 0), Color(vfx.color.r, vfx.color.g, vfx.color.b, 1.0 - k), w)
-				draw_line(vfx.pos - Vector2(length, 0), vfx.pos + Vector2(length, 0), Color(1, 1, 1, (1.0 - k) * 0.8), w * 0.4)
+				draw_line(vfx_pos - Vector2(length, 0), vfx_pos + Vector2(length, 0), Color(vfx.color.r, vfx.color.g, vfx.color.b, 1.0 - k), w)
+				draw_line(vfx_pos - Vector2(length, 0), vfx_pos + Vector2(length, 0), Color(1, 1, 1, (1.0 - k) * 0.8), w * 0.4)
 			"beam_vertical":
 				var length = PLAYER_ROWS * CELL_SIZE
 				var w = CELL_SIZE * 0.8 * (1.0 - k)
-				draw_line(vfx.pos - Vector2(0, length), vfx.pos + Vector2(0, length), Color(vfx.color.r, vfx.color.g, vfx.color.b, 1.0 - k), w)
-				draw_line(vfx.pos - Vector2(0, length), vfx.pos + Vector2(0, length), Color(1, 1, 1, (1.0 - k) * 0.8), w * 0.4)
+				draw_line(vfx_pos - Vector2(0, length), vfx_pos + Vector2(0, length), Color(vfx.color.r, vfx.color.g, vfx.color.b, 1.0 - k), w)
+				draw_line(vfx_pos - Vector2(0, length), vfx_pos + Vector2(0, length), Color(1, 1, 1, (1.0 - k) * 0.8), w * 0.4)
 			"rainbow_link":
-				var start_pos = vfx.pos
-				var end_pos = vfx.target_pos
+				var start_pos = vfx_pos
+				var end_pos = _viewport_to_board_local(vfx.target_pos)
 				# Рисуем дугу или прямую линию энергии
 				var mid = (start_pos + end_pos) * 0.5 + Vector2(0, -50 * sin(k * PI))
 				draw_line(start_pos, mid, Color(vfx.color.r, vfx.color.g, vfx.color.b, 1.0 - k), 3.0)
@@ -2149,16 +2168,17 @@ func _draw():
 				# Простая снежинка из линий
 				for i in range(4):
 					var dir = Vector2.UP.rotated(i * PI / 4.0)
-					draw_line(vfx.pos - dir * size, vfx.pos + dir * size, color, 3.0)
+					draw_line(vfx_pos - dir * size, vfx_pos + dir * size, color, 3.0)
 			"particle":
 				var alpha = 1.0 - k
 				var color = vfx.color
 				color.a *= alpha
 				var s = vfx.size * (1.0 - k * 0.5)
-				draw_rect(Rect2(vfx.pos - Vector2(s, s) * 0.5, Vector2(s, s)), color)
+				draw_rect(Rect2(vfx_pos - Vector2(s, s) * 0.5, Vector2(s, s)), color)
 
 	# ПОСЛЕДНИЙ СЛОЙ: Отрисовка рамки "ямы" поверх всего игрового поля
 	_draw_player_zone_overlay()
+	draw_set_transform_matrix(Transform2D.IDENTITY)
 
 	# После отрисовки — удалить завершённые анимации, чтобы не зависали
 	for m in range(_enemy_move_anims.size() - 1, -1, -1):
@@ -2461,8 +2481,7 @@ func _draw_obstacle(top_left: Vector2, size: Vector2, hp: int, max_hp: int, is_u
 	_draw_monster_health_bar(top_left, size.x, hp, max_hp, 1.0)
 
 func _draw_player_zone_overlay():
-	var vp_size = _get_layout_viewport_size()
-	var origin = _board_pixel_origin()
+	var origin := Vector2.ZERO
 	var player_rect = Rect2(Vector2(origin.x, origin.y + ENEMY_ROWS * ENEMY_CELL_HEIGHT + _field_gap_total), Vector2(COLS * CELL_SIZE, PLAYER_ROWS * CELL_SIZE))
 
 	# 1. РИСУЕМ ГРАДИЕНТНУЮ ВНУТРЕННЮЮ ТЕНЬ (сначала, чтобы она была под рамкой)
@@ -2773,8 +2792,7 @@ func _apply_booster_shuffle():
 	queue_redraw()
 
 func _point_to_cell(screen_pos: Vector2) -> Vector2i:
-	var origin: Vector2 = _board_pixel_origin()
-	var local: Vector2 = screen_pos - origin
+	var local: Vector2 = _viewport_to_board_local(screen_pos)
 	
 	if local.x < 0 or local.y < 0:
 		return Vector2i(-1, -1)
