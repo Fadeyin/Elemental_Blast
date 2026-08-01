@@ -139,6 +139,10 @@ var _enemy_attack_warn_pending: bool = false
 var _enemy_attack_warn_time_left: float = 0.0
 var _cached_enemy_moves: Array = []
 var _enemy_move_anims := [] # [{fx:int,fy:int,tx:int,ty:int,hp:int,init:int,t:float,d:float}]
+enum EnemyIntentKind { NONE, MOVE_DOWN, MOVE_SIDE, ATTACK, WAIT }
+var _enemy_intent_by_cell := {} # "x,y" -> {"kind": int, "side_dx": int}
+var _danger_attack_columns := {} # col_x -> true
+var _enemy_intent_refresh_after_move_anims: bool = false
 var _portal_spawn_burst_vfx := [] # [{x:int,y:int,t:float,d:float}]
 # Пока false — не засчитывать победу (избегаем ложного _check_level_completed до пересборки целей)
 var _level_ready_for_win: bool = false
@@ -155,6 +159,9 @@ const DEFEAT_REFILL_LIVES := [3, 5, 7, 10]
 # Мигание красным перед атакой с переднего ряда (сердце / прорыв)
 const ENEMY_ATTACK_WARN_DURATION := 0.55
 const ENEMY_ATTACK_WARN_FLASH_HZ := 5.0
+const ENEMY_INTENT_BADGE_RADIUS := 11.0
+const ENEMY_INTENT_BADGE_OFFSET_Y := 6.0
+const DANGER_COLUMN_PULSE_HZ := 2.5
 var _player_lives_remaining: int = TOTAL_LIVES_PER_LEVEL
 # Индекс следующего платного восстановления при поражении (сбрасывается на новом уровне)
 var _defeat_refill_index: int = 0
@@ -1257,6 +1264,7 @@ func _init_enemies_from_config(cfg: Dictionary):
 		_load_boss_units_from_config(cfg)
 		_rebuild_level_targets_from_field()
 		_level_ready_for_win = true
+		_refresh_enemy_intent_preview()
 		return
 
 	# Legacy режим: старая очередь монстров
@@ -1304,6 +1312,7 @@ func _init_enemies_from_config(cfg: Dictionary):
 	_load_boss_units_from_config(cfg)
 	_rebuild_level_targets_from_field()
 	_level_ready_for_win = true
+	_refresh_enemy_intent_preview()
 
 func _reset_boss_grids() -> void:
 	_boss_registry.clear()
@@ -1458,6 +1467,7 @@ func _apply_damage_to_enemy_cell(tx: int, ty: int) -> void:
 			"hp": 0, "init": init_hp, "id": mid2
 		})
 		_monster_shakes[mid2] = {"t": 0.0, "d": 0.35, "intensity": 15.0}
+	_refresh_enemy_intent_preview()
 
 func _rebuild_level_targets_from_field() -> void:
 	_level_targets.clear()
@@ -1681,6 +1691,7 @@ func _draw():
 				var tile_pos = origin + Vector2(float(x) * CELL_SIZE, float(y) * ENEMY_CELL_HEIGHT)
 				draw_texture_rect(ENEMY_TILE_TEXTURE, Rect2(tile_pos, Vector2(CELL_SIZE, tile_h)), false)
 	
+	_draw_danger_column_highlights(origin)
 	_draw_spawn_portals(origin)
 	_draw_portal_spawn_burst_vfx(origin)
 	
@@ -1991,6 +2002,7 @@ func _draw():
 		if m.has("texture_tier"):
 			tex_ov = int(m.get("texture_tier", -1))
 		_draw_enemy_monster(e_top_left, sz_use, m.hp, m.init_hp, m.id, m.alpha, float(m.get("attack_warn", 0.0)), tex_ov, bool(m.get("preserve_texture_aspect", false)))
+		_draw_enemy_intent_badge_for_cell(int(m.x), int(m.y), e_top_left + sz_use * 0.5)
 
 	for y in range(ENEMY_ROWS, ROWS):
 		for x in range(COLS):
@@ -2300,11 +2312,16 @@ func _draw_global_lives_bar_strip(origin_x: float, center_y: float, total_width:
 	if heart_w > max_heart_w:
 		heart_w = max_heart_w
 		heart_h = heart_w / tex_aspect
+	var danger_pulse := _get_danger_column_pulse_strength()
+	var any_danger := not _danger_attack_columns.is_empty() and _should_show_enemy_intent_preview()
 	for i in TOTAL_LIVES_PER_LEVEL:
 		var filled := i < _player_lives_remaining
 		var tex: Texture2D = LIFE_HEART_TEXTURE if filled else LIFE_HEART_EMPTY_TEXTURE
 		var slot_left := origin_x + pad_x + float(i) * slot_w
 		var bounds := Rect2(slot_left, center_y - heart_h * 0.5, slot_w, heart_h)
+		if filled and any_danger:
+			var warn_tint := Color(1.0, 0.35, 0.4, danger_pulse * 0.55)
+			draw_rect(bounds.grow(3.0), warn_tint)
 		var draw_rect := _fit_texture_rect_preserve_aspect(tex, bounds)
 		draw_texture_rect(tex, draw_rect, false)
 
@@ -2527,6 +2544,7 @@ func _process(delta: float) -> void:
 			var planned = _cached_enemy_moves
 			_cached_enemy_moves = []
 			_apply_enemy_moves_from_plan(planned)
+			_refresh_enemy_intent_preview()
 	if _active_anims.is_empty():
 		# Все падения окончены — проверяем нужно ли спавнить новые фишки
 		# Мы не ждем окончания стрельбы или движения монстров, чтобы игра ощущалась динамичнее
@@ -2627,6 +2645,16 @@ func _process(delta: float) -> void:
 		if _enemy_move_anims[m].t >= _enemy_move_anims[m].d:
 			_enemy_move_anims[m].t = _enemy_move_anims[m].d
 			# оставляем запись до конца кадра, удалим после отрисовки, чтобы дошли до цели визуально
+	if _enemy_intent_refresh_after_move_anims:
+		var all_move_anims_done := _enemy_move_anims.is_empty()
+		if not all_move_anims_done:
+			all_move_anims_done = true
+			for move_anim in _enemy_move_anims:
+				if move_anim.t < move_anim.d:
+					all_move_anims_done = false
+					break
+		if all_move_anims_done:
+			_refresh_enemy_intent_preview()
 	for bi in range(_portal_spawn_burst_vfx.size() - 1, -1, -1):
 		_portal_spawn_burst_vfx[bi].t += delta
 		if _portal_spawn_burst_vfx[bi].t >= _portal_spawn_burst_vfx[bi].d:
@@ -2648,6 +2676,8 @@ func _process(delta: float) -> void:
 		elif _enemy_move_pending:
 			_enemy_move_step()
 			_enemy_move_pending = false
+		elif _should_show_enemy_intent_preview() and not _danger_attack_columns.is_empty():
+			queue_redraw()
 	# после анимаций ничего не применяем — мы уже обновили enemies напрямую
 	if _needs_ui_update:
 		_needs_ui_update = false
@@ -3416,8 +3446,172 @@ func _horizontal_detour_direction_order(monster_x: int, monster_y: int) -> Array
 		return [1, -1]
 	return [-1, 1]
 
-func _plan_enemy_moves() -> Array:
-	_enemy_move_anims.clear()
+func _enemy_intent_cell_key(x: int, y: int) -> String:
+	return str(x) + "," + str(y)
+
+func _clear_enemy_intent_preview() -> void:
+	_enemy_intent_by_cell.clear()
+	_danger_attack_columns.clear()
+
+func _should_show_enemy_intent_preview() -> bool:
+	if not _level_ready_for_win:
+		return false
+	if _enemy_attack_warn_pending:
+		return false
+	if _enemy_move_pending:
+		return false
+	if _freeze_turns > 0:
+		return false
+	if _victory_dialog_shown or _defeat_dialog_shown:
+		return false
+	if not _enemy_move_anims.is_empty():
+		return false
+	return true
+
+func _can_refresh_enemy_intent_preview() -> bool:
+	if not _level_ready_for_win:
+		return false
+	if _enemy_attack_warn_pending:
+		return false
+	if _enemy_move_pending:
+		return false
+	if _freeze_turns > 0:
+		return false
+	if _victory_dialog_shown or _defeat_dialog_shown:
+		return false
+	return true
+
+func _get_danger_column_pulse_strength() -> float:
+	var t := Time.get_ticks_msec() * 0.001
+	return 0.45 + 0.55 * sin(t * TAU * DANGER_COLUMN_PULSE_HZ)
+
+func _set_enemy_intent(x: int, y: int, kind: int, side_dx: int = 0) -> void:
+	_enemy_intent_by_cell[_enemy_intent_cell_key(x, y)] = {"kind": kind, "side_dx": side_dx}
+
+func _mark_danger_attack_column(col_x: int) -> void:
+	_danger_attack_columns[col_x] = true
+
+func _build_enemy_intent_preview_from_moves(moves: Array) -> void:
+	_clear_enemy_intent_preview()
+	for m in moves:
+		var outcome := str(m.get("outcome", "normal"))
+		if outcome == "boss_attack_life":
+			var boss_key := str(m.get("boss_key", ""))
+			if boss_key.is_empty() or not _boss_registry.has(boss_key):
+				continue
+			var boss_group: Dictionary = _boss_registry[boss_key]
+			for cell in boss_group.get("cells", []):
+				var cx := int(cell.x)
+				var cy := int(cell.y)
+				_set_enemy_intent(cx, cy, EnemyIntentKind.ATTACK)
+				_mark_danger_attack_column(cx)
+			continue
+		var from_x := int(m.fx)
+		var from_y := int(m.fy)
+		if outcome == "attack_player_life":
+			_set_enemy_intent(from_x, from_y, EnemyIntentKind.ATTACK)
+			_mark_danger_attack_column(from_x)
+			continue
+		if outcome != "normal":
+			continue
+		var to_x := int(m.tx)
+		var to_y := int(m.ty)
+		if to_y > from_y:
+			_set_enemy_intent(from_x, from_y, EnemyIntentKind.MOVE_DOWN)
+		elif to_x != from_x:
+			var side_dx := clampi(to_x - from_x, -1, 1)
+			_set_enemy_intent(from_x, from_y, EnemyIntentKind.MOVE_SIDE, side_dx)
+	for y in range(ENEMY_ROWS):
+		for x in range(COLS):
+			if enemies[y][x] <= 0:
+				continue
+			var anchor: Vector2i = _boss_anchor_of[y][x]
+			if anchor.x >= 0 and (anchor.x != x or anchor.y != y):
+				continue
+			if _enemy_intent_by_cell.has(_enemy_intent_cell_key(x, y)):
+				continue
+			if _enemies_hit_this_turn[y][x]:
+				_set_enemy_intent(x, y, EnemyIntentKind.WAIT)
+
+func _refresh_enemy_intent_preview() -> void:
+	if not _can_refresh_enemy_intent_preview():
+		_clear_enemy_intent_preview()
+		return
+	if not _enemy_move_anims.is_empty():
+		_enemy_intent_refresh_after_move_anims = true
+		return
+	_enemy_intent_refresh_after_move_anims = false
+	var planned_moves := _compute_enemy_move_plan()
+	_build_enemy_intent_preview_from_moves(planned_moves)
+	queue_redraw()
+
+func _draw_danger_column_highlights(origin: Vector2) -> void:
+	if not _should_show_enemy_intent_preview() or _danger_attack_columns.is_empty():
+		return
+	var pulse := _get_danger_column_pulse_strength()
+	var highlight_alpha := 0.18 + pulse * 0.22
+	var top_y := origin.y + 1.0
+	var highlight_h := float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + _field_gap_total - 2.0
+	for col_key in _danger_attack_columns.keys():
+		var col_x := int(col_key)
+		var col_left := origin.x + float(col_x) * CELL_SIZE + 2.0
+		var rect := Rect2(col_left, top_y, CELL_SIZE - 4.0, highlight_h)
+		draw_rect(rect, Color(1.0, 0.18, 0.24, highlight_alpha))
+		var border_col := Color(1.0, 0.45, 0.5, 0.35 + pulse * 0.35)
+		draw_rect(rect, border_col, false, 2.0)
+
+func _draw_enemy_intent_badge_for_cell(cell_x: int, cell_y: int, monster_center: Vector2) -> void:
+	if not _should_show_enemy_intent_preview():
+		return
+	var key := _enemy_intent_cell_key(cell_x, cell_y)
+	if not _enemy_intent_by_cell.has(key):
+		return
+	var info: Dictionary = _enemy_intent_by_cell[key]
+	var kind := int(info.get("kind", EnemyIntentKind.NONE))
+	if kind == EnemyIntentKind.NONE:
+		return
+	var side_dx := int(info.get("side_dx", 0))
+	var badge_center := monster_center + Vector2(0.0, -(ENEMY_INTENT_BADGE_RADIUS + ENEMY_INTENT_BADGE_OFFSET_Y))
+	var badge_r := ENEMY_INTENT_BADGE_RADIUS
+	draw_circle(badge_center, badge_r + 1.5, Color(0.05, 0.04, 0.1, 0.9))
+	var fill_col := Color(0.55, 0.58, 0.65, 1.0)
+	match kind:
+		EnemyIntentKind.ATTACK:
+			fill_col = Color(0.95, 0.28, 0.28, 1.0)
+		EnemyIntentKind.MOVE_DOWN:
+			fill_col = Color(0.35, 0.62, 0.95, 1.0)
+		EnemyIntentKind.MOVE_SIDE:
+			fill_col = Color(0.95, 0.78, 0.25, 1.0)
+		EnemyIntentKind.WAIT:
+			fill_col = Color(0.55, 0.58, 0.65, 1.0)
+	draw_circle(badge_center, badge_r, fill_col)
+	draw_arc(badge_center, badge_r, 0.0, TAU, 24, Color(1.0, 1.0, 1.0, 0.85), 1.5)
+	match kind:
+		EnemyIntentKind.ATTACK:
+			var font: Font = GameFonts.digit_font if GameFonts else ThemeDB.fallback_font
+			var font_size := 16
+			draw_string(font, badge_center + Vector2(-4.0, 5.0), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(1.0, 1.0, 1.0, 0.95))
+		EnemyIntentKind.MOVE_DOWN:
+			var arrow_w := 4.0
+			var tip := badge_center + Vector2(0.0, 4.0)
+			var base_y := badge_center.y - 3.0
+			draw_line(Vector2(badge_center.x, base_y), tip, Color(1.0, 1.0, 1.0, 0.95), 2.0)
+			draw_line(tip, Vector2(tip.x - arrow_w, tip.y - 4.0), Color(1.0, 1.0, 1.0, 0.95), 2.0)
+			draw_line(tip, Vector2(tip.x + arrow_w, tip.y - 4.0), Color(1.0, 1.0, 1.0, 0.95), 2.0)
+		EnemyIntentKind.MOVE_SIDE:
+			var dir_sign := -1.0 if side_dx < 0 else 1.0
+			var tip_side := badge_center + Vector2(dir_sign * 5.0, 0.0)
+			var base_x := badge_center.x - dir_sign * 3.0
+			draw_line(Vector2(base_x, badge_center.y), tip_side, Color(1.0, 1.0, 1.0, 0.95), 2.0)
+			draw_line(tip_side, tip_side + Vector2(-dir_sign * 4.0, -3.0), Color(1.0, 1.0, 1.0, 0.95), 2.0)
+			draw_line(tip_side, tip_side + Vector2(-dir_sign * 4.0, 3.0), Color(1.0, 1.0, 1.0, 0.95), 2.0)
+		EnemyIntentKind.WAIT:
+			var bar_w := 2.5
+			var bar_h := 8.0
+			draw_rect(Rect2(badge_center.x - 4.5, badge_center.y - bar_h * 0.5, bar_w, bar_h), Color(1.0, 1.0, 1.0, 0.9))
+			draw_rect(Rect2(badge_center.x + 2.0, badge_center.y - bar_h * 0.5, bar_w, bar_h), Color(1.0, 1.0, 1.0, 0.9))
+
+func _compute_enemy_move_plan() -> Array:
 	var moves: Array = []
 	var occupied_next = []
 	for yy in range(ENEMY_ROWS):
@@ -3480,6 +3674,10 @@ func _plan_enemy_moves() -> Array:
 								moved = true
 								break
 	return moves
+
+func _plan_enemy_moves() -> Array:
+	_enemy_move_anims.clear()
+	return _compute_enemy_move_plan()
 
 func _plan_boss_group_moves(ax: int, ay: int, moves: Array, occupied_next: Array) -> void:
 	var key := _boss_registry_key(ax, ay)
@@ -3865,10 +4063,12 @@ func _enemy_move_step() -> void:
 		_cached_enemy_moves = planned
 		_enemy_attack_warn_pending = true
 		_enemy_attack_warn_time_left = ENEMY_ATTACK_WARN_DURATION
+		_clear_enemy_intent_preview()
 		set_process(true)
 		queue_redraw()
 		return
 	_apply_enemy_moves_from_plan(planned)
+	_refresh_enemy_intent_preview()
 
 func _collect_portal_columns() -> Dictionary:
 	var cols := {}
