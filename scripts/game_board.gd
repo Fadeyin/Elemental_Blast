@@ -2785,6 +2785,7 @@ func _apply_freeze():
 					"d": 0.8
 				})
 	set_process(true)
+	_refresh_enemy_intent_preview()
 	queue_redraw()
 
 func _apply_hammer(cell: Vector2i):
