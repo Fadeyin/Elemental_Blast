@@ -2674,8 +2674,11 @@ func _process(delta: float) -> void:
 		elif _check_level_completed() and not _victory_dialog_shown:
 			_on_level_completed()
 		elif _enemy_move_pending:
+			var attack_warn_started := _enemy_attack_warn_pending
 			_enemy_move_step()
 			_enemy_move_pending = false
+			if not attack_warn_started and not _enemy_attack_warn_pending:
+				_refresh_enemy_intent_preview()
 		elif _should_show_enemy_intent_preview() and not _danger_attack_columns.is_empty():
 			queue_redraw()
 	# после анимаций ничего не применяем — мы уже обновили enemies напрямую
@@ -3459,8 +3462,6 @@ func _should_show_enemy_intent_preview() -> bool:
 		return false
 	if _enemy_attack_warn_pending:
 		return false
-	if _enemy_move_pending:
-		return false
 	if _freeze_turns > 0:
 		return false
 	if _victory_dialog_shown or _defeat_dialog_shown:
@@ -3473,8 +3474,6 @@ func _can_refresh_enemy_intent_preview() -> bool:
 	if not _level_ready_for_win:
 		return false
 	if _enemy_attack_warn_pending:
-		return false
-	if _enemy_move_pending:
 		return false
 	if _freeze_turns > 0:
 		return false
@@ -3536,7 +3535,6 @@ func _build_enemy_intent_preview_from_moves(moves: Array) -> void:
 
 func _refresh_enemy_intent_preview() -> void:
 	if not _can_refresh_enemy_intent_preview():
-		_clear_enemy_intent_preview()
 		return
 	if not _enemy_move_anims.is_empty():
 		_enemy_intent_refresh_after_move_anims = true
@@ -4069,7 +4067,6 @@ func _enemy_move_step() -> void:
 		queue_redraw()
 		return
 	_apply_enemy_moves_from_plan(planned)
-	_refresh_enemy_intent_preview()
 
 func _collect_portal_columns() -> Dictionary:
 	var cols := {}
