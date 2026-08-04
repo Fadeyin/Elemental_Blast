@@ -95,10 +95,10 @@ const UI_BOTTOM_MARGIN := 150
 const FIELD_SIDE_MARGIN := 20.0
 
 const INGAME_BOOSTER_ICON_PATHS := [
-	"res://textures/Booster_Hummer.png",
-	"res://textures/Booster_Arrows.png",
-	"res://textures/Booster_Refresh.png",
-	"res://textures/Booster_Snow.png"
+	"res://textures/Booster_Water_Ball.png",
+	"res://textures/Booster_Fire_Arrow.png",
+	"res://textures/Booster_Whirlwind.png",
+	"res://textures/Booster_Roots.png"
 ]
 const INGAME_BOOSTER_SLOT_BG := preload("res://textures/ingame_booster_slot_bg.png")
 const INGAME_BOOSTER_COUNT_BG := preload("res://textures/ingame_booster_count_bg.png")
@@ -1057,7 +1057,7 @@ func _on_booster_clicked(type: BoosterType, btn: Button):
 		_show_buy_booster_dialog(lm_type)
 		return
 	
-	# Если это мгновенный бустер (Перемешивание)
+	# Если это мгновенный бустер (Вихрь)
 	if type == BoosterType.SHUFFLE:
 		_apply_booster_shuffle()
 		LevelManager.use_booster(lm_type)
@@ -1097,10 +1097,10 @@ func _show_buy_booster_dialog(lm_type: int) -> void:
 	if not LevelManager.is_ingame_booster_unlocked_at_current_level(lm_type):
 		return
 	var booster_names = {
-		LevelManager.BoosterType.HAMMER: "Водный шар",
-		LevelManager.BoosterType.ROW_BLAST: "Огненная стрела",
-		LevelManager.BoosterType.SHUFFLE: "Вихрь",
-		LevelManager.BoosterType.FREEZE: "Корни"
+		LevelManager.BoosterType.HAMMER: LevelManager.get_booster_display_name(LevelManager.BoosterType.HAMMER),
+		LevelManager.BoosterType.ROW_BLAST: LevelManager.get_booster_display_name(LevelManager.BoosterType.ROW_BLAST),
+		LevelManager.BoosterType.SHUFFLE: LevelManager.get_booster_display_name(LevelManager.BoosterType.SHUFFLE),
+		LevelManager.BoosterType.FREEZE: LevelManager.get_booster_display_name(LevelManager.BoosterType.FREEZE)
 	}
 	var shop_icon_paths := INGAME_BOOSTER_ICON_PATHS
 	var booster_name = booster_names.get(lm_type, "Бустер")
@@ -2441,10 +2441,10 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 			health_bar_top_left = rect.position
 			health_bar_width = rect.size.x
 		
-		# Эффект заморозки через модуляцию цвета; перед атакой с переднего ряда — мигание красным
+		# Эффект корней через модуляцию цвета; перед атакой с переднего ряда — мигание красным
 		var mod_color = Color.WHITE
 		if _freeze_turns > 0:
-			mod_color = Color(0.5, 0.8, 1.0)
+			mod_color = Color(0.55, 0.85, 0.4)
 		if attack_warn_strength > 0.0:
 			var warn_col = Color(1.0, 0.22, 0.2)
 			mod_color = mod_color.lerp(warn_col, clamp(attack_warn_strength, 0.0, 1.0) * 0.88)
@@ -2456,10 +2456,10 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 		# Сам монстр
 		draw_texture_rect(tex, rect, false, mod_color)
 		
-		# Добавляем ледяной эффект поверх
+		# Добавляем эффект корней поверх
 		if _freeze_turns > 0:
 			var r = anim_size.x * 0.45
-			draw_arc(bottom_center - Vector2(0, anim_size.y * 0.5), r * 0.9, 0, TAU, 32, Color(1, 1, 1, 0.4 * alpha), 2.0)
+			draw_arc(bottom_center - Vector2(0, anim_size.y * 0.5), r * 0.9, 0, TAU, 32, Color(0.35, 0.7, 0.25, 0.55 * alpha), 2.5)
 	else:
 		# Фолбэк на старую отрисовку
 		var draw_center = bottom_center - Vector2(0, anim_size.y * 0.5)
@@ -2472,7 +2472,7 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 		# 2. Тело (округлое)
 		var final_body_color = body_color
 		if _freeze_turns > 0:
-			final_body_color = body_color.lerp(Color(0.5, 0.8, 1.0), 0.6)
+			final_body_color = body_color.lerp(Color(0.55, 0.85, 0.4), 0.6)
 		if attack_warn_strength > 0.0:
 			var warn_col = Color(1.0, 0.22, 0.2)
 			final_body_color = final_body_color.lerp(warn_col, clamp(attack_warn_strength, 0.0, 1.0) * 0.88)
@@ -2480,9 +2480,9 @@ func _draw_enemy_monster(top_left: Vector2, size_v: Vector2, hp: int, initial_hp
 		final_body_color.a *= alpha
 		draw_circle(draw_center, r, final_body_color)
 		
-		# Добавляем ледяной эффект
+		# Добавляем эффект корней
 		if _freeze_turns > 0:
-			draw_arc(draw_center, r * 0.9, 0, TAU, 32, Color(1, 1, 1, 0.4 * alpha), 2.0)
+			draw_arc(draw_center, r * 0.9, 0, TAU, 32, Color(0.35, 0.7, 0.25, 0.55 * alpha), 2.5)
 		
 		# 3. Детали монстра
 		if initial_hp >= 3:
@@ -2794,7 +2794,7 @@ func _use_booster_on_cell(cell: Vector2i):
 		_update_booster_buttons_visual()
 		return
 	
-	# Бустеры обычно только на зону игрока, кроме заморозки
+	# Бустеры обычно только на зону игрока, кроме Корней
 	if type_used != BoosterType.FREEZE and cell.y < ENEMY_ROWS: 
 		return 
 

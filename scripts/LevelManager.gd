@@ -814,6 +814,32 @@ func buy_booster(type: BoosterType) -> bool:
 func get_booster_count(type: BoosterType) -> int:
 	return booster_counts.get(type, 0)
 
+func get_booster_display_name(type: BoosterType) -> String:
+	match type:
+		BoosterType.HAMMER:
+			return "Водный шар"
+		BoosterType.ROW_BLAST:
+			return "Огненная стрела"
+		BoosterType.SHUFFLE:
+			return "Вихрь"
+		BoosterType.FREEZE:
+			return "Корни"
+		_:
+			return "Бустер"
+
+func get_booster_icon_path(type: BoosterType) -> String:
+	match type:
+		BoosterType.HAMMER:
+			return "res://textures/Booster_Water_Ball.png"
+		BoosterType.ROW_BLAST:
+			return "res://textures/Booster_Fire_Arrow.png"
+		BoosterType.SHUFFLE:
+			return "res://textures/Booster_Whirlwind.png"
+		BoosterType.FREEZE:
+			return "res://textures/Booster_Roots.png"
+		_:
+			return ""
+
 func purchase_starter_pack():
 	if not starter_pack_purchased:
 		player_coins += 1000

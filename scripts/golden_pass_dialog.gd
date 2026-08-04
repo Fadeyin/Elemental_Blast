@@ -4,10 +4,10 @@ extends Control
 
 signal closed
 
-const TEX_HAMMER := preload("res://textures/Booster_Hummer.png")
-const TEX_ROW := preload("res://textures/Booster_Arrows.png")
-const TEX_SHUFFLE := preload("res://textures/Booster_Refresh.png")
-const TEX_FREEZE := preload("res://textures/Booster_Snow.png")
+const TEX_WATER_BALL := preload("res://textures/Booster_Water_Ball.png")
+const TEX_FIRE_ARROW := preload("res://textures/Booster_Fire_Arrow.png")
+const TEX_WHIRLWIND := preload("res://textures/Booster_Whirlwind.png")
+const TEX_ROOTS := preload("res://textures/Booster_Roots.png")
 const REWARD_ICON_BOX := 88
 
 var _scroll_content: VBoxContainer
@@ -412,10 +412,10 @@ func _reward_title(entry: Dictionary) -> String:
 		"booster":
 			var bid: String = str(entry.get("id", "hammer"))
 			var names := {
-				"hammer": "Водный шар",
-				"row_blast": "Огненная стрела",
-				"shuffle": "Вихрь",
-				"freeze": "Корни"
+				"hammer": LevelManager.get_booster_display_name(LevelManager.BoosterType.HAMMER),
+				"row_blast": LevelManager.get_booster_display_name(LevelManager.BoosterType.ROW_BLAST),
+				"shuffle": LevelManager.get_booster_display_name(LevelManager.BoosterType.SHUFFLE),
+				"freeze": LevelManager.get_booster_display_name(LevelManager.BoosterType.FREEZE)
 			}
 			return str(names.get(bid, bid))
 		"bonus_chip":
@@ -443,10 +443,10 @@ func _reward_texture(entry: Dictionary) -> Texture2D:
 		"booster":
 			var bid: String = str(entry.get("id", "hammer"))
 			match bid:
-				"hammer": return TEX_HAMMER
-				"row_blast": return TEX_ROW
-				"shuffle": return TEX_SHUFFLE
-				"freeze": return TEX_FREEZE
+				"hammer": return TEX_WATER_BALL
+				"row_blast": return TEX_FIRE_ARROW
+				"shuffle": return TEX_WHIRLWIND
+				"freeze": return TEX_ROOTS
 				_: return null
 		"bonus_chip":
 			var cid: String = str(entry.get("id", "bomb"))

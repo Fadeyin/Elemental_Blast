@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://btdnifetwsy7x"
-path="res://.godot/imported/Booster_Hummer.png-aa58dc408736918a6522ebd2746ca3a2.ctex"
+uid="uid://cfpo8ye6w2e07"
+path="res://.godot/imported/Booster_Whirlwind.png-5c5eef49236d26275150c33ca64a08aa.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://textures/Booster_Hummer.png"
-dest_files=["res://.godot/imported/Booster_Hummer.png-aa58dc408736918a6522ebd2746ca3a2.ctex"]
+source_file="res://textures/Booster_Whirlwind.png"
+dest_files=["res://.godot/imported/Booster_Whirlwind.png-5c5eef49236d26275150c33ca64a08aa.ctex"]
 
 [params]
 
