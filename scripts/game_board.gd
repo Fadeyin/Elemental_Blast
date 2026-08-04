@@ -161,11 +161,7 @@ const DEFEAT_REFILL_LIVES := [3, 5, 7, 10]
 const ENEMY_ATTACK_WARN_DURATION := 0.55
 const ENEMY_ATTACK_WARN_FLASH_HZ := 5.0
 const ENEMY_INTENT_BADGE_RADIUS := 11.0
-<<<<<<< HEAD
-const ENEMY_INTENT_BADGE_BELOW_FEET := 4.0
-=======
 const ENEMY_INTENT_BADGE_ABOVE_HEAD := 10.0
->>>>>>> 3241632 (fix(ui): подсветка только атакуемых сердец, стрелки над головой)
 const DANGER_COLUMN_PULSE_HZ := 2.5
 var _player_lives_remaining: int = TOTAL_LIVES_PER_LEVEL
 # Индекс следующего платного восстановления при поражении (сбрасывается на новом уровне)
@@ -2007,11 +2003,7 @@ func _draw():
 		if m.has("texture_tier"):
 			tex_ov = int(m.get("texture_tier", -1))
 		_draw_enemy_monster(e_top_left, sz_use, m.hp, m.init_hp, m.id, m.alpha, float(m.get("attack_warn", 0.0)), tex_ov, bool(m.get("preserve_texture_aspect", false)))
-<<<<<<< HEAD
-		_draw_enemy_intent_badge_for_cell(int(m.x), int(m.y), e_top_left + Vector2(sz_use.x * 0.5, sz_use.y))
-=======
 		_draw_enemy_intent_badge_for_cell(int(m.x), int(m.y), e_top_left + Vector2(sz_use.x * 0.5, 0.0))
->>>>>>> 3241632 (fix(ui): подсветка только атакуемых сердец, стрелки над головой)
 
 	for y in range(ENEMY_ROWS, ROWS):
 		for x in range(COLS):
@@ -3579,11 +3571,7 @@ func _draw_danger_column_highlights(origin: Vector2) -> void:
 		var border_col := Color(1.0, 0.45, 0.5, 0.35 + pulse * 0.35)
 		draw_rect(rect, border_col, false, 2.0)
 
-<<<<<<< HEAD
-func _draw_enemy_intent_badge_for_cell(cell_x: int, cell_y: int, monster_feet_center: Vector2) -> void:
-=======
 func _draw_enemy_intent_badge_for_cell(cell_x: int, cell_y: int, monster_top_center: Vector2) -> void:
->>>>>>> 3241632 (fix(ui): подсветка только атакуемых сердец, стрелки над головой)
 	if not _should_show_enemy_intent_preview():
 		return
 	var key := _enemy_intent_cell_key(cell_x, cell_y)
@@ -3594,11 +3582,7 @@ func _draw_enemy_intent_badge_for_cell(cell_x: int, cell_y: int, monster_top_cen
 	if kind == EnemyIntentKind.NONE:
 		return
 	var side_dx := int(info.get("side_dx", 0))
-<<<<<<< HEAD
-	var badge_center := monster_feet_center + Vector2(0.0, ENEMY_INTENT_BADGE_RADIUS + ENEMY_INTENT_BADGE_BELOW_FEET)
-=======
 	var badge_center := monster_top_center + Vector2(0.0, -(ENEMY_INTENT_BADGE_RADIUS + ENEMY_INTENT_BADGE_ABOVE_HEAD))
->>>>>>> 3241632 (fix(ui): подсветка только атакуемых сердец, стрелки над головой)
 	var badge_r := ENEMY_INTENT_BADGE_RADIUS
 	draw_circle(badge_center, badge_r + 1.5, Color(0.05, 0.04, 0.1, 0.9))
 	var fill_col := Color(0.55, 0.58, 0.65, 1.0)
