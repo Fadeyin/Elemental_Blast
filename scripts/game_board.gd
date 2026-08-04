@@ -91,7 +91,7 @@ const OBSTACLE_EDGE_COLOR := Color(0.25, 0.2, 0.15, 1.0) # Тёмно-корич
 
 # Отступы под UI-панели
 const UI_TOP_MARGIN := 132
-const UI_BOTTOM_MARGIN := 170
+const UI_BOTTOM_MARGIN := 200
 const FIELD_SIDE_MARGIN := 20.0
 
 const INGAME_BOOSTER_ICON_PATHS := [
@@ -101,15 +101,16 @@ const INGAME_BOOSTER_ICON_PATHS := [
 	"res://textures/Booster_Roots.png"
 ]
 const INGAME_BOOSTER_COUNT_BG := preload("res://textures/ingame_booster_count_bg.png")
-const INGAME_BOOSTER_BUTTON_SIZE := Vector2(160, 160)
-const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(80, 80)
-const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(28, 28)
-const INGAME_BOOSTER_BOTTOM_BAR_SEPARATION := 4
-const INGAME_BOOSTER_COUNT_BADGE_DIAGONAL_OUTSET := Vector2(6, 6)
+const INGAME_BOOSTER_BUTTON_SIZE := Vector2(192, 192)
+const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(96, 96)
+const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(32, 32)
+const INGAME_BOOSTER_BOTTOM_BAR_SEPARATION := -8
+const INGAME_BOOSTER_COUNT_BADGE_DIAGONAL_OUTSET := Vector2(8, 8)
 const INGAME_BOOSTER_ICON_SHADOW_COLOR := Color(0, 0, 0, 0.55)
 const INGAME_BOOSTER_ICON_SHADOW_OFFSET := Vector2(0, 3)
 const INGAME_BOOSTER_COUNT_SHADOW_SIZE := 6
 const INGAME_BOOSTER_COUNT_SHADOW_OFFSET := Vector2(0, 3)
+const BACK_TO_MENU_BUTTON_SIZE := Vector2(72, 72)
 
 var chips := []
 var enemies := [] # 2D массив здоровья врагов (y: 0..ENEMY_ROWS-1)
@@ -276,23 +277,29 @@ func _execute_board_initialization() -> String:
 			else:
 				_handle_manual_exit_to_menu()
 		)
-		back_btn.add_theme_font_size_override("font_size", 40)
-		back_btn.add_theme_color_override("font_color", Color.WHITE)
-		back_btn.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
-		back_btn.add_theme_constant_override("outline_size", 6)
-		var back_style = StyleBoxFlat.new()
-		back_style.bg_color = Color(0.15, 0.2, 0.3, 0.9)
-		back_style.set_corner_radius_all(40)
-		back_style.border_width_left = 3
-		back_style.border_width_top = 3
-		back_style.border_width_right = 3
-		back_style.border_width_bottom = 3
-		back_style.border_color = Color(0.8, 0.7, 0.3, 1.0)
-		back_btn.add_theme_stylebox_override("normal", back_style)
-		back_btn.add_theme_stylebox_override("hover", back_style)
-		back_btn.add_theme_stylebox_override("pressed", back_style)
-		back_btn.focus_mode = Control.FOCUS_NONE
+		_style_back_to_menu_button(back_btn)
 	return ""
+
+func _style_back_to_menu_button(back_btn: Button) -> void:
+	back_btn.custom_minimum_size = BACK_TO_MENU_BUTTON_SIZE
+	back_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	back_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	back_btn.add_theme_font_size_override("font_size", 36)
+	back_btn.add_theme_color_override("font_color", Color.WHITE)
+	back_btn.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	back_btn.add_theme_constant_override("outline_size", 6)
+	var back_style = StyleBoxFlat.new()
+	back_style.bg_color = Color(0.15, 0.2, 0.3, 0.9)
+	back_style.set_corner_radius_all(36)
+	back_style.border_width_left = 3
+	back_style.border_width_top = 3
+	back_style.border_width_right = 3
+	back_style.border_width_bottom = 3
+	back_style.border_color = Color(0.8, 0.7, 0.3, 1.0)
+	back_btn.add_theme_stylebox_override("normal", back_style)
+	back_btn.add_theme_stylebox_override("hover", back_style)
+	back_btn.add_theme_stylebox_override("pressed", back_style)
+	back_btn.focus_mode = Control.FOCUS_NONE
 
 func _show_board_load_failure_overlay(message: String) -> void:
 	if _fatal_load_overlay_layer != null and is_instance_valid(_fatal_load_overlay_layer):
@@ -453,7 +460,7 @@ func _start_hammer_booster_tutorial_if_needed() -> void:
 	await _build_hammer_booster_tutorial_overlay()
 
 func _build_hammer_booster_tutorial_overlay() -> void:
-	var btn := get_node_or_null("CanvasUI/UIRoot/BottomBar/Booster1")
+	var btn := get_node_or_null(_ingame_booster_button_path(1))
 	if btn == null:
 		return
 	var ui := find_child("UIRoot", true, false)
@@ -528,7 +535,7 @@ func _start_row_blast_booster_tutorial_if_needed() -> void:
 	await _build_row_blast_booster_tutorial_overlay()
 
 func _build_row_blast_booster_tutorial_overlay() -> void:
-	var btn := get_node_or_null("CanvasUI/UIRoot/BottomBar/Booster2")
+	var btn := get_node_or_null(_ingame_booster_button_path(2))
 	if btn == null:
 		return
 	var ui := find_child("UIRoot", true, false)
@@ -603,7 +610,7 @@ func _start_shuffle_booster_tutorial_if_needed() -> void:
 	await _build_shuffle_booster_tutorial_overlay()
 
 func _build_shuffle_booster_tutorial_overlay() -> void:
-	var btn := get_node_or_null("CanvasUI/UIRoot/BottomBar/Booster3")
+	var btn := get_node_or_null(_ingame_booster_button_path(3))
 	if btn == null:
 		return
 	var ui := find_child("UIRoot", true, false)
@@ -678,7 +685,7 @@ func _start_freeze_booster_tutorial_if_needed() -> void:
 	await _build_freeze_booster_tutorial_overlay()
 
 func _build_freeze_booster_tutorial_overlay() -> void:
-	var btn := get_node_or_null("CanvasUI/UIRoot/BottomBar/Booster4")
+	var btn := get_node_or_null(_ingame_booster_button_path(4))
 	if btn == null:
 		return
 	var ui := find_child("UIRoot", true, false)
@@ -925,16 +932,27 @@ func _init_ui():
 	if tb is HBoxContainer:
 		_setup_level_top_bar(tb as HBoxContainer)
 
-	# Оформление кнопок бустеров
+	# Оформление кнопок бустеров — плотный кластер по центру нижней панели
 	if has_node("CanvasUI/UIRoot/BottomBar"):
 		var bottom_bar: HBoxContainer = get_node("CanvasUI/UIRoot/BottomBar")
 		bottom_bar.clip_contents = false
-		bottom_bar.add_theme_constant_override("separation", INGAME_BOOSTER_BOTTOM_BAR_SEPARATION)
+		bottom_bar.alignment = BoxContainer.ALIGNMENT_CENTER
+		bottom_bar.add_theme_constant_override("separation", 0)
+		bottom_bar.offset_top = -float(UI_BOTTOM_MARGIN)
+		bottom_bar.offset_bottom = -8.0
+	var booster_parent_path := "CanvasUI/UIRoot/BottomBar"
+	if has_node("CanvasUI/UIRoot/BottomBar/BoosterCluster"):
+		var cluster: HBoxContainer = get_node("CanvasUI/UIRoot/BottomBar/BoosterCluster")
+		cluster.clip_contents = false
+		cluster.alignment = BoxContainer.ALIGNMENT_CENTER
+		cluster.add_theme_constant_override("separation", INGAME_BOOSTER_BOTTOM_BAR_SEPARATION)
+		booster_parent_path = "CanvasUI/UIRoot/BottomBar/BoosterCluster"
 	var booster_types = [BoosterType.HAMMER, BoosterType.ROW_BLAST, BoosterType.SHUFFLE, BoosterType.FREEZE]
 	for i in range(4):
 		var name = "Booster" + str(i+1)
-		if has_node("CanvasUI/UIRoot/BottomBar/" + name):
-			var btn: Button = get_node("CanvasUI/UIRoot/BottomBar/" + name)
+		var btn_path := booster_parent_path + "/" + name
+		if has_node(btn_path):
+			var btn: Button = get_node(btn_path)
 			var icon_tex: Texture2D = null
 			if i < INGAME_BOOSTER_ICON_PATHS.size():
 				var loaded = load(INGAME_BOOSTER_ICON_PATHS[i])
@@ -950,12 +968,20 @@ func _setup_level_top_bar(tb: HBoxContainer) -> void:
 	tb.custom_minimum_size.y = UI_TOP_MARGIN
 	tb.offset_bottom = UI_TOP_MARGIN
 	tb.alignment = BoxContainer.ALIGNMENT_CENTER
-	tb.add_theme_constant_override("separation", 0)
+	tb.add_theme_constant_override("separation", 10)
 	for child in tb.get_children():
 		if child.name.begins_with("Lives") or child.name.begins_with("Coins") or child.name == "Spacer":
 			child.queue_free()
 		elif child.name in ["VillainPortrait", "TopBarFlexSpacer", "GoalsFrame", "GoalsContainer"]:
 			child.queue_free()
+	var back_btn := tb.get_node_or_null("BackToMenu") as Button
+	if back_btn == null:
+		back_btn = find_child("BackToMenu", true, false) as Button
+		if back_btn != null:
+			back_btn.get_parent().remove_child(back_btn)
+			tb.add_child(back_btn)
+	if back_btn != null:
+		_style_back_to_menu_button(back_btn)
 	var left_spacer := tb.get_node_or_null("TopBarLeftSpacer")
 	if left_spacer == null:
 		left_spacer = Control.new()
@@ -1018,11 +1044,21 @@ func _setup_level_top_bar(tb: HBoxContainer) -> void:
 		tb.add_child(right_spacer)
 	if right_spacer is Control:
 		(right_spacer as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tb.move_child(left_spacer, 0)
-	tb.move_child(monsters_panel, 1)
-	tb.move_child(right_spacer, 2)
+	var child_index := 0
+	if back_btn != null:
+		tb.move_child(back_btn, child_index)
+		child_index += 1
+	tb.move_child(left_spacer, child_index)
+	child_index += 1
+	tb.move_child(monsters_panel, child_index)
+	child_index += 1
+	tb.move_child(right_spacer, child_index)
 
-func _connect_ui_root_layout_refresh() -> void:
+func _ingame_booster_button_path(index_1_based: int) -> String:
+	var cluster_path := "CanvasUI/UIRoot/BottomBar/BoosterCluster/Booster" + str(index_1_based)
+	if has_node(cluster_path):
+		return cluster_path
+	return "CanvasUI/UIRoot/BottomBar/Booster" + str(index_1_based)
 	var ui_root := find_child("UIRoot", true, false)
 	if ui_root is Control:
 		var uc := ui_root as Control
@@ -1127,7 +1163,7 @@ func _on_ingame_booster_purchase_closed() -> void:
 func _update_booster_buttons_visual() -> void:
 	var booster_types = [BoosterType.HAMMER, BoosterType.ROW_BLAST, BoosterType.SHUFFLE, BoosterType.FREEZE]
 	for i in range(1, 5):
-		var btn: Button = get_node_or_null("CanvasUI/UIRoot/BottomBar/Booster" + str(i))
+		var btn: Button = get_node_or_null(_ingame_booster_button_path(i))
 		if btn == null:
 			continue
 		var type = booster_types[i - 1]
@@ -1158,7 +1194,7 @@ func _update_ui():
 	var booster_types = [BoosterType.HAMMER, BoosterType.ROW_BLAST, BoosterType.SHUFFLE, BoosterType.FREEZE]
 	for i in range(4):
 		var type = booster_types[i]
-		var btn_path = "CanvasUI/UIRoot/BottomBar/Booster" + str(i+1)
+		var btn_path = _ingame_booster_button_path(i + 1)
 		if has_node(btn_path):
 			var btn: Button = get_node(btn_path)
 			var lm_type = _convert_to_lm_booster_type(type)
