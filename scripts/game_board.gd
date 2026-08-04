@@ -142,6 +142,7 @@ var _enemy_move_anims := [] # [{fx:int,fy:int,tx:int,ty:int,hp:int,init:int,t:fl
 enum EnemyIntentKind { NONE, MOVE_DOWN, MOVE_SIDE, ATTACK, WAIT }
 var _enemy_intent_by_cell := {} # "x,y" -> {"kind": int, "side_dx": int}
 var _danger_attack_columns := {} # col_x -> true
+var _pending_life_attack_count: int = 0
 var _enemy_intent_refresh_after_move_anims: bool = false
 var _portal_spawn_burst_vfx := [] # [{x:int,y:int,t:float,d:float}]
 # Пока false — не засчитывать победу (избегаем ложного _check_level_completed до пересборки целей)
@@ -160,7 +161,11 @@ const DEFEAT_REFILL_LIVES := [3, 5, 7, 10]
 const ENEMY_ATTACK_WARN_DURATION := 0.55
 const ENEMY_ATTACK_WARN_FLASH_HZ := 5.0
 const ENEMY_INTENT_BADGE_RADIUS := 11.0
+<<<<<<< HEAD
 const ENEMY_INTENT_BADGE_BELOW_FEET := 4.0
+=======
+const ENEMY_INTENT_BADGE_ABOVE_HEAD := 10.0
+>>>>>>> 3241632 (fix(ui): подсветка только атакуемых сердец, стрелки над головой)
 const DANGER_COLUMN_PULSE_HZ := 2.5
 var _player_lives_remaining: int = TOTAL_LIVES_PER_LEVEL
 # Индекс следующего платного восстановления при поражении (сбрасывается на новом уровне)
@@ -2002,7 +2007,11 @@ func _draw():
 		if m.has("texture_tier"):
 			tex_ov = int(m.get("texture_tier", -1))
 		_draw_enemy_monster(e_top_left, sz_use, m.hp, m.init_hp, m.id, m.alpha, float(m.get("attack_warn", 0.0)), tex_ov, bool(m.get("preserve_texture_aspect", false)))
+<<<<<<< HEAD
 		_draw_enemy_intent_badge_for_cell(int(m.x), int(m.y), e_top_left + Vector2(sz_use.x * 0.5, sz_use.y))
+=======
+		_draw_enemy_intent_badge_for_cell(int(m.x), int(m.y), e_top_left + Vector2(sz_use.x * 0.5, 0.0))
+>>>>>>> 3241632 (fix(ui): подсветка только атакуемых сердец, стрелки над головой)
 
 	for y in range(ENEMY_ROWS, ROWS):
 		for x in range(COLS):
@@ -2313,13 +2322,16 @@ func _draw_global_lives_bar_strip(origin_x: float, center_y: float, total_width:
 		heart_w = max_heart_w
 		heart_h = heart_w / tex_aspect
 	var danger_pulse := _get_danger_column_pulse_strength()
-	var any_danger := not _danger_attack_columns.is_empty() and _should_show_enemy_intent_preview()
+	var hearts_at_risk := 0
+	if _should_show_enemy_intent_preview() and _pending_life_attack_count > 0:
+		hearts_at_risk = mini(_pending_life_attack_count, _player_lives_remaining)
+	var first_at_risk_index := _player_lives_remaining - hearts_at_risk
 	for i in TOTAL_LIVES_PER_LEVEL:
 		var filled := i < _player_lives_remaining
 		var tex: Texture2D = LIFE_HEART_TEXTURE if filled else LIFE_HEART_EMPTY_TEXTURE
 		var slot_left := origin_x + pad_x + float(i) * slot_w
 		var bounds := Rect2(slot_left, center_y - heart_h * 0.5, slot_w, heart_h)
-		if filled and any_danger:
+		if filled and hearts_at_risk > 0 and i >= first_at_risk_index:
 			var warn_tint := Color(1.0, 0.35, 0.4, danger_pulse * 0.55)
 			draw_rect(bounds.grow(3.0), warn_tint)
 		var draw_rect := _fit_texture_rect_preserve_aspect(tex, bounds)
@@ -3456,6 +3468,7 @@ func _enemy_intent_cell_key(x: int, y: int) -> String:
 func _clear_enemy_intent_preview() -> void:
 	_enemy_intent_by_cell.clear()
 	_danger_attack_columns.clear()
+	_pending_life_attack_count = 0
 
 func _should_show_enemy_intent_preview() -> bool:
 	if not _level_ready_for_win:
@@ -3493,6 +3506,7 @@ func _mark_danger_attack_column(col_x: int) -> void:
 
 func _build_enemy_intent_preview_from_moves(moves: Array) -> void:
 	_clear_enemy_intent_preview()
+	var counted_boss_attack_keys := {}
 	for m in moves:
 		var outcome := str(m.get("outcome", "normal"))
 		if outcome == "boss_attack_life":
@@ -3504,12 +3518,18 @@ func _build_enemy_intent_preview_from_moves(moves: Array) -> void:
 				var cx := int(cell.x)
 				var cy := int(cell.y)
 				_set_enemy_intent(cx, cy, EnemyIntentKind.ATTACK)
-				_mark_danger_attack_column(cx)
+			if not counted_boss_attack_keys.has(boss_key):
+				counted_boss_attack_keys[boss_key] = true
+				_pending_life_attack_count += 1
+				var boss_parts: PackedStringArray = boss_key.split(":")
+				if boss_parts.size() >= 2:
+					_mark_danger_attack_column(int(boss_parts[0]))
 			continue
 		var from_x := int(m.fx)
 		var from_y := int(m.fy)
 		if outcome == "attack_player_life":
 			_set_enemy_intent(from_x, from_y, EnemyIntentKind.ATTACK)
+			_pending_life_attack_count += 1
 			_mark_danger_attack_column(from_x)
 			continue
 		if outcome != "normal":
@@ -3559,7 +3579,11 @@ func _draw_danger_column_highlights(origin: Vector2) -> void:
 		var border_col := Color(1.0, 0.45, 0.5, 0.35 + pulse * 0.35)
 		draw_rect(rect, border_col, false, 2.0)
 
+<<<<<<< HEAD
 func _draw_enemy_intent_badge_for_cell(cell_x: int, cell_y: int, monster_feet_center: Vector2) -> void:
+=======
+func _draw_enemy_intent_badge_for_cell(cell_x: int, cell_y: int, monster_top_center: Vector2) -> void:
+>>>>>>> 3241632 (fix(ui): подсветка только атакуемых сердец, стрелки над головой)
 	if not _should_show_enemy_intent_preview():
 		return
 	var key := _enemy_intent_cell_key(cell_x, cell_y)
@@ -3570,7 +3594,11 @@ func _draw_enemy_intent_badge_for_cell(cell_x: int, cell_y: int, monster_feet_ce
 	if kind == EnemyIntentKind.NONE:
 		return
 	var side_dx := int(info.get("side_dx", 0))
+<<<<<<< HEAD
 	var badge_center := monster_feet_center + Vector2(0.0, ENEMY_INTENT_BADGE_RADIUS + ENEMY_INTENT_BADGE_BELOW_FEET)
+=======
+	var badge_center := monster_top_center + Vector2(0.0, -(ENEMY_INTENT_BADGE_RADIUS + ENEMY_INTENT_BADGE_ABOVE_HEAD))
+>>>>>>> 3241632 (fix(ui): подсветка только атакуемых сердец, стрелки над головой)
 	var badge_r := ENEMY_INTENT_BADGE_RADIUS
 	draw_circle(badge_center, badge_r + 1.5, Color(0.05, 0.04, 0.1, 0.9))
 	var fill_col := Color(0.55, 0.58, 0.65, 1.0)
