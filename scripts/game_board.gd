@@ -91,7 +91,7 @@ const OBSTACLE_EDGE_COLOR := Color(0.25, 0.2, 0.15, 1.0) # Тёмно-корич
 
 # Отступы под UI-панели
 const UI_TOP_MARGIN := 132
-const UI_BOTTOM_MARGIN := 150
+const UI_BOTTOM_MARGIN := 170
 const FIELD_SIDE_MARGIN := 20.0
 
 const INGAME_BOOSTER_ICON_PATHS := [
@@ -100,18 +100,16 @@ const INGAME_BOOSTER_ICON_PATHS := [
 	"res://textures/Booster_Whirlwind.png",
 	"res://textures/Booster_Roots.png"
 ]
-const INGAME_BOOSTER_SLOT_BG := preload("res://textures/ingame_booster_slot_bg.png")
 const INGAME_BOOSTER_COUNT_BG := preload("res://textures/ingame_booster_count_bg.png")
-const INGAME_BOOSTER_BUTTON_SIZE := Vector2(128, 128)
-const INGAME_BOOSTER_SLOT_DISPLAY_SIZE := Vector2(64, 64)
-const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(40, 40)
-const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(26, 26)
-const INGAME_BOOSTER_BOTTOM_BAR_SEPARATION := 6
-const INGAME_BOOSTER_COUNT_BADGE_DIAGONAL_OUTSET := Vector2(5, 5)
-const INGAME_BOOSTER_PODOZHKA_SHADOW_COLOR := Color(0, 0, 0, 0.65)
-const INGAME_BOOSTER_PODOZHKA_SHADOW_SIZE := 10
-const INGAME_BOOSTER_PODOZHKA_SHADOW_OFFSET := Vector2(0, 4)
+const INGAME_BOOSTER_BUTTON_SIZE := Vector2(160, 160)
+const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(80, 80)
+const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(28, 28)
+const INGAME_BOOSTER_BOTTOM_BAR_SEPARATION := 4
+const INGAME_BOOSTER_COUNT_BADGE_DIAGONAL_OUTSET := Vector2(6, 6)
+const INGAME_BOOSTER_ICON_SHADOW_COLOR := Color(0, 0, 0, 0.55)
+const INGAME_BOOSTER_ICON_SHADOW_OFFSET := Vector2(0, 3)
 const INGAME_BOOSTER_COUNT_SHADOW_SIZE := 6
+const INGAME_BOOSTER_COUNT_SHADOW_OFFSET := Vector2(0, 3)
 
 var chips := []
 var enemies := [] # 2D массив здоровья врагов (y: 0..ENEMY_ROWS-1)
@@ -789,26 +787,16 @@ func _run_level1_goals_tutorial_step() -> void:
 	await overlay.begin_goals_step(goals_r, "Уничтожь все цели, чтобы пройти уровень.")
 	_level1_tutorial_advancing_to_goals = false
 
-func _apply_ingame_booster_podlozhka_shadow(style: StyleBoxTexture, shadow_size: int = INGAME_BOOSTER_PODOZHKA_SHADOW_SIZE) -> void:
-	style.shadow_color = INGAME_BOOSTER_PODOZHKA_SHADOW_COLOR
-	style.shadow_size = shadow_size
-	style.shadow_offset = INGAME_BOOSTER_PODOZHKA_SHADOW_OFFSET
-	var expand_side := shadow_size + 2
-	var expand_bottom := shadow_size + int(INGAME_BOOSTER_PODOZHKA_SHADOW_OFFSET.y) + 2
+func _apply_ingame_booster_count_shadow(style: StyleBoxTexture) -> void:
+	style.shadow_color = INGAME_BOOSTER_ICON_SHADOW_COLOR
+	style.shadow_size = INGAME_BOOSTER_COUNT_SHADOW_SIZE
+	style.shadow_offset = INGAME_BOOSTER_COUNT_SHADOW_OFFSET
+	var expand_side := INGAME_BOOSTER_COUNT_SHADOW_SIZE + 2
+	var expand_bottom := INGAME_BOOSTER_COUNT_SHADOW_SIZE + int(INGAME_BOOSTER_COUNT_SHADOW_OFFSET.y) + 2
 	style.expand_margin_left = expand_side
 	style.expand_margin_top = expand_side
 	style.expand_margin_right = expand_side
 	style.expand_margin_bottom = expand_bottom
-
-func _make_ingame_booster_slot_stylebox(tint: Color = Color.WHITE) -> StyleBoxTexture:
-	var style := StyleBoxTexture.new()
-	style.texture = INGAME_BOOSTER_SLOT_BG
-	style.modulate_color = tint
-	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
-	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
-	style.draw_center = true
-	_apply_ingame_booster_podlozhka_shadow(style)
-	return style
 
 func _make_ingame_booster_count_stylebox() -> StyleBoxTexture:
 	var style := StyleBoxTexture.new()
@@ -816,7 +804,7 @@ func _make_ingame_booster_count_stylebox() -> StyleBoxTexture:
 	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	style.draw_center = true
-	_apply_ingame_booster_podlozhka_shadow(style, INGAME_BOOSTER_COUNT_SHADOW_SIZE)
+	_apply_ingame_booster_count_shadow(style)
 	return style
 
 func _make_monsters_remaining_frame_stylebox() -> StyleBoxFlat:
@@ -882,18 +870,17 @@ func _setup_ingame_booster_button_visuals(btn: Button, icon_tex: Texture2D) -> v
 	visual_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	visual_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	btn.add_child(visual_root)
-	var slot_center := CenterContainer.new()
-	slot_center.name = "SlotCenter"
-	slot_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	slot_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	visual_root.add_child(slot_center)
-	var slot_panel := PanelContainer.new()
-	slot_panel.name = "SlotPanel"
-	slot_panel.custom_minimum_size = INGAME_BOOSTER_SLOT_DISPLAY_SIZE
-	slot_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	slot_panel.add_theme_stylebox_override("panel", _make_ingame_booster_slot_stylebox(Color.WHITE))
-	slot_center.add_child(slot_panel)
 	if icon_tex != null:
+		var icon_shadow := TextureRect.new()
+		icon_shadow.name = "BoosterIconShadow"
+		icon_shadow.texture = icon_tex
+		icon_shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon_shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon_shadow.modulate = INGAME_BOOSTER_ICON_SHADOW_COLOR
+		icon_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_set_control_center_offsets(icon_shadow, INGAME_BOOSTER_ICON_DISPLAY_SIZE)
+		icon_shadow.position += INGAME_BOOSTER_ICON_SHADOW_OFFSET
+		visual_root.add_child(icon_shadow)
 		var icon_rect := TextureRect.new()
 		icon_rect.name = "BoosterIcon"
 		icon_rect.texture = icon_tex
@@ -905,7 +892,7 @@ func _setup_ingame_booster_button_visuals(btn: Button, icon_tex: Texture2D) -> v
 	var badge_anchor := Control.new()
 	badge_anchor.name = "BadgeAnchor"
 	badge_anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_set_control_center_offsets(badge_anchor, INGAME_BOOSTER_SLOT_DISPLAY_SIZE)
+	_set_control_center_offsets(badge_anchor, INGAME_BOOSTER_ICON_DISPLAY_SIZE)
 	visual_root.add_child(badge_anchor)
 	var badge := PanelContainer.new()
 	badge.name = "CountBadge"
