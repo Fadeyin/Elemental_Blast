@@ -91,7 +91,7 @@ const OBSTACLE_EDGE_COLOR := Color(0.25, 0.2, 0.15, 1.0) # Тёмно-корич
 
 # Отступы под UI-панели
 const UI_TOP_MARGIN := 132
-const UI_BOTTOM_MARGIN := 200
+const UI_BOTTOM_MARGIN := 180
 const FIELD_SIDE_MARGIN := 20.0
 
 const INGAME_BOOSTER_ICON_PATHS := [
@@ -101,11 +101,11 @@ const INGAME_BOOSTER_ICON_PATHS := [
 	"res://textures/Booster_Roots.png"
 ]
 const INGAME_BOOSTER_COUNT_BG := preload("res://textures/ingame_booster_count_bg.png")
-const INGAME_BOOSTER_BUTTON_SIZE := Vector2(192, 192)
-const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(96, 96)
-const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(32, 32)
-const INGAME_BOOSTER_BOTTOM_BAR_SEPARATION := -8
-const INGAME_BOOSTER_COUNT_BADGE_DIAGONAL_OUTSET := Vector2(8, 8)
+const INGAME_BOOSTER_BUTTON_SIZE := Vector2(160, 160)
+const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(80, 80)
+const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(28, 28)
+const INGAME_BOOSTER_BOTTOM_BAR_SEPARATION := 20
+const INGAME_BOOSTER_COUNT_BADGE_DIAGONAL_OUTSET := Vector2(6, 6)
 const INGAME_BOOSTER_ICON_SHADOW_COLOR := Color(0, 0, 0, 0.55)
 const INGAME_BOOSTER_ICON_SHADOW_OFFSET := Vector2(0, 3)
 const INGAME_BOOSTER_COUNT_SHADOW_SIZE := 6
@@ -940,7 +940,7 @@ func _init_ui():
 		bottom_bar.add_theme_constant_override("separation", 0)
 		bottom_bar.offset_top = -float(UI_BOTTOM_MARGIN)
 		bottom_bar.offset_bottom = -8.0
-	var booster_parent_path := "CanvasUI/UIRoot/BottomBar"
+	var booster_parent_path: String = "CanvasUI/UIRoot/BottomBar"
 	if has_node("CanvasUI/UIRoot/BottomBar/BoosterCluster"):
 		var cluster: HBoxContainer = get_node("CanvasUI/UIRoot/BottomBar/BoosterCluster")
 		cluster.clip_contents = false
@@ -949,8 +949,8 @@ func _init_ui():
 		booster_parent_path = "CanvasUI/UIRoot/BottomBar/BoosterCluster"
 	var booster_types = [BoosterType.HAMMER, BoosterType.ROW_BLAST, BoosterType.SHUFFLE, BoosterType.FREEZE]
 	for i in range(4):
-		var name = "Booster" + str(i+1)
-		var btn_path := booster_parent_path + "/" + name
+		var booster_name: String = "Booster" + str(i + 1)
+		var btn_path: String = booster_parent_path + "/" + booster_name
 		if has_node(btn_path):
 			var btn: Button = get_node(btn_path)
 			var icon_tex: Texture2D = null
@@ -1196,7 +1196,7 @@ func _update_ui():
 	var booster_types = [BoosterType.HAMMER, BoosterType.ROW_BLAST, BoosterType.SHUFFLE, BoosterType.FREEZE]
 	for i in range(4):
 		var type = booster_types[i]
-		var btn_path = _ingame_booster_button_path(i + 1)
+		var btn_path: String = _ingame_booster_button_path(i + 1)
 		if has_node(btn_path):
 			var btn: Button = get_node(btn_path)
 			var lm_type = _convert_to_lm_booster_type(type)
