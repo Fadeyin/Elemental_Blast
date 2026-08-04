@@ -1059,6 +1059,8 @@ func _ingame_booster_button_path(index_1_based: int) -> String:
 	if has_node(cluster_path):
 		return cluster_path
 	return "CanvasUI/UIRoot/BottomBar/Booster" + str(index_1_based)
+
+func _connect_ui_root_layout_refresh() -> void:
 	var ui_root := find_child("UIRoot", true, false)
 	if ui_root is Control:
 		var uc := ui_root as Control
