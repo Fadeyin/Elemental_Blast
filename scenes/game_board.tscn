@@ -40,18 +40,21 @@ custom_minimum_size = Vector2(0, 132)
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_left = 12.0
-offset_right = -12.0
+offset_left = 0.0
+offset_right = 0.0
 offset_bottom = 132.0
 grow_horizontal = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 0
 alignment = 1
 
-[node name="BackToMenu" type="Button" parent="CanvasUI/UIRoot/TopBar"]
+[node name="BackToMenu" type="Button" parent="CanvasUI/UIRoot"]
 custom_minimum_size = Vector2(72, 72)
-layout_mode = 2
-size_flags_horizontal = 4
-size_flags_vertical = 4
+layout_mode = 0
+anchors_preset = 0
+offset_left = 12.0
+offset_top = 30.0
+offset_right = 84.0
+offset_bottom = 102.0
 theme_override_font_sizes/font_size = 36
 text = "<"
 

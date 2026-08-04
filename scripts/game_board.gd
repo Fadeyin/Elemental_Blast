@@ -969,20 +969,14 @@ func _setup_level_top_bar(tb: HBoxContainer) -> void:
 	tb.custom_minimum_size.y = UI_TOP_MARGIN
 	tb.offset_bottom = UI_TOP_MARGIN
 	tb.alignment = BoxContainer.ALIGNMENT_CENTER
-	tb.add_theme_constant_override("separation", 10)
+	tb.add_theme_constant_override("separation", 0)
 	for child in tb.get_children():
 		if child.name.begins_with("Lives") or child.name.begins_with("Coins") or child.name == "Spacer":
 			child.queue_free()
 		elif child.name in ["VillainPortrait", "TopBarFlexSpacer", "GoalsFrame", "GoalsContainer"]:
 			child.queue_free()
-	var back_btn := tb.get_node_or_null("BackToMenu") as Button
-	if back_btn == null:
-		back_btn = find_child("BackToMenu", true, false) as Button
-		if back_btn != null:
-			back_btn.get_parent().remove_child(back_btn)
-			tb.add_child(back_btn)
-	if back_btn != null:
-		_style_back_to_menu_button(back_btn)
+	# «Назад» вне HBox — иначе ломает баланс и сдвигает блок целей вправо
+	_place_back_to_menu_overlay()
 	var left_spacer := tb.get_node_or_null("TopBarLeftSpacer")
 	if left_spacer == null:
 		left_spacer = Control.new()
@@ -991,6 +985,7 @@ func _setup_level_top_bar(tb: HBoxContainer) -> void:
 		tb.add_child(left_spacer)
 	if left_spacer is Control:
 		(left_spacer as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		(left_spacer as Control).size_flags_stretch_ratio = 1.0
 	var monsters_panel := tb.get_node_or_null("MonstersRemainingPanel")
 	if monsters_panel == null:
 		monsters_panel = HBoxContainer.new()
@@ -1045,15 +1040,36 @@ func _setup_level_top_bar(tb: HBoxContainer) -> void:
 		tb.add_child(right_spacer)
 	if right_spacer is Control:
 		(right_spacer as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var child_index := 0
-	if back_btn != null:
-		tb.move_child(back_btn, child_index)
-		child_index += 1
-	tb.move_child(left_spacer, child_index)
-	child_index += 1
-	tb.move_child(monsters_panel, child_index)
-	child_index += 1
-	tb.move_child(right_spacer, child_index)
+		(right_spacer as Control).size_flags_stretch_ratio = 1.0
+	tb.move_child(left_spacer, 0)
+	tb.move_child(monsters_panel, 1)
+	tb.move_child(right_spacer, 2)
+
+func _place_back_to_menu_overlay() -> void:
+	var ui_root := get_node_or_null("CanvasUI/UIRoot") as Control
+	if ui_root == null:
+		return
+	var back_btn := find_child("BackToMenu", true, false) as Button
+	if back_btn == null:
+		back_btn = Button.new()
+		back_btn.name = "BackToMenu"
+		back_btn.text = "<"
+		ui_root.add_child(back_btn)
+	elif back_btn.get_parent() != ui_root:
+		back_btn.get_parent().remove_child(back_btn)
+		ui_root.add_child(back_btn)
+	_style_back_to_menu_button(back_btn)
+	var margin := 12.0
+	var top := maxf((float(UI_TOP_MARGIN) - BACK_TO_MENU_BUTTON_SIZE.y) * 0.5, 8.0)
+	back_btn.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	back_btn.anchor_right = 0.0
+	back_btn.anchor_bottom = 0.0
+	back_btn.offset_left = margin
+	back_btn.offset_top = top
+	back_btn.offset_right = margin + BACK_TO_MENU_BUTTON_SIZE.x
+	back_btn.offset_bottom = top + BACK_TO_MENU_BUTTON_SIZE.y
+	back_btn.z_index = 10
+	back_btn.mouse_filter = Control.MOUSE_FILTER_STOP
 
 func _ingame_booster_button_path(index_1_based: int) -> String:
 	var cluster_path := "CanvasUI/UIRoot/BottomBar/BoosterCluster/Booster" + str(index_1_based)
