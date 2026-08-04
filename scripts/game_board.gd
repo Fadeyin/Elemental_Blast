@@ -91,7 +91,7 @@ const OBSTACLE_EDGE_COLOR := Color(0.25, 0.2, 0.15, 1.0) # Тёмно-корич
 
 # Отступы под UI-панели
 const UI_TOP_MARGIN := 132
-const UI_BOTTOM_MARGIN := 180
+const UI_BOTTOM_MARGIN := 150
 const FIELD_SIDE_MARGIN := 20.0
 
 const INGAME_BOOSTER_ICON_PATHS := [
@@ -101,11 +101,12 @@ const INGAME_BOOSTER_ICON_PATHS := [
 	"res://textures/Booster_Roots.png"
 ]
 const INGAME_BOOSTER_COUNT_BG := preload("res://textures/ingame_booster_count_bg.png")
-const INGAME_BOOSTER_BUTTON_SIZE := Vector2(160, 160)
-const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(80, 80)
-const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(28, 28)
-const INGAME_BOOSTER_BOTTOM_BAR_SEPARATION := 20
-const INGAME_BOOSTER_COUNT_BADGE_DIAGONAL_OUTSET := Vector2(6, 6)
+# Компактный ряд по центру: ~1.4 клетки, gap ≈20% ширины кнопки, поля по бокам
+const INGAME_BOOSTER_BUTTON_SIZE := Vector2(112, 112)
+const INGAME_BOOSTER_ICON_DISPLAY_SIZE := Vector2(100, 100)
+const INGAME_BOOSTER_COUNT_BADGE_SIZE := Vector2(26, 26)
+const INGAME_BOOSTER_BOTTOM_BAR_SEPARATION := 24
+const INGAME_BOOSTER_COUNT_BADGE_DIAGONAL_OUTSET := Vector2(5, 5)
 const INGAME_BOOSTER_ICON_SHADOW_COLOR := Color(0, 0, 0, 0.55)
 const INGAME_BOOSTER_ICON_SHADOW_OFFSET := Vector2(0, 3)
 const INGAME_BOOSTER_COUNT_SHADOW_SIZE := 6
@@ -845,7 +846,7 @@ func _style_monsters_remaining_count_label(label: Label) -> void:
 	label.add_theme_constant_override("outline_size", 8)
 
 func _style_ingame_booster_count_label(label: Label) -> void:
-	label.add_theme_font_size_override("font_size", 17)
+	label.add_theme_font_size_override("font_size", 15)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
 	label.add_theme_constant_override("outline_size", 6)
