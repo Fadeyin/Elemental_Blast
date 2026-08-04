@@ -412,10 +412,10 @@ func _reward_title(entry: Dictionary) -> String:
 		"booster":
 			var bid: String = str(entry.get("id", "hammer"))
 			var names := {
-				"hammer": "Молоток",
-				"row_blast": "Стрела",
-				"shuffle": "Перемешивание",
-				"freeze": "Заморозка"
+				"hammer": "Водный шар",
+				"row_blast": "Огненная стрела",
+				"shuffle": "Вихрь",
+				"freeze": "Корни"
 			}
 			return str(names.get(bid, bid))
 		"bonus_chip":

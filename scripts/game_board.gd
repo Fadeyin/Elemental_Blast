@@ -493,7 +493,7 @@ func _build_hammer_booster_tutorial_overlay() -> void:
 	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(highlight)
 	var hint := Label.new()
-	hint.text = "Молоток снимает одну фишку в вашей зоне. Нажмите на кнопку молотка, затем на фишку."
+	hint.text = "Водный шар снимает одну фишку в вашей зоне. Нажмите на кнопку, затем на фишку."
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", 22)
@@ -568,7 +568,7 @@ func _build_row_blast_booster_tutorial_overlay() -> void:
 	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(highlight)
 	var hint := Label.new()
-	hint.text = "Стрела убирает весь ряд фишек в вашей зоне. Нажмите на кнопку стрелы, затем на фишку в нужном ряду."
+	hint.text = "Огненная стрела убирает весь ряд фишек в вашей зоне. Нажмите на кнопку, затем на фишку в нужном ряду."
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", 22)
@@ -643,7 +643,7 @@ func _build_shuffle_booster_tutorial_overlay() -> void:
 	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(highlight)
 	var hint := Label.new()
-	hint.text = "Перемешивание случайно перераспределяет фишки в вашей зоне. Нажмите на кнопку — бустер применится сразу."
+	hint.text = "Вихрь случайно перераспределяет фишки в вашей зоне. Нажмите на кнопку — бустер применится сразу."
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", 22)
@@ -718,7 +718,7 @@ func _build_freeze_booster_tutorial_overlay() -> void:
 	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(highlight)
 	var hint := Label.new()
-	hint.text = "Заморозка останавливает монстров на один ход. Нажмите на кнопку заморозки, затем на зону врагов."
+	hint.text = "Корни останавливают монстров на один ход. Нажмите на кнопку, затем на зону врагов."
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", 22)
@@ -1097,10 +1097,10 @@ func _show_buy_booster_dialog(lm_type: int) -> void:
 	if not LevelManager.is_ingame_booster_unlocked_at_current_level(lm_type):
 		return
 	var booster_names = {
-		LevelManager.BoosterType.HAMMER: "Молоток",
-		LevelManager.BoosterType.ROW_BLAST: "Стрела",
-		LevelManager.BoosterType.SHUFFLE: "Перемешивание",
-		LevelManager.BoosterType.FREEZE: "Заморозка"
+		LevelManager.BoosterType.HAMMER: "Водный шар",
+		LevelManager.BoosterType.ROW_BLAST: "Огненная стрела",
+		LevelManager.BoosterType.SHUFFLE: "Вихрь",
+		LevelManager.BoosterType.FREEZE: "Корни"
 	}
 	var shop_icon_paths := INGAME_BOOSTER_ICON_PATHS
 	var booster_name = booster_names.get(lm_type, "Бустер")
@@ -2162,6 +2162,17 @@ func _draw():
 				var w = CELL_SIZE * 0.8 * (1.0 - k)
 				draw_line(vfx_pos - Vector2(length, 0), vfx_pos + Vector2(length, 0), Color(vfx.color.r, vfx.color.g, vfx.color.b, 1.0 - k), w)
 				draw_line(vfx_pos - Vector2(length, 0), vfx_pos + Vector2(length, 0), Color(1, 1, 1, (1.0 - k) * 0.8), w * 0.4)
+			"fire_beam":
+				var fire_length = COLS * CELL_SIZE
+				var fire_w = CELL_SIZE * 0.95 * (1.0 - k * 0.35)
+				var outer := Color(vfx.color.r, vfx.color.g, vfx.color.b, 0.95 * (1.0 - k))
+				var core := Color(1.0, 0.95, 0.45, 0.9 * (1.0 - k))
+				draw_line(vfx_pos - Vector2(fire_length, 0), vfx_pos + Vector2(fire_length, 0), outer, fire_w)
+				draw_line(vfx_pos - Vector2(fire_length, 0), vfx_pos + Vector2(fire_length, 0), core, fire_w * 0.35)
+				for spark_i in range(6):
+					var sx := vfx_pos.x + (float(spark_i) / 5.0 - 0.5) * fire_length * 0.7
+					var sy := vfx_pos.y + sin(k * TAU + float(spark_i)) * CELL_SIZE * 0.18
+					draw_circle(Vector2(sx, sy), 4.0 * (1.0 - k), Color(1.0, 0.55, 0.15, 0.85 * (1.0 - k)))
 			"beam_vertical":
 				var length = PLAYER_ROWS * CELL_SIZE
 				var w = CELL_SIZE * 0.8 * (1.0 - k)
@@ -2184,6 +2195,37 @@ func _draw():
 				for i in range(4):
 					var dir = Vector2.UP.rotated(i * PI / 4.0)
 					draw_line(vfx_pos - dir * size, vfx_pos + dir * size, color, 3.0)
+			"water_splash":
+				var splash_alpha := 1.0 - k
+				var splash_r := CELL_SIZE * (0.25 + k * 0.55)
+				var splash_col := Color(vfx.color.r, vfx.color.g, vfx.color.b, splash_alpha * 0.7)
+				draw_circle(vfx_pos, splash_r, splash_col)
+				draw_arc(vfx_pos, splash_r * 0.85, 0.0, TAU, 28, Color(0.85, 0.98, 1.0, splash_alpha), 3.0)
+				for drop_i in range(8):
+					var drop_dir := Vector2.RIGHT.rotated(float(drop_i) * TAU / 8.0 + k * 1.2)
+					var drop_pos := vfx_pos + drop_dir * (splash_r * 0.55)
+					draw_circle(drop_pos, 3.5 * (1.0 - k * 0.5), Color(0.55, 0.85, 1.0, splash_alpha))
+			"whirlwind":
+				var whirl_alpha := 1.0 - k
+				var whirl_r := CELL_SIZE * (0.35 + k * 1.1)
+				var whirl_col := Color(vfx.color.r, vfx.color.g, vfx.color.b, whirl_alpha * 0.85)
+				for ring_i in range(3):
+					var rr := whirl_r * (0.45 + float(ring_i) * 0.28)
+					var start_a := k * TAU * (1.5 + float(ring_i) * 0.4)
+					draw_arc(vfx_pos, rr, start_a, start_a + PI * 1.2, 24, whirl_col, 3.0 - float(ring_i) * 0.5)
+				draw_circle(vfx_pos, 6.0 * (1.0 - k * 0.4), Color(0.85, 0.95, 1.0, whirl_alpha))
+			"roots":
+				var roots_alpha := 1.0 - k
+				var grow := ease(k, 0.35)
+				var root_col := Color(vfx.color.r, vfx.color.g, vfx.color.b, roots_alpha)
+				var stem_h := ENEMY_CELL_HEIGHT * (0.35 + grow * 0.55)
+				draw_line(vfx_pos + Vector2(0, stem_h * 0.35), vfx_pos - Vector2(0, stem_h * 0.65), root_col, 4.0)
+				for branch_i in range(3):
+					var side := -1.0 if branch_i % 2 == 0 else 1.0
+					var by := vfx_pos.y - stem_h * (0.15 + float(branch_i) * 0.2)
+					var tip := Vector2(vfx_pos.x + side * CELL_SIZE * (0.18 + grow * 0.22), by - ENEMY_CELL_HEIGHT * 0.12)
+					draw_line(Vector2(vfx_pos.x, by), tip, root_col, 2.5)
+					draw_circle(tip, 2.5, Color(0.45, 0.85, 0.35, roots_alpha))
 			"particle":
 				var alpha = 1.0 - k
 				var color = vfx.color
@@ -2776,35 +2818,83 @@ func _use_booster_on_cell(cell: Vector2i):
 	queue_redraw()
 
 func _apply_freeze():
-	_freeze_turns = 1 # Замораживаем на один ход
-	# Добавим VFX снежинок на все поле врагов
-	var vp_size = _get_layout_viewport_size()
+	_freeze_turns = 1 # Останавливаем монстров на один ход (Корни)
 	var origin = _board_pixel_origin()
 	for y in range(ENEMY_ROWS):
 		for x in range(COLS):
 			if enemies[y][x] > 0:
-				var pos = origin + Vector2(x * CELL_SIZE + CELL_SIZE * 0.5, y * CELL_SIZE + CELL_SIZE * 0.5)
+				var pos = origin + Vector2(x * CELL_SIZE + CELL_SIZE * 0.5, y * ENEMY_CELL_HEIGHT + ENEMY_CELL_HEIGHT * 0.5)
 				_board_vfx.append({
-					"type": "snowflake",
+					"type": "roots",
 					"pos": pos,
-					"color": Color(0.7, 0.9, 1.0, 0.9),
+					"color": Color(0.35, 0.7, 0.28, 0.95),
 					"t": 0.0,
-					"d": 0.8
+					"d": 0.85
 				})
+				for leaf_i in range(4):
+					var angle = randf() * TAU
+					var speed = randf_range(40.0, 110.0)
+					_board_vfx.append({
+						"type": "particle",
+						"pos": pos,
+						"vel": Vector2.RIGHT.rotated(angle) * speed,
+						"gravity": Vector2(0, 120.0),
+						"color": Color(0.45, 0.82, 0.32, 0.9),
+						"t": 0.0,
+						"d": randf_range(0.35, 0.6),
+						"size": randf_range(3.0, 6.0)
+					})
 	set_process(true)
 	_refresh_enemy_intent_preview()
 	queue_redraw()
 
 func _apply_hammer(cell: Vector2i):
+	# VFX Водного шара
+	var origin = _board_pixel_origin()
+	var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (cell.y - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
+	var center_pos = origin + Vector2(cell.x * CELL_SIZE + CELL_SIZE * 0.5, y_pos + CELL_SIZE * 0.5)
+	_board_vfx.append({
+		"type": "water_splash",
+		"pos": center_pos,
+		"color": Color(0.25, 0.65, 1.0, 0.95),
+		"t": 0.0,
+		"d": 0.4
+	})
+	for i in range(10):
+		var angle = randf() * TAU
+		var speed = randf_range(120.0, 260.0)
+		_board_vfx.append({
+			"type": "particle",
+			"pos": center_pos,
+			"vel": Vector2.RIGHT.rotated(angle) * speed,
+			"gravity": Vector2(0, 350.0),
+			"color": Color(0.4, 0.8, 1.0, 0.95),
+			"t": 0.0,
+			"d": randf_range(0.3, 0.55),
+			"size": randf_range(3.0, 7.0)
+		})
+	set_process(true)
 	_trigger_chip_at(cell.x, cell.y, false)
 	_apply_gravity_up()
 
 func _apply_row_blast(row_y: int, trigger_move: bool = true):
-	# VFX Ракеты
+	# VFX Огненной стрелы
 	var origin = _board_pixel_origin()
 	var center_y = origin.y + row_y * CELL_SIZE + CELL_SIZE * 0.5
 	var beam_x: float = origin.x + float(COLS) * CELL_SIZE * 0.5
-	_board_vfx.append({"type": "beam", "pos": Vector2(beam_x, center_y), "color": Color(0.4, 0.6, 1.0), "t": 0.0, "d": 0.3})
+	_board_vfx.append({"type": "fire_beam", "pos": Vector2(beam_x, center_y), "color": Color(1.0, 0.35, 0.08), "t": 0.0, "d": 0.35})
+	for i in range(8):
+		var px := origin.x + (float(i) + 0.5) / 8.0 * float(COLS) * CELL_SIZE
+		_board_vfx.append({
+			"type": "particle",
+			"pos": Vector2(px, center_y),
+			"vel": Vector2(randf_range(-40.0, 40.0), randf_range(-180.0, -60.0)),
+			"gravity": Vector2(0, 280.0),
+			"color": Color(1.0, randf_range(0.35, 0.75), 0.1, 0.95),
+			"t": 0.0,
+			"d": randf_range(0.25, 0.45),
+			"size": randf_range(3.0, 6.0)
+		})
 	set_process(true)
 
 	for x in range(COLS):
@@ -2815,6 +2905,33 @@ func _apply_row_blast(row_y: int, trigger_move: bool = true):
 	queue_redraw()
 
 func _apply_booster_shuffle():
+	# VFX Вихря по зоне игрока
+	var origin = _board_pixel_origin()
+	var zone_center := origin + Vector2(
+		float(COLS) * CELL_SIZE * 0.5,
+		float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + _field_gap_total + float(PLAYER_ROWS) * CELL_SIZE * 0.5
+	)
+	_board_vfx.append({
+		"type": "whirlwind",
+		"pos": zone_center,
+		"color": Color(0.55, 0.82, 1.0, 0.95),
+		"t": 0.0,
+		"d": 0.55
+	})
+	for i in range(14):
+		var angle = randf() * TAU
+		var speed = randf_range(80.0, 220.0)
+		_board_vfx.append({
+			"type": "particle",
+			"pos": zone_center,
+			"vel": Vector2.RIGHT.rotated(angle) * speed,
+			"gravity": Vector2(0, 40.0),
+			"color": Color(0.7, 0.9, 1.0, 0.9),
+			"t": 0.0,
+			"d": randf_range(0.3, 0.55),
+			"size": randf_range(3.0, 6.0)
+		})
+	set_process(true)
 	var colors := []
 	for y in range(ENEMY_ROWS, ROWS):
 		for x in range(COLS):
@@ -3096,7 +3213,7 @@ func _combo_bomb_plus_rocket(cx: int, cy: int):
 			var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (target_y - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 			var center_y = origin.y + y_pos + CELL_SIZE * 0.5
 			var beam_x: float = origin.x + float(COLS) * CELL_SIZE * 0.5
-			_board_vfx.append({"type": "beam", "pos": Vector2(beam_x, center_y), "color": Color(0.4, 0.6, 1.0), "t": 0.0, "d": 0.3})
+			_board_vfx.append({"type": "fire_beam", "pos": Vector2(beam_x, center_y), "color": Color(1.0, 0.35, 0.08), "t": 0.0, "d": 0.3})
 			set_process(true)
 			
 			for x in range(COLS):
