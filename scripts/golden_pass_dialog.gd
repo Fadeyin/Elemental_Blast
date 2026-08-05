@@ -75,7 +75,10 @@ func setup() -> void:
 	var sub := Label.new()
 	sub.name = "GoldenPassSubLabel"
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	sub.add_theme_font_size_override("font_size", 18)
+	sub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sub.clip_contents = true
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.add_theme_font_size_override("font_size", 17)
 	sub.add_theme_color_override("font_color", Color(0.88, 0.9, 0.95))
 	root_v.add_child(sub)
 	_buy_pass_btn = Button.new()

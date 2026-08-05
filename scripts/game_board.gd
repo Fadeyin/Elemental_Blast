@@ -65,11 +65,11 @@ const BREAKABLE_WALL_TEXTURE_SCALE := 2.0
 const BOSS_DRAW_SCALE := 2.0
 const VILLAIN_PORTRAIT_TEXTURE := preload("res://textures/ui_evil_wizard_portrait.png")
 const VILLAIN_PORTRAIT_SIZE := Vector2(168, 168)
-const MONSTERS_COUNT_FRAME_MIN_SIZE := Vector2(315, 111)
+const MONSTERS_COUNT_FRAME_MIN_SIZE := Vector2(300, 124)
 const MONSTERS_COUNT_FRAME_OVERLAP := 57
-const MONSTERS_REMAINING_CAPTION := "Осталось монстров"
-const MONSTERS_COUNT_CAPTION_FONT_SIZE := 30
-const MONSTERS_COUNT_NUMBER_FONT_SIZE := 84
+const MONSTERS_REMAINING_CAPTION := "Осталось\nмонстров"
+const MONSTERS_COUNT_CAPTION_FONT_SIZE := 22
+const MONSTERS_COUNT_NUMBER_FONT_SIZE := 72
 const MONSTERS_COUNT_TEXT_COLOR := Color(0.98, 0.94, 0.82, 1.0)
 const MONSTERS_COUNT_FRAME_PURPLE := Color(0.42, 0.18, 0.62, 1.0)
 const MONSTERS_COUNT_FRAME_GOLD := Color(0.93, 0.76, 0.28, 1.0)
@@ -509,10 +509,15 @@ func _build_hammer_booster_tutorial_overlay() -> void:
 	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var hw: float = minf(maxf(overlay.size.x - 40.0, 160.0), 560.0)
 	hint.custom_minimum_size = Vector2(hw, 0)
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hint.clip_contents = true
+	var hint_h: float = GameFonts.measure_mixed_wrapped(
+		hint.text, 22, hw, TextServer.AUTOWRAP_WORD_SMART, 0.0
+	).height + 12.0
 	var hint_x: float = overlay.size.x * 0.5 - hw * 0.5
-	var hint_y: float = maxf(16.0, local_rect.position.y - 150.0)
+	var hint_y: float = maxf(16.0, local_rect.position.y - maxf(hint_h + 24.0, 150.0))
 	hint.position = Vector2(hint_x, hint_y)
-	hint.size = Vector2(hw, 120)
+	hint.size = Vector2(hw, hint_h)
 	overlay.add_child(hint)
 	if LevelManager:
 		LevelManager.mark_hammer_booster_tutorial_shown()
@@ -584,10 +589,15 @@ func _build_row_blast_booster_tutorial_overlay() -> void:
 	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var hw: float = minf(maxf(overlay.size.x - 40.0, 160.0), 560.0)
 	hint.custom_minimum_size = Vector2(hw, 0)
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hint.clip_contents = true
+	var hint_h: float = GameFonts.measure_mixed_wrapped(
+		hint.text, 22, hw, TextServer.AUTOWRAP_WORD_SMART, 0.0
+	).height + 12.0
 	var hint_x: float = overlay.size.x * 0.5 - hw * 0.5
-	var hint_y: float = maxf(16.0, local_rect.position.y - 150.0)
+	var hint_y: float = maxf(16.0, local_rect.position.y - maxf(hint_h + 24.0, 150.0))
 	hint.position = Vector2(hint_x, hint_y)
-	hint.size = Vector2(hw, 120)
+	hint.size = Vector2(hw, hint_h)
 	overlay.add_child(hint)
 	if LevelManager:
 		LevelManager.mark_row_blast_booster_tutorial_shown()
@@ -659,10 +669,15 @@ func _build_shuffle_booster_tutorial_overlay() -> void:
 	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var hw: float = minf(maxf(overlay.size.x - 40.0, 160.0), 560.0)
 	hint.custom_minimum_size = Vector2(hw, 0)
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hint.clip_contents = true
+	var hint_h: float = GameFonts.measure_mixed_wrapped(
+		hint.text, 22, hw, TextServer.AUTOWRAP_WORD_SMART, 0.0
+	).height + 12.0
 	var hint_x: float = overlay.size.x * 0.5 - hw * 0.5
-	var hint_y: float = maxf(16.0, local_rect.position.y - 150.0)
+	var hint_y: float = maxf(16.0, local_rect.position.y - maxf(hint_h + 24.0, 150.0))
 	hint.position = Vector2(hint_x, hint_y)
-	hint.size = Vector2(hw, 120)
+	hint.size = Vector2(hw, hint_h)
 	overlay.add_child(hint)
 	if LevelManager:
 		LevelManager.mark_shuffle_booster_tutorial_shown()
@@ -734,10 +749,15 @@ func _build_freeze_booster_tutorial_overlay() -> void:
 	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var hw: float = minf(maxf(overlay.size.x - 40.0, 160.0), 560.0)
 	hint.custom_minimum_size = Vector2(hw, 0)
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hint.clip_contents = true
+	var hint_h: float = GameFonts.measure_mixed_wrapped(
+		hint.text, 22, hw, TextServer.AUTOWRAP_WORD_SMART, 0.0
+	).height + 12.0
 	var hint_x: float = overlay.size.x * 0.5 - hw * 0.5
-	var hint_y: float = maxf(16.0, local_rect.position.y - 150.0)
+	var hint_y: float = maxf(16.0, local_rect.position.y - maxf(hint_h + 24.0, 150.0))
 	hint.position = Vector2(hint_x, hint_y)
-	hint.size = Vector2(hw, 120)
+	hint.size = Vector2(hw, hint_h)
 	overlay.add_child(hint)
 	if LevelManager:
 		LevelManager.mark_freeze_booster_tutorial_shown()
@@ -833,17 +853,24 @@ func _make_monsters_remaining_frame_stylebox() -> StyleBoxFlat:
 func _style_monsters_remaining_caption_label(label: Label) -> void:
 	label.text = MONSTERS_REMAINING_CAPTION
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.add_theme_font_size_override("font_size", MONSTERS_COUNT_CAPTION_FONT_SIZE)
 	label.add_theme_color_override("font_color", MONSTERS_COUNT_TEXT_COLOR)
 	label.add_theme_color_override("font_outline_color", Color(0.15, 0.05, 0.2, 0.85))
-	label.add_theme_constant_override("outline_size", 5)
+	label.add_theme_constant_override("outline_size", 4)
+	label.clip_text = true
+	label.clip_contents = true
 
 func _style_monsters_remaining_count_label(label: Label) -> void:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.add_theme_font_size_override("font_size", MONSTERS_COUNT_NUMBER_FONT_SIZE)
 	label.add_theme_color_override("font_color", MONSTERS_COUNT_TEXT_COLOR)
 	label.add_theme_color_override("font_outline_color", Color(0.12, 0.04, 0.18, 0.95))
-	label.add_theme_constant_override("outline_size", 8)
+	label.add_theme_constant_override("outline_size", 6)
+	label.clip_contents = true
 
 func _style_ingame_booster_count_label(label: Label) -> void:
 	label.add_theme_font_size_override("font_size", 15)

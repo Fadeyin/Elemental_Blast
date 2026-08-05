@@ -77,10 +77,12 @@ func _fill_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_c
 	body.text = "Уровень пройден.\n\nНаграда:\n  Базовая: %d монет\n  За бонусные фишки на поле: %d × %d = %d монет\n\nВсего: %d монет" % [base_reward, bonus_chips_count, coins_per_bonus_chip, chips_bonus, total]
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.add_theme_font_size_override("font_size", 32)
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.clip_contents = true
+	body.add_theme_font_size_override("font_size", 26)
 	body.add_theme_color_override("font_color", Color(0.95, 0.95, 1.0))
 	body.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	body.add_theme_constant_override("outline_size", 5)
+	body.add_theme_constant_override("outline_size", 4)
 	vbox.add_child(body)
 	_append_mort_helmet_progress_panel(vbox)
 	vbox.add_child(_spacer())
@@ -124,10 +126,12 @@ func _append_mort_helmet_progress_panel(vbox: VBoxContainer) -> void:
 		return
 	inner.add_child(lbl)
 	var hint := Label.new()
-	hint.add_theme_font_size_override("font_size", 22)
+	hint.add_theme_font_size_override("font_size", 20)
 	hint.add_theme_color_override("font_color", Color(0.95, 0.9, 0.95))
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hint.clip_contents = true
 	var bonuses: Dictionary = LevelManager.get_mort_helmet_bonus_chips()
 	var arrows: int = int(bonuses.get("arrow", 0))
 	var bombs: int = int(bonuses.get("bomb", 0))
@@ -159,21 +163,21 @@ func _fill_defeat(refill_cost: int, player_coins: int, hearts_to_restore: int, c
 		body.text = "Жизни закончились.\n\nДля следующего восстановления нужно %d монет (%d жизней).\nУ вас: %d монет\n\nВернитесь в меню или попробуйте снова." % [refill_cost, hearts_to_restore, player_coins]
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.add_theme_font_size_override("font_size", 32)
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.clip_contents = true
+	body.add_theme_font_size_override("font_size", 26)
 	body.add_theme_color_override("font_color", Color(0.92, 0.92, 0.95))
 	body.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	body.add_theme_constant_override("outline_size", 5)
+	body.add_theme_constant_override("outline_size", 4)
 	vbox.add_child(body)
 	vbox.add_child(_spacer())
 	if can_refill:
-		var row = HBoxContainer.new()
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 24)
-		row.add_child(_big_button("ВОССТАНОВИТЬ (%d)" % refill_cost, _on_refill_lives, Color(0.22, 0.48, 0.58), Color(0.35, 0.65, 0.78)))
-		row.add_child(_big_button("В МЕНЮ", _on_to_menu, Color(0.45, 0.22, 0.22), Color(0.65, 0.35, 0.35)))
-		var wrap = CenterContainer.new()
-		wrap.add_child(row)
-		vbox.add_child(wrap)
+		var actions = VBoxContainer.new()
+		actions.add_theme_constant_override("separation", 14)
+		actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		actions.add_child(_big_button("ВОССТАНОВИТЬ (%d)" % refill_cost, _on_refill_lives, Color(0.22, 0.48, 0.58), Color(0.35, 0.65, 0.78)))
+		actions.add_child(_big_button("В МЕНЮ", _on_to_menu, Color(0.45, 0.22, 0.22), Color(0.65, 0.35, 0.35)))
+		vbox.add_child(actions)
 	else:
 		vbox.add_child(_wrap_big_button("В МЕНЮ", _on_to_menu))
 
@@ -186,8 +190,11 @@ func _spacer() -> Control:
 func _big_button(text: String, on_press: Callable, bg: Color, border: Color) -> Button:
 	var btn = Button.new()
 	btn.text = text
-	btn.custom_minimum_size = Vector2(260, 96)
-	btn.add_theme_font_size_override("font_size", 36)
+	btn.custom_minimum_size = Vector2(0, 88)
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.clip_text = true
+	btn.clip_contents = true
+	btn.add_theme_font_size_override("font_size", 28)
 	btn.add_theme_color_override("font_color", Color.WHITE)
 	btn.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	btn.add_theme_constant_override("outline_size", 6)
@@ -213,7 +220,11 @@ func _big_button(text: String, on_press: Callable, bg: Color, border: Color) -> 
 
 func _wrap_big_button(text: String, on_press: Callable) -> CenterContainer:
 	var wrap = CenterContainer.new()
-	wrap.add_child(_big_button(text, on_press, Color(0.25, 0.38, 0.62), Color(0.45, 0.6, 0.9)))
+	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var btn := _big_button(text, on_press, Color(0.25, 0.38, 0.62), Color(0.45, 0.6, 0.9))
+	btn.custom_minimum_size = Vector2(320, 88)
+	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	wrap.add_child(btn)
 	return wrap
 
 func _on_to_menu() -> void:

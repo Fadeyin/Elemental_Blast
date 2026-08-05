@@ -899,6 +899,9 @@ func _create_shop_offer(title: String, subtitle: String, items: Array, price: St
 	
 	var subtitle_label = Label.new()
 	subtitle_label.text = subtitle
+	subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	subtitle_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	subtitle_label.clip_contents = true
 	subtitle_label.add_theme_font_size_override("font_size", 18)
 	subtitle_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
 	content_vbox.add_child(subtitle_label)
@@ -908,7 +911,10 @@ func _create_shop_offer(title: String, subtitle: String, items: Array, price: St
 	for item in items:
 		var item_label = Label.new()
 		item_label.text = "  - " + item
-		item_label.add_theme_font_size_override("font_size", 22)
+		item_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		item_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		item_label.clip_contents = true
+		item_label.add_theme_font_size_override("font_size", 18)
 		item_label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
 		content_vbox.add_child(item_label)
 	

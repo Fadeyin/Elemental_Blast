@@ -169,6 +169,8 @@ func _setup_label(label: Label) -> void:
 			label.set_meta(META_MIXED_ACTIVE, true)
 			if label.has_method("_activate_mixed_draw"):
 				label._activate_mixed_draw()
+		elif label.has_method("_game_fonts_refresh"):
+			label._game_fonts_refresh()
 		return
 	_clear_label_script(label)
 	label.add_theme_font_override("font", text_font)
@@ -187,6 +189,8 @@ func _setup_button(button: Button) -> void:
 			button.set_meta(META_MIXED_ACTIVE, true)
 			if button.has_method("_activate_mixed_draw"):
 				button._activate_mixed_draw()
+		elif button.has_method("_game_fonts_refresh"):
+			button._game_fonts_refresh()
 		return
 	_clear_button_script(button)
 	button.add_theme_font_override("font", text_font)
@@ -210,6 +214,8 @@ func measure_mixed_text_layout(text: String, font_size: int, use_heavy: bool = f
 	var max_descent := 0.0
 	for i in range(text.length()):
 		var ch := text.substr(i, 1)
+		if ch == "\n":
+			continue
 		var font := font_for_char(ch, use_heavy)
 		width += font.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
 		max_ascent = maxf(max_ascent, font.get_ascent(font_size))
@@ -225,6 +231,119 @@ func measure_mixed_text_layout(text: String, font_size: int, use_heavy: bool = f
 func measure_mixed_string(text: String, font_size: int, use_heavy: bool = false) -> Vector2:
 	var layout := measure_mixed_text_layout(text, font_size, use_heavy)
 	return Vector2(layout.width, layout.height)
+
+
+func fit_mixed_font_size(
+	text: String,
+	max_width: float,
+	desired_size: int,
+	min_size: int = 14,
+	use_heavy: bool = false
+) -> int:
+	var fs: int = maxi(desired_size, min_size)
+	if max_width <= 1.0 or text.is_empty():
+		return fs
+	while fs > min_size:
+		if measure_mixed_string(text, fs, use_heavy).x <= max_width:
+			return fs
+		fs -= 1
+	return min_size
+
+
+func wrap_mixed_text(
+	text: String,
+	font_size: int,
+	max_width: float,
+	autowrap_mode: TextServer.AutowrapMode = TextServer.AUTOWRAP_OFF,
+	use_heavy: bool = false
+) -> PackedStringArray:
+	var lines: PackedStringArray = PackedStringArray()
+	var paragraphs := text.split("\n", true)
+	var allow_wrap: bool = autowrap_mode != TextServer.AUTOWRAP_OFF and max_width > 1.0
+	for paragraph in paragraphs:
+		if not allow_wrap:
+			lines.append(paragraph)
+			continue
+		if paragraph.is_empty():
+			lines.append("")
+			continue
+		var words := paragraph.split(" ", false)
+		if words.is_empty():
+			lines.append("")
+			continue
+		var current := ""
+		for word in words:
+			var candidate: String = word if current.is_empty() else current + " " + word
+			if measure_mixed_string(candidate, font_size, use_heavy).x <= max_width:
+				current = candidate
+				continue
+			if not current.is_empty():
+				lines.append(current)
+				current = ""
+			if measure_mixed_string(word, font_size, use_heavy).x <= max_width:
+				current = word
+				continue
+			# Длинное слово без пробелов — режем по символам
+			var chunk := ""
+			for i in range(word.length()):
+				var ch := word.substr(i, 1)
+				var next_chunk: String = chunk + ch
+				if chunk.is_empty() or measure_mixed_string(next_chunk, font_size, use_heavy).x <= max_width:
+					chunk = next_chunk
+				else:
+					lines.append(chunk)
+					chunk = ch
+			current = chunk
+		if not current.is_empty() or words.is_empty():
+			lines.append(current)
+	if lines.is_empty():
+		lines.append("")
+	return lines
+
+
+func measure_mixed_lines(
+	lines: PackedStringArray,
+	font_size: int,
+	line_spacing: float = 0.0,
+	use_heavy: bool = false
+) -> Dictionary:
+	var max_width := 0.0
+	var total_height := 0.0
+	var max_ascent := 0.0
+	var max_descent := 0.0
+	var line_height := 0.0
+	for i in range(lines.size()):
+		var line: String = lines[i]
+		var layout := measure_mixed_text_layout(line if not line.is_empty() else " ", font_size, use_heavy)
+		max_width = maxf(max_width, layout.width if not line.is_empty() else 0.0)
+		max_ascent = maxf(max_ascent, layout.ascent)
+		max_descent = maxf(max_descent, layout.descent)
+		line_height = layout.height
+		total_height += layout.height
+		if i < lines.size() - 1:
+			total_height += line_spacing
+	return {
+		"width": max_width,
+		"height": total_height,
+		"ascent": max_ascent,
+		"descent": max_descent,
+		"line_height": line_height,
+		"line_count": lines.size(),
+	}
+
+
+func measure_mixed_wrapped(
+	text: String,
+	font_size: int,
+	max_width: float,
+	autowrap_mode: TextServer.AutowrapMode = TextServer.AUTOWRAP_OFF,
+	line_spacing: float = 0.0,
+	use_heavy: bool = false
+) -> Dictionary:
+	var lines := wrap_mixed_text(text, font_size, max_width, autowrap_mode, use_heavy)
+	var measured := measure_mixed_lines(lines, font_size, line_spacing, use_heavy)
+	measured["lines"] = lines
+	return measured
 
 
 func draw_mixed_string(
@@ -246,6 +365,8 @@ func draw_mixed_string(
 	var x := baseline_pos.x
 	for i in range(text.length()):
 		var ch := text.substr(i, 1)
+		if ch == "\n":
+			continue
 		var font := font_for_char(ch, use_heavy)
 		var y: float = baseline_pos.y + (max_ascent - font.get_ascent(font_size))
 		if outline_px > 0 and outline_color.a > 0.0:
@@ -275,20 +396,34 @@ func draw_mixed_string_in_rect(
 	v_align: VerticalAlignment,
 	outline_color: Color = Color(0, 0, 0, 0),
 	outline_size: int = 0,
-	use_heavy: bool = false
+	use_heavy: bool = false,
+	autowrap_mode: TextServer.AutowrapMode = TextServer.AUTOWRAP_OFF,
+	line_spacing: float = 0.0
 ) -> void:
 	if text.is_empty():
 		return
-	var layout := measure_mixed_text_layout(text, font_size, use_heavy)
-	var baseline := rect.position
-	if h_align == HORIZONTAL_ALIGNMENT_CENTER:
-		baseline.x += (rect.size.x - layout.width) * 0.5
-	elif h_align == HORIZONTAL_ALIGNMENT_RIGHT:
-		baseline.x += rect.size.x - layout.width
+	var max_width: float = rect.size.x
+	var measured := measure_mixed_wrapped(text, font_size, max_width, autowrap_mode, line_spacing, use_heavy)
+	var lines: PackedStringArray = measured.lines
+	var block_height: float = measured.height
+	var line_height: float = measured.line_height
+	var y0 := rect.position.y
 	if v_align == VERTICAL_ALIGNMENT_CENTER:
-		baseline.y += (rect.size.y - layout.height) * 0.5 + layout.ascent
+		y0 += (rect.size.y - block_height) * 0.5
 	elif v_align == VERTICAL_ALIGNMENT_BOTTOM:
-		baseline.y += rect.size.y - layout.descent
-	else:
-		baseline.y += layout.ascent
-	draw_mixed_string(canvas, baseline, text, font_size, color, outline_color, outline_size, layout.ascent, use_heavy)
+		y0 += rect.size.y - block_height
+	var y := y0
+	for i in range(lines.size()):
+		var line: String = lines[i]
+		var layout := measure_mixed_text_layout(line if not line.is_empty() else " ", font_size, use_heavy)
+		var baseline := Vector2(rect.position.x, y + layout.ascent)
+		if h_align == HORIZONTAL_ALIGNMENT_CENTER:
+			baseline.x += (rect.size.x - layout.width) * 0.5
+		elif h_align == HORIZONTAL_ALIGNMENT_RIGHT:
+			baseline.x += rect.size.x - layout.width
+		if not line.is_empty():
+			draw_mixed_string(canvas, baseline, line, font_size, color, outline_color, outline_size, layout.ascent, use_heavy)
+		y += line_height
+		if i < lines.size() - 1:
+			y += line_spacing
+

@@ -251,10 +251,13 @@ func _add_mort_helmet_section(vbox: VBoxContainer):
 	# Описание текущего бонуса (на стадии 0 — поясняем как получить бонусы)
 	var bonus_chips: Dictionary = LevelManager.get_mort_helmet_bonus_chips()
 	var bonus_desc := Label.new()
-	bonus_desc.add_theme_font_size_override("font_size", 22)
+	bonus_desc.add_theme_font_size_override("font_size", 20)
 	bonus_desc.add_theme_color_override("font_outline_color", Color.BLACK)
 	bonus_desc.add_theme_constant_override("outline_size", 3)
 	bonus_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bonus_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	bonus_desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bonus_desc.clip_contents = true
 	if not bonus_chips.is_empty():
 		var arrow_count: int = int(bonus_chips.get("arrow", 0))
 		var bomb_count: int = int(bonus_chips.get("bomb", 0))
@@ -348,6 +351,8 @@ func _show_mort_helmet_rules() -> void:
 	var desc := Label.new()
 	desc.text = "Побеждайте уровни подряд — стадия Шлема будет расти, а на старт следующего уровня вы получите больше бонусов на поле."
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	desc.clip_contents = true
 	desc.add_theme_font_size_override("font_size", 20)
 	desc.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -360,7 +365,10 @@ func _show_mort_helmet_rules() -> void:
 	]:
 		var row := Label.new()
 		row.text = stage_data["text"]
-		row.add_theme_font_size_override("font_size", 22)
+		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.clip_contents = true
+		row.add_theme_font_size_override("font_size", 20)
 		row.add_theme_color_override("font_color", Color(0.95, 0.85, 0.5))
 		row.add_theme_color_override("font_outline_color", Color.BLACK)
 		row.add_theme_constant_override("outline_size", 3)
@@ -370,6 +378,8 @@ func _show_mort_helmet_rules() -> void:
 	var hint := Label.new()
 	hint.text = "Поражение или выход после хода сбрасывают серию."
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hint.clip_contents = true
 	hint.add_theme_font_size_override("font_size", 18)
 	hint.add_theme_color_override("font_color", Color(0.85, 0.65, 0.65))
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -493,11 +503,14 @@ func _add_prelevel_boosts_section(vbox: VBoxContainer):
 		return
 	var boosts_title = Label.new()
 	boosts_title.text = "ПРЕДУРОВНЕВЫЕ УСИЛЕНИЯ"
-	boosts_title.add_theme_font_size_override("font_size", 28)
+	boosts_title.add_theme_font_size_override("font_size", 26)
 	boosts_title.add_theme_color_override("font_color", Color(0.8, 0.9, 1.0))
 	boosts_title.add_theme_color_override("font_outline_color", Color.BLACK)
 	boosts_title.add_theme_constant_override("outline_size", 4)
 	boosts_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	boosts_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	boosts_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	boosts_title.clip_contents = true
 	vbox.add_child(boosts_title)
 	_prelevel_boosts_row = HBoxContainer.new()
 	_prelevel_boosts_row.alignment = BoxContainer.ALIGNMENT_CENTER
