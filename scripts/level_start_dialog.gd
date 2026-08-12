@@ -41,6 +41,7 @@ func _build_dialog():
 	
 	# Центральная панель диалога
 	var panel = Panel.new()
+	panel.name = "LevelStartPanel"
 	panel.custom_minimum_size = Vector2(600, 700)
 	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	panel.offset_left = -300
@@ -106,6 +107,7 @@ func _build_dialog():
 	
 	# Кнопка "Играть"
 	var play_btn = Button.new()
+	play_btn.name = "PlayButton"
 	play_btn.text = "ИГРАТЬ"
 	play_btn.custom_minimum_size = Vector2(400, 80)
 	
@@ -138,6 +140,17 @@ func _build_dialog():
 	var play_container = CenterContainer.new()
 	play_container.add_child(play_btn)
 	vbox.add_child(play_container)
+	call_deferred("_play_open_animations")
+
+func _play_open_animations() -> void:
+	var dimmer := get_node_or_null("LevelStartDimmer") as CanvasItem
+	var panel := get_node_or_null("LevelStartPanel") as Control
+	if dimmer == null or panel == null:
+		return
+	UiDialogAnima.play_dialog_open(dimmer, panel)
+	var play_btn := panel.find_child("PlayButton", true, false) as Control
+	if play_btn != null:
+		UiDialogAnima.play_attention_pulse(play_btn, 0.48)
 
 func _add_mort_helmet_section(vbox: VBoxContainer):
 	if not LevelManager:

@@ -11,10 +11,12 @@ var _closing: bool = false
 func setup_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_count: int, coins_per_bonus_chip: int) -> void:
 	_build_base()
 	_fill_victory(total, base_reward, chips_bonus, bonus_chips_count, coins_per_bonus_chip)
+	_play_open_animations(true)
 
 func setup_defeat_no_lives(refill_cost: int, player_coins: int, hearts_to_restore: int, can_refill: bool) -> void:
 	_build_base()
 	_fill_defeat(refill_cost, player_coins, hearts_to_restore, can_refill)
+	_play_open_animations(false)
 
 func _build_base() -> void:
 	while get_child_count() > 0:
@@ -22,6 +24,7 @@ func _build_base() -> void:
 		remove_child(ch)
 		ch.free()
 	var bg = ColorRect.new()
+	bg.name = "LevelEndDimmer"
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.color = Color(0, 0, 0, 0.75)
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -66,6 +69,7 @@ func _main_vbox() -> VBoxContainer:
 func _fill_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_count: int, coins_per_bonus_chip: int) -> void:
 	var vbox = _main_vbox()
 	var title = Label.new()
+	title.name = "TitleLabel"
 	title.text = "ПОБЕДА!"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 56)
@@ -98,6 +102,7 @@ func _append_mort_helmet_progress_panel(vbox: VBoxContainer) -> void:
 	if stage_before < 0:
 		return
 	var panel := PanelContainer.new()
+	panel.name = "MortHelmetProgressPanel"
 	var ps := StyleBoxFlat.new()
 	ps.bg_color = Color(0.18, 0.16, 0.28, 0.85)
 	ps.set_corner_radius_all(12)
@@ -137,18 +142,29 @@ func _append_mort_helmet_progress_panel(vbox: VBoxContainer) -> void:
 	var bombs: int = int(bonuses.get("bomb", 0))
 	hint.text = "На старте следующего уровня: %d стрел + %d бомб" % [arrows, bombs]
 	inner.add_child(hint)
-	# Анимация: лёгкое всплытие/масштабирование.
-	panel.modulate.a = 0.0
-	panel.scale = Vector2(0.92, 0.92)
-	panel.pivot_offset = Vector2(panel.custom_minimum_size.x * 0.5, panel.custom_minimum_size.y * 0.5)
-	var tween := panel.create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(panel, "modulate:a", 1.0, 0.35).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_property(panel, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	call_deferred("_play_mort_helmet_panel_enter", panel)
+
+func _play_mort_helmet_panel_enter(panel: PanelContainer) -> void:
+	if not is_instance_valid(panel):
+		return
+	UiDialogAnima.play_pop_in(panel, 0.9, 0.12)
+
+func _play_open_animations(is_victory: bool) -> void:
+	var dimmer := get_node_or_null("LevelEndDimmer") as CanvasItem
+	var panel := get_node_or_null("LevelEndPanel") as Control
+	if dimmer != null and panel != null:
+		UiDialogAnima.play_dialog_open(dimmer, panel)
+	var title := _main_vbox().get_node_or_null("TitleLabel") as Control
+	if title != null:
+		if is_victory:
+			UiDialogAnima.play_victory_title(title)
+		else:
+			UiDialogAnima.play_defeat_title(title)
 
 func _fill_defeat(refill_cost: int, player_coins: int, hearts_to_restore: int, can_refill: bool) -> void:
 	var vbox = _main_vbox()
 	var title = Label.new()
+	title.name = "TitleLabel"
 	title.text = "ПОРАЖЕНИЕ"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 56)
