@@ -26,6 +26,23 @@ LogCopyService="*res://scripts/LogCopyService.gd"
 VersionManager="*res://scripts/VersionManager.gd"
 LevelManager="*res://scripts/LevelManager.gd"
 WebSmokeTestBridge="*res://scripts/web_smoke_test_bridge.gd"
+GuiTransitions="*res://addons/simple-gui-transitions/singleton.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/anima/plugin.cfg", "res://addons/gut/plugin.cfg", "res://addons/simple-gui-transitions/plugin.cfg")
+
+[gui_transitions]
+
+config/default/auto_start=true
+config/default/fade_layout=true
+config/default/center_pivot=true
+config/default/duration=0.5
+config/default/delay=0.0
+config/default/transition_type="QUAD"
+config/default/ease_type="IN_OUT"
+config/default/animation_enter=4
+config/default/animation_leave=4
 
 [display]
 
