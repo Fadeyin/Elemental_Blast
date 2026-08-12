@@ -27,7 +27,8 @@ static func _ease_in_out_sine() -> AnimaEase:
 
 static func play_dimmer_enter(dimmer: CanvasItem) -> AnimaPlayback:
 	dimmer.modulate.a = 0.0
-	return Anima.on(dimmer).opacity(1.0, DIMMER_FADE_DURATION).with_ease(_ease_out_cubic())
+	var motion := Anima.on(dimmer).opacity(1.0, DIMMER_FADE_DURATION).with_ease(_ease_out_cubic())
+	return Anima.play(motion, dimmer)
 
 
 static func play_panel_enter(panel: Control, scale_from: float = PANEL_SCALE_FROM) -> AnimaPlayback:

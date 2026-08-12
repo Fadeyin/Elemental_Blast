@@ -6,5 +6,6 @@
   "should_exit": true,
   "log_level": 2,
   "compact_mode": true,
-  "ignore_pause": true
+  "ignore_pause": true,
+  "failure_error_types": ["gut"]
 }
