@@ -104,10 +104,17 @@ func _show_toast(message: String) -> void:
 	if not is_instance_valid(_toast_label):
 		return
 	_toast_label.text = message
-	_toast_label.visible = true
+	var playback_in: AnimaPlayback = UiDialogAnima.play_toast_in(_toast_label)
+	if playback_in != null:
+		await playback_in.finished
 	var tree := get_tree()
 	if tree == null:
 		return
 	await tree.create_timer(1.6).timeout
-	if is_instance_valid(_toast_label):
-		_toast_label.visible = false
+	if not is_instance_valid(_toast_label):
+		return
+	var playback_out: AnimaPlayback = UiDialogAnima.play_toast_out(_toast_label)
+	if playback_out != null:
+		await playback_out.finished
+	_toast_label.visible = false
+	_toast_label.scale = Vector2.ONE

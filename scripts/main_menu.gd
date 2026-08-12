@@ -30,6 +30,7 @@ const GAME_BOARD_SCENE_PATH = "res://scenes/game_board.tscn"
 var _level_start_dialog_shown: bool = false
 var _golden_pass_dialog_open: bool = false
 var _golden_pass_fab: Button = null
+var _golden_pass_fab_pulse_running: bool = false
 
 const GOLDEN_PASS_DIALOG_SCRIPT := preload("res://scripts/golden_pass_dialog.gd")
 const GUI_TRANSITION_SCRIPT := preload("res://addons/simple-gui-transitions/transition.gd")
@@ -80,6 +81,7 @@ func _ready():
 	if LevelManager:
 		LevelManager.tick_golden_pass_daily_login()
 	_create_golden_pass_fab()
+	_refresh_golden_pass_fab_attention()
 	
 	if is_instance_valid(play_button):
 		play_button.pressed.connect(_on_play_pressed)
@@ -103,6 +105,9 @@ func _ready():
 	if WebSmokeTestBridge and WebSmokeTestBridge.is_active():
 		call_deferred("_run_web_smoke_test_main_menu_flow")
 
+func _exit_tree() -> void:
+	_stop_golden_pass_fab_pulse()
+
 func _on_boosters_changed():
 	_build_shop_tab()
 
@@ -114,6 +119,7 @@ func _on_coins_changed(new_amount: int):
 
 func _on_golden_pass_state_changed():
 	_refresh_golden_pass_buy_button_if_visible()
+	_refresh_golden_pass_fab_attention()
 
 func _refresh_golden_pass_buy_button_if_visible():
 	if _golden_pass_dialog_open:
@@ -125,12 +131,12 @@ func _apply_round_button_press_feedback(btn: BaseButton) -> void:
 	btn.button_down.connect(func():
 		if not is_instance_valid(btn):
 			return
-		btn.scale = ROUND_MENU_BTN_PRESS_SCALE
+		UiDialogAnima.play_button_press(btn, ROUND_MENU_BTN_PRESS_SCALE)
 	)
 	btn.button_up.connect(func():
 		if not is_instance_valid(btn):
 			return
-		btn.scale = Vector2.ONE
+		UiDialogAnima.play_button_release(btn)
 	)
 
 func _make_round_menu_button(size: float) -> Button:
@@ -189,6 +195,35 @@ func _create_golden_pass_fab() -> void:
 	content.add_child(icon_wrap)
 	fab.pressed.connect(_show_golden_pass_dialog)
 	add_child(fab)
+
+func _refresh_golden_pass_fab_attention() -> void:
+	if not is_instance_valid(_golden_pass_fab):
+		return
+	var pending: int = LevelManager.get_golden_pass_pending_claim_count() if LevelManager else 0
+	if pending > 0 and _current_tab_name == "main" and _golden_pass_fab.visible:
+		if not _golden_pass_fab_pulse_running:
+			_golden_pass_fab_pulse_running = true
+			_run_golden_pass_fab_pulse_loop()
+	else:
+		_stop_golden_pass_fab_pulse()
+
+func _run_golden_pass_fab_pulse_loop() -> void:
+	while _golden_pass_fab_pulse_running and is_instance_valid(_golden_pass_fab):
+		var pending: int = LevelManager.get_golden_pass_pending_claim_count() if LevelManager else 0
+		if pending <= 0 or _current_tab_name != "main" or not _golden_pass_fab.visible:
+			break
+		var playback: AnimaPlayback = UiDialogAnima.play_attention_pulse(_golden_pass_fab, 0.0)
+		if playback != null:
+			await playback.finished
+		if not _golden_pass_fab_pulse_running:
+			break
+		await get_tree().create_timer(2.2).timeout
+	_stop_golden_pass_fab_pulse()
+
+func _stop_golden_pass_fab_pulse() -> void:
+	_golden_pass_fab_pulse_running = false
+	if is_instance_valid(_golden_pass_fab):
+		_golden_pass_fab.scale = Vector2.ONE
 
 func _show_golden_pass_dialog() -> void:
 	if _golden_pass_dialog_open:
@@ -456,6 +491,7 @@ func _switch_tab(tab_name: String) -> void:
 	GuiTransitions.go_to(tab_name)
 	if is_instance_valid(_golden_pass_fab):
 		_golden_pass_fab.visible = (tab_name == "main")
+	_refresh_golden_pass_fab_attention()
 	if tab_name == "ranks":
 		_sync_ranks_level_field_from_manager()
 	_update_nav_highlight(tab_name)
@@ -475,7 +511,10 @@ func _update_nav_highlight(tab_name: String) -> void:
 			continue
 		var is_active: bool = str(key) == tab_name
 		active_bg.visible = is_active
-		btn.scale = Vector2.ONE
+		if is_active:
+			UiDialogAnima.play_nav_select(btn)
+		else:
+			btn.scale = Vector2.ONE
 		btn.modulate = NAV_ICON_ACTIVE_MODULATE if is_active else NAV_ICON_INACTIVE_MODULATE
 		if is_instance_valid(nav_label):
 			nav_label.add_theme_color_override("font_color", NAV_LABEL_ACTIVE_COLOR if is_active else NAV_LABEL_INACTIVE_COLOR)
@@ -733,17 +772,13 @@ func _on_play_button_down() -> void:
 		return
 	_update_play_button_pivot()
 	play_button.modulate = Color(0.86, 0.86, 0.86, 1.0)
-	var tw := create_tween()
-	tw.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.tween_property(play_button, "scale", PLAY_BTN_PRESS_SCALE, 0.07)
+	UiDialogAnima.play_button_press(play_button, PLAY_BTN_PRESS_SCALE)
 
 func _on_play_button_up() -> void:
 	if not is_instance_valid(play_button):
 		return
 	play_button.modulate = Color(1.0, 1.0, 1.0, 1.0)
-	var tw := create_tween()
-	tw.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(play_button, "scale", Vector2.ONE, 0.11)
+	UiDialogAnima.play_button_release(play_button)
 
 func _update_level_label() -> void:
 	var lvl := LevelManager.current_level if LevelManager else 1

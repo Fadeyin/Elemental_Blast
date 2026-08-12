@@ -72,3 +72,33 @@ static func play_attention_pulse(target: Control, delay: float = 0.0) -> AnimaPl
 	var pulse_up := Motion.to(NodePath("scale"), Vector2(1.05, 1.05)).with_duration(0.28).with_delay(delay).with_ease(_ease_in_out_sine()).with_pivot(AnimaPropertyMotion.Pivot.CENTER)
 	var pulse_down := Motion.to(NodePath("scale"), Vector2.ONE).with_duration(0.28).with_ease(_ease_in_out_sine()).with_pivot(AnimaPropertyMotion.Pivot.CENTER)
 	return Anima.play(Motion.sequence([pulse_up, pulse_down]), target)
+
+
+static func play_button_press(target: Control, pressed_scale: Vector2, duration: float = 0.07) -> AnimaPlayback:
+	var scale_motion := Motion.to(NodePath("scale"), pressed_scale).with_duration(duration).with_ease(_ease_out_cubic()).with_pivot(AnimaPropertyMotion.Pivot.CENTER)
+	return Anima.play(scale_motion, target)
+
+
+static func play_button_release(target: Control, duration: float = 0.11) -> AnimaPlayback:
+	var scale_motion := Motion.to(NodePath("scale"), Vector2.ONE).with_duration(duration).with_ease(_ease_out_back()).with_pivot(AnimaPropertyMotion.Pivot.CENTER)
+	return Anima.play(scale_motion, target)
+
+
+static func play_nav_select(target: Control) -> AnimaPlayback:
+	target.scale = Vector2(0.88, 0.88)
+	var scale_motion := Motion.to(NodePath("scale"), Vector2.ONE).with_duration(0.22).with_ease(_ease_out_back()).with_pivot(AnimaPropertyMotion.Pivot.CENTER)
+	return Anima.play(scale_motion, target)
+
+
+static func play_toast_in(label: Control) -> AnimaPlayback:
+	label.visible = true
+	label.modulate.a = 0.0
+	label.scale = Vector2(0.92, 0.92)
+	var opacity_motion := Motion.to(NodePath("modulate:a"), 1.0).from(0.0).with_duration(0.2).with_ease(_ease_out_cubic())
+	var scale_motion := Motion.to(NodePath("scale"), Vector2.ONE).from(Vector2(0.92, 0.92)).with_duration(0.24).with_ease(_ease_out_back()).with_pivot(AnimaPropertyMotion.Pivot.CENTER)
+	return Anima.play(Motion.parallel([opacity_motion, scale_motion]), label)
+
+
+static func play_toast_out(label: Control) -> AnimaPlayback:
+	var opacity_motion := Motion.to(NodePath("modulate:a"), 0.0).with_duration(0.18).with_ease(_ease_out_cubic())
+	return Anima.play(opacity_motion, label)
