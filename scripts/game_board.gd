@@ -363,7 +363,7 @@ func _show_board_load_failure_overlay(message: String) -> void:
 	btn.custom_minimum_size = Vector2(240, 52)
 	btn.focus_mode = Control.FOCUS_NONE
 	btn.pressed.connect(func():
-		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+		SceneTransition.change_scene_to("res://scenes/main_menu.tscn")
 	)
 	vbox.add_child(btn)
 
@@ -3477,7 +3477,7 @@ func _on_level_end_to_menu() -> void:
 	if LevelManager.is_editor_test_mode():
 		_return_to_editor_after_test()
 	else:
-		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+		SceneTransition.change_scene_to("res://scenes/main_menu.tscn")
 
 func _show_level_end_defeat_no_lives() -> void:
 	var overlay = _attach_level_end_overlay()
@@ -3503,7 +3503,7 @@ func _on_defeat_no_lives_to_menu() -> void:
 		_return_to_editor_after_test()
 		return
 	LevelManager.mark_level_failed()
-	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	SceneTransition.change_scene_to("res://scenes/main_menu.tscn")
 
 func _on_defeat_refill_lives() -> void:
 	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
@@ -3520,7 +3520,7 @@ func _on_defeat_refill_lives() -> void:
 			_return_to_editor_after_test()
 			return
 		LevelManager.mark_level_failed()
-		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+		SceneTransition.change_scene_to("res://scenes/main_menu.tscn")
 
 func _on_level_failed():
 	if LevelManager.is_editor_test_mode():
@@ -4488,13 +4488,13 @@ func _handle_manual_exit_to_menu() -> void:
 	# Ручной выход в меню: GDD §5 — сбрасываем серию только если был валидный ход.
 	if _victory_dialog_shown or _defeat_dialog_shown:
 		# При уже показанном итоговом окне сброс/начисление сделают соответствующие хендлеры.
-		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+		SceneTransition.change_scene_to("res://scenes/main_menu.tscn")
 		return
 	if _player_made_valid_move:
 		LevelManager.mark_level_exited_after_valid_move()
 	else:
 		LevelManager.mark_level_exited_without_move()
-	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	SceneTransition.change_scene_to("res://scenes/main_menu.tscn")
 
 func _register_valid_player_move() -> void:
 	# Любое действие, которое реально влияет на поле/врагов/жизни/ходы.

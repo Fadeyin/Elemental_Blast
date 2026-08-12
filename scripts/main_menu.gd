@@ -831,8 +831,8 @@ func _on_level_start_dialog_completed(selected_boosts: Dictionary, mort_bonuses:
 	# Сохраняем выбранные усиления в LevelManager
 	LevelManager.selected_prelevel_boosts = selected_boosts
 	
-	# Загружаем игровую сцену
-	var err := get_tree().change_scene_to_file(GAME_BOARD_SCENE_PATH)
+	# Загружаем игровую сцену с fade-переходом
+	var err := await SceneTransition.change_scene_to(GAME_BOARD_SCENE_PATH)
 	if err != OK:
 		push_error("Не удалось загрузить сцену игрового поля: код ", err)
 		_show_fatal_scene_switch_dialog(GAME_BOARD_SCENE_PATH, err)

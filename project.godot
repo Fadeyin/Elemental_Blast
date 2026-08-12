@@ -27,6 +27,7 @@ VersionManager="*res://scripts/VersionManager.gd"
 LevelManager="*res://scripts/LevelManager.gd"
 WebSmokeTestBridge="*res://scripts/web_smoke_test_bridge.gd"
 GuiTransitions="*res://addons/simple-gui-transitions/singleton.gd"
+SceneTransition="*res://scripts/scene_transition.gd"
 
 [editor_plugins]
 
