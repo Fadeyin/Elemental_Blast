@@ -10,6 +10,11 @@ const LEVEL1_TUTORIAL_FLOW_PAGE := preload("res://scripts/ui_flow/pages/level1_t
 const INGAME_BOOSTER_TUTORIAL_FLOW_PAGE := preload("res://scripts/ui_flow/pages/ingame_booster_tutorial_flow_page.gd")
 
 
+func after_each() -> void:
+	if UIFlow:
+		UIFlow.clear_stack()
+
+
 func test_uiflow_autoloads_ready() -> void:
 	assert_not_null(UIFlow, "UIFlow должен быть autoload")
 	assert_not_null(UIFlowUI, "UIFlowUI должен быть autoload")
@@ -143,3 +148,35 @@ func test_level_end_flow_page_victory_setup() -> void:
 	await wait_process_frames(3)
 	assert_not_null(page.find_child("LevelEndDialogHost", true, false))
 	assert_not_null(page.find_child("LevelEndDimmer", true, false))
+
+
+func test_clear_stack_unblocks_level_end_after_menu_tab() -> void:
+	var host := Control.new()
+	host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child_autofree(host)
+	UIFlow.set_ui_root(host)
+	UIFlow.clear_stack()
+	var tab_stub := Control.new()
+	host.add_child(tab_stub)
+	var menu_page = MENU_TAB_FLOW_PAGE.new()
+	UIFlow.push_instance(menu_page, {
+		"tab_id": "main",
+		"tab_root": tab_stub,
+		"all_tabs": [tab_stub],
+		"instant": true,
+	})
+	assert_eq(UIFlow.stack_depth(), 1, "После входа в меню на стеке должен быть таб")
+	UIFlow.clear_stack()
+	assert_eq(UIFlow.stack_depth(), 0, "clear_stack перед боем должен сбрасывать MenuTabFlowPage")
+	var end_page = LEVEL_END_FLOW_PAGE.new()
+	var pushed := UIFlow.push_instance(end_page, {
+		"mode": "victory",
+		"total": 100,
+		"base_reward": 50,
+		"chips_bonus": 0,
+		"bonus_chips_count": 0,
+		"coins_per_bonus_chip": 25,
+	})
+	assert_not_null(pushed, "LevelEndFlowPage должен открываться после clear_stack")
+	assert_eq(UIFlow.stack_depth(), 1)
+	UIFlow.clear_stack()

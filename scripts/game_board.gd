@@ -870,6 +870,9 @@ func _play_life_loss_ui_feedback() -> void:
 func _setup_uiflow_root() -> void:
 	if has_node("UIFlowRoot"):
 		return
+	# Меню оставляет MenuTabFlowPage на глобальном стеке UIFlow — без очистки
+	# победа/поражение не откроются (guard в _push_level_end_flow_page).
+	UIFlow.clear_stack()
 	var flow_root := Control.new()
 	flow_root.name = "UIFlowRoot"
 	flow_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -896,19 +899,24 @@ func _on_uiflow_page_closed(page_class: GDScript) -> void:
 		_ingame_booster_tutorial_flow_open = false
 
 
-func _push_level_end_flow_page(data: Dictionary, to_menu_handler: Callable, refill_handler: Callable = Callable()) -> void:
+func _push_level_end_flow_page(data: Dictionary, to_menu_handler: Callable, refill_handler: Callable = Callable()) -> bool:
 	if _level_end_flow_open or _booster_purchase_flow_open:
-		return
+		return false
 	_dismiss_ingame_tutorial_uiflow_pages()
 	if UIFlow.stack_depth() > 0:
-		return
+		UIFlow.clear_stack()
 	_level_end_flow_open = true
 	var page := LevelEndFlowPage.new()
 	if to_menu_handler.is_valid():
 		page.to_menu_pressed.connect(to_menu_handler)
 	if refill_handler.is_valid():
 		page.refill_lives_pressed.connect(refill_handler)
-	UIFlow.push_instance(page, data)
+	var pushed := UIFlow.push_instance(page, data)
+	if pushed == null:
+		_level_end_flow_open = false
+		push_error("GameBoard: не удалось открыть LevelEndFlowPage (mode=%s)" % str(data.get("mode", "")))
+		return false
+	return true
 
 
 func _play_booster_purchase_feedback(lm_type: int) -> void:
@@ -3166,7 +3174,6 @@ func _on_level_completed():
 	if LevelManager.is_editor_test_mode():
 		_return_to_editor_after_test()
 		return
-	_victory_dialog_shown = true
 	var count_label := find_child("MonstersCountLabel", true, false) as CanvasItem
 	if count_label != null:
 		GlobalTweens.color_flash(count_label, Color(0.55, 1.0, 0.62), 0.24)
@@ -3192,14 +3199,15 @@ func _on_level_completed():
 	_show_level_end_victory(total_reward, base_reward, chips_bonus, bonus_chips)
 
 func _show_level_end_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_count: int) -> void:
-	_push_level_end_flow_page({
+	if _push_level_end_flow_page({
 		"mode": "victory",
 		"total": total,
 		"base_reward": base_reward,
 		"chips_bonus": chips_bonus,
 		"bonus_chips_count": bonus_chips_count,
 		"coins_per_bonus_chip": COINS_PER_REMAINING_BONUS_CHIP,
-	}, _on_level_end_to_menu)
+	}, _on_level_end_to_menu):
+		_victory_dialog_shown = true
 
 func _on_level_end_to_menu() -> void:
 	if LevelManager.is_editor_test_mode():
@@ -3212,13 +3220,14 @@ func _show_level_end_defeat_no_lives() -> void:
 	var cost = _get_defeat_refill_cost()
 	var k_restore = _get_defeat_refill_lives_amount()
 	var can_refill = cost > 0 and k_restore > 0 and player_coins >= cost
-	_push_level_end_flow_page({
+	if _push_level_end_flow_page({
 		"mode": "defeat_no_lives",
 		"refill_cost": cost,
 		"player_coins": player_coins,
 		"hearts_to_restore": k_restore,
 		"can_refill": can_refill,
-	}, _on_defeat_no_lives_to_menu, _on_defeat_refill_lives)
+	}, _on_defeat_no_lives_to_menu, _on_defeat_refill_lives):
+		_defeat_dialog_shown = true
 
 func _on_defeat_no_lives_to_menu() -> void:
 	if LevelManager.is_editor_test_mode():
@@ -3245,7 +3254,6 @@ func _on_level_failed():
 	if LevelManager.is_editor_test_mode():
 		_return_to_editor_after_test()
 		return
-	_defeat_dialog_shown = true
 	_show_level_end_defeat_no_lives()
 
 func _return_to_editor_after_test() -> void:

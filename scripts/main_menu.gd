@@ -114,6 +114,7 @@ func _setup_uiflow_root() -> void:
 	flow_root.z_index = 200
 	flow_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(flow_root)
+	UIFlow.clear_stack()
 	UIFlow.set_ui_root(flow_root)
 	if not UIFlow.page_closed.is_connected(_on_uiflow_page_closed):
 		UIFlow.page_closed.connect(_on_uiflow_page_closed)
