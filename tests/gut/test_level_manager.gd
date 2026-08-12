@@ -28,6 +28,14 @@ func _capture_level_manager_state() -> Dictionary:
 		"golden_pass_unlocked_tiers": LevelManager.golden_pass_unlocked_tiers,
 		"golden_pass_free_claimed": LevelManager.golden_pass_free_claimed.duplicate(),
 		"golden_pass_premium_claimed": LevelManager.golden_pass_premium_claimed.duplicate(),
+		"golden_pass_last_calendar_date": LevelManager.golden_pass_last_calendar_date,
+		"ingame_booster_unlock_bonus_claimed": LevelManager.ingame_booster_unlock_bonus_claimed.duplicate(),
+		"booster_counts": {
+			LevelManager.BoosterType.HAMMER: LevelManager.get_booster_count(LevelManager.BoosterType.HAMMER),
+			LevelManager.BoosterType.ROW_BLAST: LevelManager.get_booster_count(LevelManager.BoosterType.ROW_BLAST),
+			LevelManager.BoosterType.SHUFFLE: LevelManager.get_booster_count(LevelManager.BoosterType.SHUFFLE),
+			LevelManager.BoosterType.FREEZE: LevelManager.get_booster_count(LevelManager.BoosterType.FREEZE),
+		},
 	}
 
 
@@ -44,6 +52,19 @@ func _apply_default_level_manager_state() -> void:
 	LevelManager.golden_pass_unlocked_tiers = 1
 	LevelManager.golden_pass_free_claimed = []
 	LevelManager.golden_pass_premium_claimed = []
+	LevelManager.golden_pass_last_calendar_date = ""
+	LevelManager.ingame_booster_unlock_bonus_claimed = {
+		LevelManager.BoosterType.HAMMER: false,
+		LevelManager.BoosterType.ROW_BLAST: false,
+		LevelManager.BoosterType.SHUFFLE: false,
+		LevelManager.BoosterType.FREEZE: false,
+	}
+	LevelManager.booster_counts = {
+		LevelManager.BoosterType.HAMMER: LevelManager.INITIAL_BOOSTERS,
+		LevelManager.BoosterType.ROW_BLAST: LevelManager.INITIAL_BOOSTERS,
+		LevelManager.BoosterType.SHUFFLE: LevelManager.INITIAL_BOOSTERS,
+		LevelManager.BoosterType.FREEZE: LevelManager.INITIAL_BOOSTERS,
+	}
 	LevelManager._ensure_golden_pass_arrays()
 
 
@@ -60,6 +81,13 @@ func _restore_level_manager_state(state: Dictionary) -> void:
 	LevelManager.golden_pass_unlocked_tiers = int(state.get("golden_pass_unlocked_tiers", 1))
 	LevelManager.golden_pass_free_claimed = state.get("golden_pass_free_claimed", []).duplicate()
 	LevelManager.golden_pass_premium_claimed = state.get("golden_pass_premium_claimed", []).duplicate()
+	LevelManager.golden_pass_last_calendar_date = str(state.get("golden_pass_last_calendar_date", ""))
+	var bonus_claimed: Dictionary = state.get("ingame_booster_unlock_bonus_claimed", {})
+	for bt in [LevelManager.BoosterType.HAMMER, LevelManager.BoosterType.ROW_BLAST, LevelManager.BoosterType.SHUFFLE, LevelManager.BoosterType.FREEZE]:
+		LevelManager.ingame_booster_unlock_bonus_claimed[bt] = bool(bonus_claimed.get(bt, false))
+	var counts: Dictionary = state.get("booster_counts", {})
+	for bt in counts.keys():
+		LevelManager.booster_counts[bt] = int(counts[bt])
 	LevelManager._ensure_golden_pass_arrays()
 
 
@@ -196,3 +224,58 @@ func test_editor_test_mode_loads_override_level_config() -> void:
 	LevelManager.finish_editor_test()
 	assert_false(LevelManager.is_editor_test_mode())
 	assert_true(LevelManager.get_level_config(1).has("moves"))
+
+
+func test_golden_pass_daily_login_unlocks_next_tier() -> void:
+	LevelManager.golden_pass_last_calendar_date = "2000-01-01"
+	LevelManager.golden_pass_unlocked_tiers = 1
+	LevelManager.tick_golden_pass_daily_login()
+	assert_eq(LevelManager.get_golden_pass_unlocked_tiers(), 2)
+
+
+func test_golden_pass_daily_login_same_day_is_noop() -> void:
+	var today_key := "%04d-%02d-%02d" % [
+		int(Time.get_datetime_dict_from_unix_time(int(Time.get_unix_time_from_system())).year),
+		int(Time.get_datetime_dict_from_unix_time(int(Time.get_unix_time_from_system())).month),
+		int(Time.get_datetime_dict_from_unix_time(int(Time.get_unix_time_from_system())).day),
+	]
+	LevelManager.golden_pass_last_calendar_date = today_key
+	LevelManager.golden_pass_unlocked_tiers = 3
+	LevelManager.tick_golden_pass_daily_login()
+	assert_eq(LevelManager.get_golden_pass_unlocked_tiers(), 3)
+
+
+func test_purchase_golden_pass_with_coins() -> void:
+	LevelManager.player_coins = LevelManager.GOLDEN_PASS_PREMIUM_PRICE_COINS
+	assert_true(LevelManager.purchase_golden_pass_with_coins())
+	assert_true(LevelManager.is_golden_pass_purchased())
+	assert_eq(LevelManager.get_coins(), 0)
+	assert_true(LevelManager.purchase_golden_pass_with_coins(), "Повторная покупка должна быть идемпотентной")
+
+
+func test_buy_ingame_booster_spends_coins() -> void:
+	LevelManager.current_level = 6
+	LevelManager.player_coins = LevelManager.INGAME_BOOSTER_PACK_COST
+	var before := LevelManager.get_booster_count(LevelManager.BoosterType.HAMMER)
+	assert_true(LevelManager.buy_booster(LevelManager.BoosterType.HAMMER))
+	assert_eq(LevelManager.get_coins(), 0)
+	assert_eq(
+		LevelManager.get_booster_count(LevelManager.BoosterType.HAMMER),
+		before + LevelManager.get_ingame_booster_pack_quantity(LevelManager.BoosterType.HAMMER)
+	)
+
+
+func test_ensure_ingame_booster_unlock_bonus_once() -> void:
+	LevelManager.current_level = 6
+	LevelManager.ingame_booster_unlock_bonus_claimed[LevelManager.BoosterType.HAMMER] = false
+	var before := LevelManager.get_booster_count(LevelManager.BoosterType.HAMMER)
+	LevelManager.ensure_ingame_booster_unlock_bonus_rewards()
+	assert_eq(
+		LevelManager.get_booster_count(LevelManager.BoosterType.HAMMER),
+		before + LevelManager.FREE_INGAME_BOOSTERS_ON_UNLOCK
+	)
+	LevelManager.ensure_ingame_booster_unlock_bonus_rewards()
+	assert_eq(
+		LevelManager.get_booster_count(LevelManager.BoosterType.HAMMER),
+		before + LevelManager.FREE_INGAME_BOOSTERS_ON_UNLOCK
+	)

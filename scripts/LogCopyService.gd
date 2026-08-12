@@ -16,6 +16,8 @@ func _init() -> void:
 
 func _ready() -> void:
 	_build_overlay()
+	if UIFlowUI and UIFlowUI.Toast:
+		UIFlowUI.Toast.toast_position = UIFlowToast.Position.BOTTOM_RIGHT
 
 
 func _build_overlay() -> void:
@@ -101,6 +103,9 @@ func _read_engine_log_tail() -> String:
 
 
 func _show_toast(message: String) -> void:
+	if UIFlowUI and UIFlowUI.Toast:
+		UIFlowUI.Toast.show(message, "success", 1.6)
+		return
 	if not is_instance_valid(_toast_label):
 		return
 	_toast_label.text = message

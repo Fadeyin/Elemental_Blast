@@ -32,7 +32,6 @@ var _golden_pass_dialog_open: bool = false
 var _golden_pass_fab: Button = null
 var _golden_pass_fab_pulse_running: bool = false
 
-const GOLDEN_PASS_DIALOG_SCRIPT := preload("res://scripts/golden_pass_dialog.gd")
 const GUI_TRANSITION_SCRIPT := preload("res://addons/simple-gui-transitions/transition.gd")
 const TEX_UI_TOOLBAR_BG := preload("res://textures/ui_main_menu_toolbar_bg.png")
 const TEX_UI_BUY_COINS_BTN := preload("res://textures/ui_buy_coins_button.png")
@@ -97,6 +96,7 @@ func _ready():
 	_update_version_label()
 	_build_shop_tab()
 	_setup_tab_gui_transitions()
+	_setup_uiflow_root()
 	_update_nav_highlight("main")
 	
 	LevelManager.coins_changed.connect(_on_coins_changed)
@@ -104,6 +104,23 @@ func _ready():
 	LevelManager.golden_pass_state_changed.connect(_on_golden_pass_state_changed)
 	if WebSmokeTestBridge and WebSmokeTestBridge.is_active():
 		call_deferred("_run_web_smoke_test_main_menu_flow")
+
+func _setup_uiflow_root() -> void:
+	var flow_root := Control.new()
+	flow_root.name = "UIFlowRoot"
+	flow_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	flow_root.z_index = 200
+	flow_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(flow_root)
+	UIFlow.set_ui_root(flow_root)
+	if not UIFlow.page_closed.is_connected(_on_uiflow_page_closed):
+		UIFlow.page_closed.connect(_on_uiflow_page_closed)
+
+
+func _on_uiflow_page_closed(_page_class: GDScript) -> void:
+	_level_start_dialog_shown = false
+	_golden_pass_dialog_open = false
+
 
 func _exit_tree() -> void:
 	_stop_golden_pass_fab_pulse()
@@ -227,22 +244,11 @@ func _stop_golden_pass_fab_pulse() -> void:
 		_golden_pass_fab.scale = Vector2.ONE
 
 func _show_golden_pass_dialog() -> void:
-	if _golden_pass_dialog_open:
+	if _golden_pass_dialog_open or UIFlow.stack_depth() > 0:
 		return
-	if LevelManager:
-		LevelManager.tick_golden_pass_daily_login()
 	_golden_pass_dialog_open = true
-	var dlg := Control.new()
-	dlg.name = "GoldenPassOverlay"
-	dlg.set_script(GOLDEN_PASS_DIALOG_SCRIPT)
-	dlg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dlg.mouse_filter = Control.MOUSE_FILTER_STOP
-	dlg.z_index = 150
-	dlg.tree_exiting.connect(func():
-		_golden_pass_dialog_open = false
-	)
-	add_child(dlg)
-	dlg.setup()
+	var page := GoldenPassFlowPage.new()
+	UIFlow.push_instance(page)
 
 func _create_top_bar() -> void:
 	var top_bar := Control.new()
@@ -804,29 +810,12 @@ func _update_version_label():
 		version_label.add_theme_constant_override("outline_size", 2)
 
 func _show_level_start_dialog(level: int):
-	# Предотвращаем множественное открытие диалога
-	if _level_start_dialog_shown:
+	if _level_start_dialog_shown or UIFlow.stack_depth() > 0:
 		return
-	
 	_level_start_dialog_shown = true
-	
-	# Загружаем и показываем скрипт диалога старта уровня
-	var dialog_script = preload("res://scripts/level_start_dialog.gd")
-	var dialog = Control.new()
-	dialog.set_script(dialog_script)
-	dialog.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dialog.mouse_filter = Control.MOUSE_FILTER_STOP
-	dialog.z_index = 100
-	
-	dialog.connect("start_gameplay", _on_level_start_dialog_completed)
-	
-	# Сбрасываем флаг при удалении диалога
-	dialog.tree_exiting.connect(func():
-		_level_start_dialog_shown = false
-	)
-	
-	add_child(dialog)
-	dialog.setup()
+	var page := LevelStartFlowPage.new()
+	page.start_gameplay.connect(_on_level_start_dialog_completed)
+	UIFlow.push_instance(page, level)
 
 func _on_level_start_dialog_completed(selected_boosts: Dictionary, mort_bonuses: Dictionary):
 	# Сохраняем выбранные усиления в LevelManager

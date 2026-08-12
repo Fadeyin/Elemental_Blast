@@ -3453,6 +3453,9 @@ func _on_level_completed():
 		_return_to_editor_after_test()
 		return
 	_victory_dialog_shown = true
+	var count_label := find_child("MonstersCountLabel", true, false) as CanvasItem
+	if count_label != null:
+		GlobalTweens.color_flash(count_label, Color(0.55, 1.0, 0.62), 0.24)
 	# Награда за победу: базовая + бонус за оставшиеся на поле бонусные фишки
 	var base_reward = 50
 	var bonus_chips = _count_bonus_chips_on_player_field()

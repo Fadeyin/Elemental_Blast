@@ -29,10 +29,12 @@ WebSmokeTestBridge="*res://scripts/web_smoke_test_bridge.gd"
 GuiTransitions="*res://addons/simple-gui-transitions/singleton.gd"
 SceneTransition="*res://scripts/scene_transition.gd"
 GlobalTweens="*res://addons/global_tweens/GlobalTweens.gd"
+UIFlow="*res://addons/ui_flow/core/ui_flow_autoload.tscn"
+UIFlowUI="*res://addons/ui_flow/core/ui_flow_ui_autoload.tscn"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/anima/plugin.cfg", "res://addons/gut/plugin.cfg", "res://addons/simple-gui-transitions/plugin.cfg")
+enabled=PackedStringArray("res://addons/anima/plugin.cfg", "res://addons/gut/plugin.cfg", "res://addons/simple-gui-transitions/plugin.cfg", "res://addons/ui_flow/plugin.cfg")
 
 [gui_transitions]
 

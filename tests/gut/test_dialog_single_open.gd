@@ -47,12 +47,8 @@ func test_main_menu_level_start_dialog_opens_once() -> void:
 	menu._show_level_start_dialog(1)
 	menu._show_level_start_dialog(1)
 	menu._show_level_start_dialog(1)
-	await wait_process_frames(3)
-	assert_eq(
-		_count_nodes_with_script(menu, LEVEL_START_DIALOG_SCRIPT),
-		1,
-		"Повторные вызовы _show_level_start_dialog не должны создавать второй диалог"
-	)
+	await wait_process_frames(5)
+	assert_eq(UIFlow.stack_depth(), 1, "Повторные вызовы _show_level_start_dialog не должны открывать второй диалог")
 
 
 func test_main_menu_tabs_have_gui_transitions() -> void:
