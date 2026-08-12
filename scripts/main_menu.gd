@@ -842,7 +842,8 @@ func _show_level_start_dialog(level: int):
 func _on_level_start_dialog_completed(selected_boosts: Dictionary, mort_bonuses: Dictionary):
 	# Сохраняем выбранные усиления в LevelManager
 	LevelManager.selected_prelevel_boosts = selected_boosts
-	
+	if WebSmokeTestBridge and WebSmokeTestBridge.is_active():
+		WebSmokeTestBridge.report_phase("menu_to_battle_transition")
 	# Загружаем игровую сцену с fade-переходом
 	var err := await SceneTransition.change_scene_to(GAME_BOARD_SCENE_PATH)
 	if err != OK:

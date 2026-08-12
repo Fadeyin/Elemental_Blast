@@ -4,6 +4,8 @@ const LEVEL_END_FLOW_PAGE := preload("res://scripts/ui_flow/pages/level_end_flow
 const MENU_TAB_FLOW_PAGE := preload("res://scripts/ui_flow/pages/menu_tab_flow_page.gd")
 const BOOSTER_PURCHASE_FLOW_PAGE := preload("res://scripts/ui_flow/pages/booster_purchase_flow_page.gd")
 const SIMPLE_MESSAGE_FLOW_PAGE := preload("res://scripts/ui_flow/pages/simple_message_flow_page.gd")
+const MORT_HELMET_RULES_FLOW_PAGE := preload("res://scripts/ui_flow/pages/mort_helmet_rules_flow_page.gd")
+const MORT_HELMET_TUTORIAL_FLOW_PAGE := preload("res://scripts/ui_flow/pages/mort_helmet_tutorial_flow_page.gd")
 
 
 func test_uiflow_autoloads_ready() -> void:
@@ -69,6 +71,26 @@ func test_simple_message_flow_page_setup() -> void:
 	await wait_process_frames(3)
 	assert_not_null(page.find_child("SimpleMessageDialogHost", true, false))
 	assert_not_null(page.find_child("SimpleMessagePanel", true, false))
+
+
+func test_mort_helmet_rules_flow_page_setup() -> void:
+	var page = MORT_HELMET_RULES_FLOW_PAGE.new()
+	add_child_autofree(page)
+	page._on_opened({})
+	await wait_process_frames(3)
+	assert_not_null(page.find_child("MortHelmetRulesDialogHost", true, false))
+	assert_not_null(page.find_child("MortHelmetRulesPanel", true, false))
+
+
+func test_mort_helmet_tutorial_flow_page_setup() -> void:
+	var page = MORT_HELMET_TUTORIAL_FLOW_PAGE.new()
+	add_child_autofree(page)
+	page._on_opened({
+		"section_rect": Rect2(40, 200, 560, 120),
+		"info_rect": Rect2(520, 210, 40, 40),
+	})
+	await wait_process_frames(3)
+	assert_not_null(page.find_child("MortHelmetTutorialDialogHost", true, false))
 
 
 func test_level_end_flow_page_victory_setup() -> void:

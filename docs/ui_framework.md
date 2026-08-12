@@ -270,6 +270,8 @@ func _switch_tab(tab_name: String) -> void:
 | `LevelEndFlowPage` | [`scripts/ui_flow/pages/level_end_flow_page.gd`](../scripts/ui_flow/pages/level_end_flow_page.gd) | [`level_end_dialog.gd`](../scripts/level_end_dialog.gd) | см. ниже | `to_menu_pressed`, `refill_lives_pressed` |
 | `BoosterPurchaseFlowPage` | [`scripts/ui_flow/pages/booster_purchase_flow_page.gd`](../scripts/ui_flow/pages/booster_purchase_flow_page.gd) | [`ingame_booster_purchase_dialog.gd`](../scripts/ingame_booster_purchase_dialog.gd) | см. ниже | `purchase_pressed`, `closed_pressed` |
 | `SimpleMessageFlowPage` | [`scripts/ui_flow/pages/simple_message_flow_page.gd`](../scripts/ui_flow/pages/simple_message_flow_page.gd) | [`simple_message_dialog.gd`](../scripts/simple_message_dialog.gd) | см. ниже | `closed_pressed` |
+| `MortHelmetRulesFlowPage` | [`scripts/ui_flow/pages/mort_helmet_rules_flow_page.gd`](../scripts/ui_flow/pages/mort_helmet_rules_flow_page.gd) | [`mort_helmet_rules_dialog.gd`](../scripts/mort_helmet_rules_dialog.gd) | — | `closed_pressed` |
+| `MortHelmetTutorialFlowPage` | [`scripts/ui_flow/pages/mort_helmet_tutorial_flow_page.gd`](../scripts/ui_flow/pages/mort_helmet_tutorial_flow_page.gd) | [`mort_helmet_tutorial_dialog.gd`](../scripts/mort_helmet_tutorial_dialog.gd) | см. ниже | `closed_pressed` |
 
 #### LevelEndFlowPage — поля `data`
 
@@ -305,12 +307,20 @@ func _switch_tab(tab_name: String) -> void:
 
 Заменяет `AcceptDialog` в главном меню: настройки, покупка монет, ошибка сцены, подтверждение покупки в магазине.
 
+#### MortHelmetTutorialFlowPage — поля `data`
+
+```gdscript
+{"section_rect": Rect2, "info_rect": Rect2}  # глобальные прямоугольники плашки и кнопки «i»
+```
+
+Открывается из [`level_start_dialog.gd`](../scripts/level_start_dialog.gd) при первом показе фичи; правила — через `MortHelmetRulesFlowPage` по кнопке «i».
+
 ### Где открывается UIFlow
 
 | Сцена | Файл | Страница | Защита от дубля |
 |-------|------|----------|-----------------|
 | Главное меню | [`scripts/main_menu.gd`](../scripts/main_menu.gd) | `MenuTabFlowPage` (база), `LevelStartFlowPage`, `GoldenPassFlowPage`, `SimpleMessageFlowPage` | таб: `_tab_switch_busy`; модалки: `_is_modal_uiflow_open()` |
-| Старт уровня | [`scripts/level_start_dialog.gd`](../scripts/level_start_dialog.gd) | `BoosterPurchaseFlowPage` (покупка prelevel бустера поверх LevelStart) | `_prelevel_purchase_flow_open`, `has_page(BoosterPurchaseFlowPage)` |
+| Старт уровня | [`scripts/level_start_dialog.gd`](../scripts/level_start_dialog.gd) | `BoosterPurchaseFlowPage`, `MortHelmetRulesFlowPage`, `MortHelmetTutorialFlowPage` | `_prelevel_purchase_flow_open`, `_mort_helmet_*_flow_open`, `has_page(...)` |
 | Бой | [`scripts/game_board.gd`](../scripts/game_board.gd) | `LevelEndFlowPage`, `BoosterPurchaseFlowPage` | `_level_end_flow_open`, `_booster_purchase_flow_open`, `stack_depth()` |
 
 `UIFlowRoot` в бою: z_index **250**, внутри `UIRoot`. В меню: z_index **200**.
@@ -343,7 +353,7 @@ func _switch_tab(tab_name: String) -> void:
 # Первый раз или после смены ассетов
 godot --headless --import --path .
 
-# Прогон всех тестов (38 тестов)
+# Прогон всех тестов (40 тестов)
 godot --headless --path . -s addons/gut/gut_cmdln.gd -gexit
 ```
 
@@ -376,6 +386,8 @@ scripts/
   golden_pass_dialog.gd                # Golden Pass (GlobalTweens на claim)
   ingame_booster_purchase_dialog.gd    # Покупка бустера (контент для UIFlow)
   simple_message_dialog.gd             # Заголовок + текст + OK (контент для UIFlow)
+  mort_helmet_rules_dialog.gd          # Правила Шлема Морта
+  mort_helmet_tutorial_dialog.gd       # Туториал Шлема Морта
   ui_flow/
     eb_modal_flow_page.gd              # база flow pages
     pages/
@@ -385,6 +397,8 @@ scripts/
       level_end_flow_page.gd
       booster_purchase_flow_page.gd
       simple_message_flow_page.gd
+      mort_helmet_rules_flow_page.gd
+      mort_helmet_tutorial_flow_page.gd
 addons/
   anima/                               # плагин Anima
   simple-gui-transitions/              # legacy (не подключён)
@@ -462,7 +476,6 @@ _my_dialog_open = false
 
 | Компонент | Причина | Файл |
 |-----------|---------|------|
-| Mort helmet overlays в level start | Отдельные overlay, tutorial | [`level_start_dialog.gd`](../scripts/level_start_dialog.gd) (`_mort_helmet_rules_overlay`) |
 | Туториалы уровня 1 / бустеров | Отдельные overlay, z_index 180 | [`game_board.gd`](../scripts/game_board.gd) |
 | Анимации match-3 / TD | Кастомный tick-движок | [`game_board.gd`](../scripts/game_board.gd) |
 | Полная навигация меню как UIFlow routes | Табы уже на UIFlow; нижняя навигация остаётся в сцене | — |
@@ -490,4 +503,4 @@ _my_dialog_open = false
 
 ---
 
-*Последнее обновление: SimpleMessageFlowPage, prelevel purchase через BoosterPurchaseFlowPage, 38 GUT-тестов.*
+*Последнее обновление: MortHelmet rules/tutorial на UIFlow, smoke phase menu_to_battle_transition, 40 GUT-тестов.*

@@ -15,13 +15,15 @@ var _selected_prelevel_boosts := {
 var _dialog_closing: bool = false
 
 const BOOSTER_PURCHASE_FLOW_PAGE_SCRIPT := preload("res://scripts/ui_flow/pages/booster_purchase_flow_page.gd")
+const MORT_HELMET_RULES_FLOW_PAGE_SCRIPT := preload("res://scripts/ui_flow/pages/mort_helmet_rules_flow_page.gd")
+const MORT_HELMET_TUTORIAL_FLOW_PAGE_SCRIPT := preload("res://scripts/ui_flow/pages/mort_helmet_tutorial_flow_page.gd")
 
 var _prelevel_boosts_row: HBoxContainer = null
 var _prelevel_purchase_flow_open := false
 var _mort_helmet_section: Control = null
 var _mort_helmet_info_button: Button = null
-var _mort_helmet_rules_overlay: Control = null
-var _mort_helmet_tutorial_overlay: Control = null
+var _mort_helmet_rules_flow_open := false
+var _mort_helmet_tutorial_flow_open := false
 
 func setup():
 	_build_dialog()
@@ -305,123 +307,16 @@ func _decline_bombs(n: int) -> String:
 	return "бомб"
 
 func _show_mort_helmet_rules() -> void:
-	if _mort_helmet_rules_overlay != null and is_instance_valid(_mort_helmet_rules_overlay):
+	if _mort_helmet_rules_flow_open or UIFlow.has_page(MORT_HELMET_RULES_FLOW_PAGE_SCRIPT):
 		return
 	if LevelManager:
 		LevelManager.log_mort_helmet_rules_opened()
-	var overlay := Control.new()
-	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.z_index = 220
-	add_child(overlay)
-	_mort_helmet_rules_overlay = overlay
-	
-	var bg := ColorRect.new()
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0, 0, 0, 0.7)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	bg.gui_input.connect(func(ev: InputEvent):
-		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
-			_close_mort_helmet_rules()
+	_mort_helmet_rules_flow_open = true
+	var page: MortHelmetRulesFlowPage = MORT_HELMET_RULES_FLOW_PAGE_SCRIPT.new()
+	page.closed_pressed.connect(func() -> void:
+		_mort_helmet_rules_flow_open = false
 	)
-	overlay.add_child(bg)
-	
-	var panel := Panel.new()
-	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	panel.offset_left = -260
-	panel.offset_right = 260
-	panel.offset_top = -240
-	panel.offset_bottom = 240
-	var ps := StyleBoxFlat.new()
-	ps.bg_color = Color(0.12, 0.15, 0.2, 0.98)
-	ps.set_corner_radius_all(18)
-	ps.border_width_left = 4
-	ps.border_width_top = 4
-	ps.border_width_right = 4
-	ps.border_width_bottom = 4
-	ps.border_color = Color(0.85, 0.72, 0.28, 1.0)
-	panel.add_theme_stylebox_override("panel", ps)
-	overlay.add_child(panel)
-	
-	var box := VBoxContainer.new()
-	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	box.offset_left = 20
-	box.offset_top = 20
-	box.offset_right = -20
-	box.offset_bottom = -20
-	box.add_theme_constant_override("separation", 14)
-	panel.add_child(box)
-	
-	var title := Label.new()
-	title.text = "ШЛЕМ МОРТА"
-	title.add_theme_font_size_override("font_size", 32)
-	title.add_theme_color_override("font_color", Color(1.0, 0.92, 0.4))
-	title.add_theme_color_override("font_outline_color", Color.BLACK)
-	title.add_theme_constant_override("outline_size", 4)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(title)
-	
-	var desc := Label.new()
-	desc.text = "Побеждайте уровни подряд — стадия Шлема будет расти, а на старт следующего уровня вы получите больше бонусов на поле."
-	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	desc.clip_contents = true
-	desc.add_theme_font_size_override("font_size", 20)
-	desc.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
-	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(desc)
-	
-	for stage_data in [
-		{"stage": 1, "text": "1 победа подряд → 1 стрела + 1 бомба"},
-		{"stage": 2, "text": "2 победы подряд → 2 стрелы + 2 бомбы"},
-		{"stage": 3, "text": "3+ побед подряд → 3 стрелы + 3 бомбы"}
-	]:
-		var row := Label.new()
-		row.text = stage_data["text"]
-		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.clip_contents = true
-		row.add_theme_font_size_override("font_size", 20)
-		row.add_theme_color_override("font_color", Color(0.95, 0.85, 0.5))
-		row.add_theme_color_override("font_outline_color", Color.BLACK)
-		row.add_theme_constant_override("outline_size", 3)
-		row.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		box.add_child(row)
-	
-	var hint := Label.new()
-	hint.text = "Поражение или выход после хода сбрасывают серию."
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hint.clip_contents = true
-	hint.add_theme_font_size_override("font_size", 18)
-	hint.add_theme_color_override("font_color", Color(0.85, 0.65, 0.65))
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(hint)
-	
-	var close_btn := Button.new()
-	close_btn.text = "ПОНЯТНО"
-	close_btn.custom_minimum_size = Vector2(220, 64)
-	close_btn.focus_mode = Control.FOCUS_NONE
-	var cs := StyleBoxFlat.new()
-	cs.bg_color = Color(0.25, 0.5, 0.3, 1.0)
-	cs.set_corner_radius_all(12)
-	cs.border_color = Color(0.4, 0.8, 0.5, 1.0)
-	cs.border_width_left = 3
-	cs.border_width_top = 3
-	cs.border_width_right = 3
-	cs.border_width_bottom = 3
-	close_btn.add_theme_stylebox_override("normal", cs)
-	close_btn.add_theme_font_size_override("font_size", 28)
-	close_btn.add_theme_color_override("font_color", Color.WHITE)
-	close_btn.pressed.connect(_close_mort_helmet_rules)
-	var wrap := CenterContainer.new()
-	wrap.add_child(close_btn)
-	box.add_child(wrap)
-
-func _close_mort_helmet_rules() -> void:
-	if _mort_helmet_rules_overlay != null and is_instance_valid(_mort_helmet_rules_overlay):
-		_mort_helmet_rules_overlay.queue_free()
-	_mort_helmet_rules_overlay = null
+	UIFlow.push_instance(page, {})
 
 func _maybe_show_mort_helmet_tutorial() -> void:
 	# GDD §8: при первом открытии фичи показывается короткий нежесткий туториал.
@@ -436,80 +331,26 @@ func _maybe_show_mort_helmet_tutorial() -> void:
 	if _mort_helmet_info_button == null or not is_instance_valid(_mort_helmet_info_button):
 		return
 	# Запускаем после раскладки, чтобы получить корректные глобальные прямоугольники.
-	call_deferred("_build_mort_helmet_tutorial_overlay")
+	call_deferred("_push_mort_helmet_tutorial_flow")
 
-func _build_mort_helmet_tutorial_overlay() -> void:
+func _push_mort_helmet_tutorial_flow() -> void:
 	if _mort_helmet_section == null or not is_instance_valid(_mort_helmet_section):
 		return
 	if _mort_helmet_info_button == null or not is_instance_valid(_mort_helmet_info_button):
 		return
-	var overlay := Control.new()
-	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.z_index = 230
-	add_child(overlay)
-	_mort_helmet_tutorial_overlay = overlay
-	
-	var dim := ColorRect.new()
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(0, 0, 0, 0.65)
-	dim.mouse_filter = Control.MOUSE_FILTER_STOP
-	dim.gui_input.connect(func(ev: InputEvent):
-		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
-			_close_mort_helmet_tutorial()
-	)
-	overlay.add_child(dim)
-	
-	# Подсветка плашки Шлема: рамка вокруг секции.
+	if _mort_helmet_tutorial_flow_open or UIFlow.has_page(MORT_HELMET_TUTORIAL_FLOW_PAGE_SCRIPT):
+		return
 	var section_rect: Rect2 = _mort_helmet_section.get_global_rect()
-	section_rect = section_rect.grow(8.0)
-	var highlight := Panel.new()
-	highlight.position = section_rect.position
-	highlight.size = section_rect.size
-	var hs := StyleBoxFlat.new()
-	hs.bg_color = Color(1.0, 0.95, 0.45, 0.12)
-	hs.set_corner_radius_all(14)
-	hs.border_color = Color(1.0, 0.95, 0.45, 1.0)
-	hs.border_width_left = 4
-	hs.border_width_top = 4
-	hs.border_width_right = 4
-	hs.border_width_bottom = 4
-	highlight.add_theme_stylebox_override("panel", hs)
-	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(highlight)
-	
-	# Стрелка-указатель на кнопку "i".
 	var info_rect: Rect2 = _mort_helmet_info_button.get_global_rect()
-	var arrow := Label.new()
-	arrow.text = "▲"
-	arrow.add_theme_font_size_override("font_size", 36)
-	arrow.add_theme_color_override("font_color", Color(1.0, 0.92, 0.4))
-	arrow.add_theme_color_override("font_outline_color", Color.BLACK)
-	arrow.add_theme_constant_override("outline_size", 3)
-	arrow.position = Vector2(info_rect.position.x + info_rect.size.x * 0.5 - 14, info_rect.position.y + info_rect.size.y + 6)
-	arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(arrow)
-	
-	var hint := Label.new()
-	hint.text = "Это Шлем Морта. Побеждайте уровни подряд, чтобы получать бонусы. Нажмите «i», чтобы узнать подробности."
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.add_theme_font_size_override("font_size", 22)
-	hint.add_theme_color_override("font_color", Color.WHITE)
-	hint.add_theme_color_override("font_outline_color", Color.BLACK)
-	hint.add_theme_constant_override("outline_size", 4)
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.position = Vector2(info_rect.position.x - 280, info_rect.position.y + info_rect.size.y + 60)
-	hint.size = Vector2(560, 140)
-	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(hint)
-	
-	if LevelManager:
-		LevelManager.mark_mort_helmet_tutorial_shown()
-
-func _close_mort_helmet_tutorial() -> void:
-	if _mort_helmet_tutorial_overlay != null and is_instance_valid(_mort_helmet_tutorial_overlay):
-		_mort_helmet_tutorial_overlay.queue_free()
-	_mort_helmet_tutorial_overlay = null
+	_mort_helmet_tutorial_flow_open = true
+	var page: MortHelmetTutorialFlowPage = MORT_HELMET_TUTORIAL_FLOW_PAGE_SCRIPT.new()
+	page.closed_pressed.connect(func() -> void:
+		_mort_helmet_tutorial_flow_open = false
+	)
+	UIFlow.push_instance(page, {
+		"section_rect": section_rect,
+		"info_rect": info_rect,
+	})
 
 func _add_prelevel_boosts_section(vbox: VBoxContainer):
 	if not LevelManager:

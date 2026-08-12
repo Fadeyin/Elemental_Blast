@@ -8,6 +8,16 @@
 2. `WebSmokeTestBridge` автоматически проходит главное меню → диалог старта → игровое поле.
 3. Playwright ждёт фазу `game_board_ready` и проверяет ошибки в `window.__EB_SMOKE__` и консоли браузера.
 
+### Фазы smoke-потока
+
+| Фаза | Где выставляется |
+|------|------------------|
+| `bridge_ready` | `web_smoke_test_bridge.gd` |
+| `main_menu_ready` | `main_menu.gd` |
+| `level_start_dialog_ready` | `level_start_dialog.gd` |
+| `menu_to_battle_transition` | `main_menu.gd` (перед `SceneTransition`) |
+| `game_board_ready` | `game_board.gd` |
+
 ## Локальный запуск
 
 ```bash
