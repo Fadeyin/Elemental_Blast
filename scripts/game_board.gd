@@ -1111,6 +1111,30 @@ func _connect_ui_root_layout_refresh() -> void:
 		if not uc.resized.is_connected(_on_ui_root_layout_changed):
 			uc.resized.connect(_on_ui_root_layout_changed)
 
+
+func _decrease_player_life() -> void:
+	if _player_lives_remaining <= 0:
+		return
+	_player_lives_remaining -= 1
+	_needs_ui_update = true
+	_play_life_loss_ui_feedback()
+
+
+func _play_life_loss_ui_feedback() -> void:
+	var panel := find_child("MonstersRemainingPanel", true, false) as CanvasItem
+	if panel != null:
+		GlobalTweens.color_flash(panel, Color(1.0, 0.32, 0.38), 0.22)
+
+
+func _play_booster_purchase_feedback(lm_type: int) -> void:
+	var icon_idx := _lm_booster_type_to_shop_icon_index(lm_type)
+	if icon_idx < 0:
+		return
+	var btn := get_node_or_null(_ingame_booster_button_path(icon_idx + 1)) as CanvasItem
+	if btn != null:
+		GlobalTweens.color_flash(btn, Color(0.65, 1.0, 0.72), 0.2)
+
+
 func _on_ui_root_layout_changed() -> void:
 	_update_ui()
 	queue_redraw()
@@ -1202,6 +1226,7 @@ func _on_ingame_booster_purchase_confirm(lm_type: int) -> void:
 	if LevelManager.buy_booster(lm_type):
 		_update_ui()
 		queue_redraw()
+		_play_booster_purchase_feedback(lm_type)
 
 func _on_ingame_booster_purchase_closed() -> void:
 	_dismiss_booster_purchase_overlay()
@@ -4131,9 +4156,7 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 	for m in moves:
 		var outcome := str(m.get("outcome", "normal"))
 		if outcome == "boss_attack_life":
-			if _player_lives_remaining > 0:
-				_player_lives_remaining -= 1
-			_needs_ui_update = true
+			_decrease_player_life()
 			var bk := str(m.get("boss_key", ""))
 			if not bk.is_empty() and _boss_registry.has(bk):
 				var parts0: PackedStringArray = bk.split(":")
@@ -4169,9 +4192,7 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 			continue
 		var ax = int(m.fx)
 		if outcome == "attack_player_life":
-			if _player_lives_remaining > 0:
-				_player_lives_remaining -= 1
-			_needs_ui_update = true
+			_decrease_player_life()
 			var ty_attack = clampi(int(m.ty), 0, ENEMY_ROWS - 1)
 			var y_pos_b = float(ty_attack) * ENEMY_CELL_HEIGHT
 			var center_pos = origin_apply + Vector2(float(ax) * CELL_SIZE + CELL_SIZE * 0.5, y_pos_b + ENEMY_CELL_HEIGHT * 0.5)

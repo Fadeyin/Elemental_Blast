@@ -9,6 +9,8 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	LevelManager.finish_editor_test()
+	LevelManager.clear_editor_level_override()
 	_restore_level_manager_state(_saved_state)
 
 
@@ -146,3 +148,51 @@ func test_ingame_booster_unlock_levels() -> void:
 	assert_true(LevelManager.is_ingame_booster_unlocked_at_current_level(LevelManager.BoosterType.HAMMER))
 	LevelManager.current_level = 13
 	assert_true(LevelManager.is_ingame_booster_unlocked_at_current_level(LevelManager.BoosterType.SHUFFLE))
+
+
+func test_claim_all_golden_pass_rewards_claims_available_tiers() -> void:
+	LevelManager.player_coins = 100
+	LevelManager.golden_pass_unlocked_tiers = 2
+	LevelManager.golden_pass_purchased = false
+	var claimed := LevelManager.claim_all_golden_pass_rewards()
+	assert_eq(claimed, 2, "Должны забраться free-награды за тиры 0 и 1")
+	assert_eq(LevelManager.get_coins(), 140, "40 + 60 монет с тиров 0 и 1")
+	assert_false(LevelManager.can_claim_golden_pass_free(0))
+	assert_false(LevelManager.can_claim_golden_pass_free(1))
+	assert_eq(LevelManager.claim_all_golden_pass_rewards(), 0, "Повторный claim_all ничего не даёт")
+
+
+func test_claim_all_includes_premium_when_purchased() -> void:
+	LevelManager.golden_pass_unlocked_tiers = 1
+	LevelManager.golden_pass_purchased = true
+	LevelManager.player_coins = 0
+	var claimed := LevelManager.claim_all_golden_pass_rewards()
+	assert_eq(claimed, 2, "Free + premium за тир 0")
+	assert_eq(LevelManager.get_coins(), 160, "40 free + 120 premium")
+
+
+func test_editor_test_mode_loads_override_level_config() -> void:
+	var temp_path := "user://gut_editor_level_test.json"
+	var level_data := {
+		"cols": 8,
+		"rows": 16,
+		"enemy_rows": 10,
+		"moves": 7,
+		"start_monsters": [],
+		"scheduled_spawns": [],
+		"boss_units": [],
+		"obstacles": [],
+		"seed": 99
+	}
+	var file := FileAccess.open(temp_path, FileAccess.WRITE)
+	assert_not_null(file, "Не удалось создать временный JSON уровня")
+	file.store_string(JSON.stringify(level_data))
+	file.close()
+	LevelManager.begin_editor_test(temp_path, 42)
+	assert_true(LevelManager.is_editor_test_mode())
+	assert_eq(LevelManager.current_level, 42)
+	var cfg: Dictionary = LevelManager.get_level_config(1)
+	assert_eq(int(cfg.get("moves", -1)), 7)
+	LevelManager.finish_editor_test()
+	assert_false(LevelManager.is_editor_test_mode())
+	assert_true(LevelManager.get_level_config(1).has("moves"))

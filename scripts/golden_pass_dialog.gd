@@ -234,7 +234,9 @@ func _on_claim_all_pressed() -> void:
 		return
 	if LevelManager.get_golden_pass_pending_claim_count() <= 0:
 		return
-	LevelManager.claim_all_golden_pass_rewards()
+	var claimed := LevelManager.claim_all_golden_pass_rewards()
+	if claimed > 0 and is_instance_valid(_claim_all_btn):
+		GlobalTweens.color_flash(_claim_all_btn, Color(0.55, 1.0, 0.65), 0.22)
 
 func _header_cell(txt: String, w: float, narrow: bool) -> Control:
 	var l := Label.new()
@@ -391,6 +393,7 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 		vb.add_child(got)
 	elif can_claim:
 		var claim := Button.new()
+		claim.name = "GoldenPassClaimBtn_%d_%s" % [tier_index, "premium" if is_premium else "free"]
 		claim.mouse_filter = Control.MOUSE_FILTER_STOP
 		claim.text = "ЗАБРАТЬ"
 		claim.custom_minimum_size = Vector2(0, 40)
@@ -402,10 +405,16 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 func _on_claim_pressed(tier_index: int, is_premium: bool) -> void:
 	if not LevelManager:
 		return
+	var claimed := false
 	if is_premium:
-		LevelManager.claim_golden_pass_premium(tier_index)
+		claimed = LevelManager.claim_golden_pass_premium(tier_index)
 	else:
-		LevelManager.claim_golden_pass_free(tier_index)
+		claimed = LevelManager.claim_golden_pass_free(tier_index)
+	if claimed:
+		var btn_name := "GoldenPassClaimBtn_%d_%s" % [tier_index, "premium" if is_premium else "free"]
+		var claim_btn := find_child(btn_name, true, false) as CanvasItem
+		if claim_btn != null:
+			GlobalTweens.color_flash(claim_btn, Color(0.55, 1.0, 0.65), 0.18)
 
 func _reward_title(entry: Dictionary) -> String:
 	var kind: String = str(entry.get("kind", ""))
