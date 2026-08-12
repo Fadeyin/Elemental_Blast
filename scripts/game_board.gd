@@ -193,17 +193,17 @@ var _player_made_valid_move: bool = false
 # Флаги защиты от повторного показа диалогов
 var _victory_dialog_shown: bool = false
 var _defeat_dialog_shown: bool = false
-const LEVEL1_TUTORIAL_OVERLAY_SCRIPT := preload("res://scripts/level1_tutorial_overlay.gd")
+const LEVEL1_TUTORIAL_FLOW_PAGE_SCRIPT := preload("res://scripts/ui_flow/pages/level1_tutorial_flow_page.gd")
+const INGAME_BOOSTER_TUTORIAL_FLOW_PAGE_SCRIPT := preload("res://scripts/ui_flow/pages/ingame_booster_tutorial_flow_page.gd")
 var _level_end_flow_open: bool = false
 var _booster_purchase_flow_open: bool = false
+var _level1_tutorial_flow_open: bool = false
+var _ingame_booster_tutorial_flow_open: bool = false
+var _level1_tutorial_page: Level1TutorialFlowPage = null
 var _level1_tutorial_overlay: Control = null
 # 0 — выкл; 1 — враги; 2 — фишки; 3 — полное затемнение, ожидание снарядов; 4 — цели (показ)
 var _level1_tutorial_phase: int = 0
 var _level1_tutorial_advancing_to_goals: bool = false
-var _hammer_booster_tutorial_overlay: Control = null
-var _row_blast_booster_tutorial_overlay: Control = null
-var _shuffle_booster_tutorial_overlay: Control = null
-var _freeze_booster_tutorial_overlay: Control = null
 # Высота зоны врагов совпадает с размером сетки ENEMY_ROWS (10 рядов); поле enemy_rows в JSON не укорачивает поле
 var _enemy_rows_effective: int = ENEMY_ROWS
 var _heart_row_y: int = ENEMY_ROWS - 1
@@ -383,27 +383,129 @@ func _start_level1_tutorial_if_needed() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_level1_tutorial_phase = 1
-	var overlay = _attach_level1_tutorial_overlay()
+	var overlay = await _ensure_level1_tutorial_flow()
+	if overlay == null:
+		return
 	var enemy_r = _rect_global_to_overlay_local(overlay, _get_enemy_field_rect_viewport())
 	var intro_text = "На вас нападают монстры, не дайте им забрать ваши жизни. Если монстры не получили урон, они будут двигаться к вам. Нажмите чтобы продолжить..."
 	await overlay.begin_enemy_step(enemy_r, intro_text)
 
-func _attach_level1_tutorial_overlay() -> Control:
-	if _level1_tutorial_overlay != null and is_instance_valid(_level1_tutorial_overlay):
-		return _level1_tutorial_overlay
-	var ui = find_child("UIRoot", true, false)
-	var parent: Node = self if ui == null else ui
-	var overlay = Control.new()
-	overlay.set_script(LEVEL1_TUTORIAL_OVERLAY_SCRIPT)
-	overlay.z_index = 180
-	parent.add_child(overlay)
-	overlay.set_board(self)
-	if not overlay.step_advanced.is_connected(_on_level1_tutorial_after_enemy_intro):
-		overlay.step_advanced.connect(_on_level1_tutorial_after_enemy_intro)
-	if not overlay.tutorial_finished.is_connected(_on_level1_tutorial_finished):
-		overlay.tutorial_finished.connect(_on_level1_tutorial_finished)
-	_level1_tutorial_overlay = overlay
-	return overlay
+func _ensure_level1_tutorial_flow() -> Control:
+	if _level1_tutorial_page != null and is_instance_valid(_level1_tutorial_page):
+		return _level1_tutorial_page.get_overlay()
+	if _level1_tutorial_flow_open or UIFlow.has_page(LEVEL1_TUTORIAL_FLOW_PAGE_SCRIPT):
+		await get_tree().process_frame
+		if _level1_tutorial_page != null and is_instance_valid(_level1_tutorial_page):
+			return _level1_tutorial_page.get_overlay()
+		return null
+	_level1_tutorial_flow_open = true
+	var page: Level1TutorialFlowPage = LEVEL1_TUTORIAL_FLOW_PAGE_SCRIPT.new()
+	_level1_tutorial_page = page
+	page.step_advanced.connect(_on_level1_tutorial_after_enemy_intro)
+	page.tutorial_finished.connect(_on_level1_tutorial_finished)
+	UIFlow.push_instance(page, {"board": self})
+	await get_tree().process_frame
+	_level1_tutorial_overlay = page.get_overlay()
+	return _level1_tutorial_overlay
+
+func _push_ingame_booster_tutorial_flow(slot: int, hint_text: String, tutorial_key: String) -> void:
+	if _ingame_booster_tutorial_flow_open or UIFlow.has_page(INGAME_BOOSTER_TUTORIAL_FLOW_PAGE_SCRIPT):
+		return
+	var btn := get_node_or_null(_ingame_booster_button_path(slot))
+	if btn == null:
+		return
+	await get_tree().process_frame
+	_ingame_booster_tutorial_flow_open = true
+	var page: IngameBoosterTutorialFlowPage = INGAME_BOOSTER_TUTORIAL_FLOW_PAGE_SCRIPT.new()
+	page.closed_pressed.connect(func() -> void:
+		_ingame_booster_tutorial_flow_open = false
+	)
+	UIFlow.push_instance(page, {
+		"highlight_rect": btn.get_global_rect(),
+		"hint_text": hint_text,
+		"tutorial_key": tutorial_key,
+	})
+
+func _start_hammer_booster_tutorial_if_needed() -> void:
+	if LevelManager == null:
+		return
+	if LevelManager.is_editor_test_mode():
+		return
+	if LevelManager.current_level != LevelManager.INGAME_BOOSTER_HAMMER_UNLOCK_LEVEL:
+		return
+	if LevelManager.is_hammer_booster_tutorial_shown():
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _push_ingame_booster_tutorial_flow(
+		1,
+		"Водный шар снимает одну фишку в вашей зоне. Нажмите на кнопку, затем на фишку.",
+		"hammer"
+	)
+
+func _start_row_blast_booster_tutorial_if_needed() -> void:
+	if LevelManager == null:
+		return
+	if LevelManager.is_editor_test_mode():
+		return
+	if LevelManager.current_level != LevelManager.INGAME_BOOSTER_ROW_BLAST_UNLOCK_LEVEL:
+		return
+	if LevelManager.is_row_blast_booster_tutorial_shown():
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _push_ingame_booster_tutorial_flow(
+		2,
+		"Огненная стрела убирает весь ряд фишек в вашей зоне. Нажмите на кнопку, затем на фишку в нужном ряду.",
+		"row_blast"
+	)
+
+func _start_shuffle_booster_tutorial_if_needed() -> void:
+	if LevelManager == null:
+		return
+	if LevelManager.is_editor_test_mode():
+		return
+	if LevelManager.current_level != LevelManager.INGAME_BOOSTER_SHUFFLE_UNLOCK_LEVEL:
+		return
+	if LevelManager.is_shuffle_booster_tutorial_shown():
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _push_ingame_booster_tutorial_flow(
+		3,
+		"Вихрь случайно перераспределяет фишки в вашей зоне. Нажмите на кнопку — бустер применится сразу.",
+		"shuffle"
+	)
+
+func _start_freeze_booster_tutorial_if_needed() -> void:
+	if LevelManager == null:
+		return
+	if LevelManager.is_editor_test_mode():
+		return
+	if LevelManager.current_level != LevelManager.INGAME_BOOSTER_FREEZE_UNLOCK_LEVEL:
+		return
+	if LevelManager.is_freeze_booster_tutorial_shown():
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _push_ingame_booster_tutorial_flow(
+		4,
+		"Корни останавливают монстров на один ход. Нажмите на кнопку, затем на зону врагов.",
+		"freeze"
+	)
+
+func _dismiss_ingame_tutorial_uiflow_pages() -> void:
+	_level1_tutorial_phase = 0
+	_level1_tutorial_advancing_to_goals = false
+	_level1_tutorial_overlay = null
+	_level1_tutorial_page = null
+	_level1_tutorial_flow_open = false
+	_ingame_booster_tutorial_flow_open = false
+	while UIFlow.stack_depth() > 0:
+		if UIFlow.has_page(LEVEL1_TUTORIAL_FLOW_PAGE_SCRIPT) or UIFlow.has_page(INGAME_BOOSTER_TUTORIAL_FLOW_PAGE_SCRIPT):
+			UIFlow.pop()
+			continue
+		break
 
 func _get_enemy_field_rect_viewport() -> Rect2:
 	var top_left_local := Vector2.ZERO
@@ -435,336 +537,19 @@ func _on_level1_tutorial_after_enemy_intro() -> void:
 	if _level1_tutorial_phase != 1:
 		return
 	_level1_tutorial_phase = 2
-	var overlay = _attach_level1_tutorial_overlay()
+	var overlay = await _ensure_level1_tutorial_flow()
+	if overlay == null:
+		return
 	var player_r = _rect_global_to_overlay_local(overlay, _get_player_field_rect_viewport())
 	await overlay.begin_chips_step(player_r, "Нажми на фишки одного цвета, чтобы выпустить снаряды во врагов.")
 
 func _on_level1_tutorial_finished() -> void:
 	_level1_tutorial_phase = 0
 	_level1_tutorial_advancing_to_goals = false
-	if _level1_tutorial_overlay != null and is_instance_valid(_level1_tutorial_overlay):
-		_level1_tutorial_overlay.queue_free()
 	_level1_tutorial_overlay = null
+	_level1_tutorial_page = null
+	_level1_tutorial_flow_open = false
 	queue_redraw()
-func _start_hammer_booster_tutorial_if_needed() -> void:
-	if LevelManager == null:
-		return
-	if LevelManager.is_editor_test_mode():
-		return
-	if LevelManager.current_level != LevelManager.INGAME_BOOSTER_HAMMER_UNLOCK_LEVEL:
-		return
-	if LevelManager.is_hammer_booster_tutorial_shown():
-		return
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await _build_hammer_booster_tutorial_overlay()
-
-func _build_hammer_booster_tutorial_overlay() -> void:
-	var btn := get_node_or_null(_ingame_booster_button_path(1))
-	if btn == null:
-		return
-	var ui := find_child("UIRoot", true, false)
-	var parent: Node = self if ui == null else ui
-	var overlay := Control.new()
-	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.z_index = 250
-	parent.add_child(overlay)
-	_hammer_booster_tutorial_overlay = overlay
-	await get_tree().process_frame
-	var dim := ColorRect.new()
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(0, 0, 0, 0.65)
-	dim.mouse_filter = Control.MOUSE_FILTER_STOP
-	dim.gui_input.connect(func(ev: InputEvent):
-		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
-			_close_hammer_booster_tutorial()
-	)
-	overlay.add_child(dim)
-	var btn_rect: Rect2 = btn.get_global_rect().grow(8.0)
-	var local_rect: Rect2 = _rect_global_to_overlay_local(overlay, btn_rect)
-	var highlight := Panel.new()
-	highlight.position = local_rect.position
-	highlight.size = local_rect.size
-	var hs := StyleBoxFlat.new()
-	hs.bg_color = Color(1.0, 0.95, 0.45, 0.12)
-	hs.set_corner_radius_all(14)
-	hs.border_color = Color(1.0, 0.95, 0.45, 1.0)
-	hs.border_width_left = 4
-	hs.border_width_top = 4
-	hs.border_width_right = 4
-	hs.border_width_bottom = 4
-	highlight.add_theme_stylebox_override("panel", hs)
-	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(highlight)
-	var hint := Label.new()
-	hint.text = "Водный шар снимает одну фишку в вашей зоне. Нажмите на кнопку, затем на фишку."
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.add_theme_font_size_override("font_size", 22)
-	hint.add_theme_color_override("font_color", Color.WHITE)
-	hint.add_theme_color_override("font_outline_color", Color.BLACK)
-	hint.add_theme_constant_override("outline_size", 4)
-	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var hw: float = minf(maxf(overlay.size.x - 40.0, 160.0), 560.0)
-	hint.custom_minimum_size = Vector2(hw, 0)
-	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hint.clip_contents = true
-	var hint_h: float = GameFonts.measure_mixed_wrapped(
-		hint.text, 22, hw, TextServer.AUTOWRAP_WORD_SMART, 0.0
-	).height + 12.0
-	var hint_x: float = overlay.size.x * 0.5 - hw * 0.5
-	var hint_y: float = maxf(16.0, local_rect.position.y - maxf(hint_h + 24.0, 150.0))
-	hint.position = Vector2(hint_x, hint_y)
-	hint.size = Vector2(hw, hint_h)
-	overlay.add_child(hint)
-	if LevelManager:
-		LevelManager.mark_hammer_booster_tutorial_shown()
-
-func _close_hammer_booster_tutorial() -> void:
-	if _hammer_booster_tutorial_overlay != null and is_instance_valid(_hammer_booster_tutorial_overlay):
-		_hammer_booster_tutorial_overlay.queue_free()
-	_hammer_booster_tutorial_overlay = null
-
-func _start_row_blast_booster_tutorial_if_needed() -> void:
-	if LevelManager == null:
-		return
-	if LevelManager.is_editor_test_mode():
-		return
-	if LevelManager.current_level != LevelManager.INGAME_BOOSTER_ROW_BLAST_UNLOCK_LEVEL:
-		return
-	if LevelManager.is_row_blast_booster_tutorial_shown():
-		return
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await _build_row_blast_booster_tutorial_overlay()
-
-func _build_row_blast_booster_tutorial_overlay() -> void:
-	var btn := get_node_or_null(_ingame_booster_button_path(2))
-	if btn == null:
-		return
-	var ui := find_child("UIRoot", true, false)
-	var parent: Node = self if ui == null else ui
-	var overlay := Control.new()
-	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.z_index = 250
-	parent.add_child(overlay)
-	_row_blast_booster_tutorial_overlay = overlay
-	await get_tree().process_frame
-	var dim := ColorRect.new()
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(0, 0, 0, 0.65)
-	dim.mouse_filter = Control.MOUSE_FILTER_STOP
-	dim.gui_input.connect(func(ev: InputEvent):
-		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
-			_close_row_blast_booster_tutorial()
-	)
-	overlay.add_child(dim)
-	var btn_rect: Rect2 = btn.get_global_rect().grow(8.0)
-	var local_rect: Rect2 = _rect_global_to_overlay_local(overlay, btn_rect)
-	var highlight := Panel.new()
-	highlight.position = local_rect.position
-	highlight.size = local_rect.size
-	var hs := StyleBoxFlat.new()
-	hs.bg_color = Color(1.0, 0.95, 0.45, 0.12)
-	hs.set_corner_radius_all(14)
-	hs.border_color = Color(1.0, 0.95, 0.45, 1.0)
-	hs.border_width_left = 4
-	hs.border_width_top = 4
-	hs.border_width_right = 4
-	hs.border_width_bottom = 4
-	highlight.add_theme_stylebox_override("panel", hs)
-	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(highlight)
-	var hint := Label.new()
-	hint.text = "Огненная стрела убирает весь ряд фишек в вашей зоне. Нажмите на кнопку, затем на фишку в нужном ряду."
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.add_theme_font_size_override("font_size", 22)
-	hint.add_theme_color_override("font_color", Color.WHITE)
-	hint.add_theme_color_override("font_outline_color", Color.BLACK)
-	hint.add_theme_constant_override("outline_size", 4)
-	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var hw: float = minf(maxf(overlay.size.x - 40.0, 160.0), 560.0)
-	hint.custom_minimum_size = Vector2(hw, 0)
-	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hint.clip_contents = true
-	var hint_h: float = GameFonts.measure_mixed_wrapped(
-		hint.text, 22, hw, TextServer.AUTOWRAP_WORD_SMART, 0.0
-	).height + 12.0
-	var hint_x: float = overlay.size.x * 0.5 - hw * 0.5
-	var hint_y: float = maxf(16.0, local_rect.position.y - maxf(hint_h + 24.0, 150.0))
-	hint.position = Vector2(hint_x, hint_y)
-	hint.size = Vector2(hw, hint_h)
-	overlay.add_child(hint)
-	if LevelManager:
-		LevelManager.mark_row_blast_booster_tutorial_shown()
-
-func _close_row_blast_booster_tutorial() -> void:
-	if _row_blast_booster_tutorial_overlay != null and is_instance_valid(_row_blast_booster_tutorial_overlay):
-		_row_blast_booster_tutorial_overlay.queue_free()
-	_row_blast_booster_tutorial_overlay = null
-
-func _start_shuffle_booster_tutorial_if_needed() -> void:
-	if LevelManager == null:
-		return
-	if LevelManager.is_editor_test_mode():
-		return
-	if LevelManager.current_level != LevelManager.INGAME_BOOSTER_SHUFFLE_UNLOCK_LEVEL:
-		return
-	if LevelManager.is_shuffle_booster_tutorial_shown():
-		return
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await _build_shuffle_booster_tutorial_overlay()
-
-func _build_shuffle_booster_tutorial_overlay() -> void:
-	var btn := get_node_or_null(_ingame_booster_button_path(3))
-	if btn == null:
-		return
-	var ui := find_child("UIRoot", true, false)
-	var parent: Node = self if ui == null else ui
-	var overlay := Control.new()
-	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.z_index = 250
-	parent.add_child(overlay)
-	_shuffle_booster_tutorial_overlay = overlay
-	await get_tree().process_frame
-	var dim := ColorRect.new()
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(0, 0, 0, 0.65)
-	dim.mouse_filter = Control.MOUSE_FILTER_STOP
-	dim.gui_input.connect(func(ev: InputEvent):
-		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
-			_close_shuffle_booster_tutorial()
-	)
-	overlay.add_child(dim)
-	var btn_rect: Rect2 = btn.get_global_rect().grow(8.0)
-	var local_rect: Rect2 = _rect_global_to_overlay_local(overlay, btn_rect)
-	var highlight := Panel.new()
-	highlight.position = local_rect.position
-	highlight.size = local_rect.size
-	var hs := StyleBoxFlat.new()
-	hs.bg_color = Color(1.0, 0.95, 0.45, 0.12)
-	hs.set_corner_radius_all(14)
-	hs.border_color = Color(1.0, 0.95, 0.45, 1.0)
-	hs.border_width_left = 4
-	hs.border_width_top = 4
-	hs.border_width_right = 4
-	hs.border_width_bottom = 4
-	highlight.add_theme_stylebox_override("panel", hs)
-	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(highlight)
-	var hint := Label.new()
-	hint.text = "Вихрь случайно перераспределяет фишки в вашей зоне. Нажмите на кнопку — бустер применится сразу."
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.add_theme_font_size_override("font_size", 22)
-	hint.add_theme_color_override("font_color", Color.WHITE)
-	hint.add_theme_color_override("font_outline_color", Color.BLACK)
-	hint.add_theme_constant_override("outline_size", 4)
-	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var hw: float = minf(maxf(overlay.size.x - 40.0, 160.0), 560.0)
-	hint.custom_minimum_size = Vector2(hw, 0)
-	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hint.clip_contents = true
-	var hint_h: float = GameFonts.measure_mixed_wrapped(
-		hint.text, 22, hw, TextServer.AUTOWRAP_WORD_SMART, 0.0
-	).height + 12.0
-	var hint_x: float = overlay.size.x * 0.5 - hw * 0.5
-	var hint_y: float = maxf(16.0, local_rect.position.y - maxf(hint_h + 24.0, 150.0))
-	hint.position = Vector2(hint_x, hint_y)
-	hint.size = Vector2(hw, hint_h)
-	overlay.add_child(hint)
-	if LevelManager:
-		LevelManager.mark_shuffle_booster_tutorial_shown()
-
-func _close_shuffle_booster_tutorial() -> void:
-	if _shuffle_booster_tutorial_overlay != null and is_instance_valid(_shuffle_booster_tutorial_overlay):
-		_shuffle_booster_tutorial_overlay.queue_free()
-	_shuffle_booster_tutorial_overlay = null
-
-func _start_freeze_booster_tutorial_if_needed() -> void:
-	if LevelManager == null:
-		return
-	if LevelManager.is_editor_test_mode():
-		return
-	if LevelManager.current_level != LevelManager.INGAME_BOOSTER_FREEZE_UNLOCK_LEVEL:
-		return
-	if LevelManager.is_freeze_booster_tutorial_shown():
-		return
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await _build_freeze_booster_tutorial_overlay()
-
-func _build_freeze_booster_tutorial_overlay() -> void:
-	var btn := get_node_or_null(_ingame_booster_button_path(4))
-	if btn == null:
-		return
-	var ui := find_child("UIRoot", true, false)
-	var parent: Node = self if ui == null else ui
-	var overlay := Control.new()
-	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.z_index = 250
-	parent.add_child(overlay)
-	_freeze_booster_tutorial_overlay = overlay
-	await get_tree().process_frame
-	var dim := ColorRect.new()
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(0, 0, 0, 0.65)
-	dim.mouse_filter = Control.MOUSE_FILTER_STOP
-	dim.gui_input.connect(func(ev: InputEvent):
-		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
-			_close_freeze_booster_tutorial()
-	)
-	overlay.add_child(dim)
-	var btn_rect: Rect2 = btn.get_global_rect().grow(8.0)
-	var local_rect: Rect2 = _rect_global_to_overlay_local(overlay, btn_rect)
-	var highlight := Panel.new()
-	highlight.position = local_rect.position
-	highlight.size = local_rect.size
-	var hs := StyleBoxFlat.new()
-	hs.bg_color = Color(1.0, 0.95, 0.45, 0.12)
-	hs.set_corner_radius_all(14)
-	hs.border_color = Color(1.0, 0.95, 0.45, 1.0)
-	hs.border_width_left = 4
-	hs.border_width_top = 4
-	hs.border_width_right = 4
-	hs.border_width_bottom = 4
-	highlight.add_theme_stylebox_override("panel", hs)
-	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(highlight)
-	var hint := Label.new()
-	hint.text = "Корни останавливают монстров на один ход. Нажмите на кнопку, затем на зону врагов."
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.add_theme_font_size_override("font_size", 22)
-	hint.add_theme_color_override("font_color", Color.WHITE)
-	hint.add_theme_color_override("font_outline_color", Color.BLACK)
-	hint.add_theme_constant_override("outline_size", 4)
-	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var hw: float = minf(maxf(overlay.size.x - 40.0, 160.0), 560.0)
-	hint.custom_minimum_size = Vector2(hw, 0)
-	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hint.clip_contents = true
-	var hint_h: float = GameFonts.measure_mixed_wrapped(
-		hint.text, 22, hw, TextServer.AUTOWRAP_WORD_SMART, 0.0
-	).height + 12.0
-	var hint_x: float = overlay.size.x * 0.5 - hw * 0.5
-	var hint_y: float = maxf(16.0, local_rect.position.y - maxf(hint_h + 24.0, 150.0))
-	hint.position = Vector2(hint_x, hint_y)
-	hint.size = Vector2(hw, hint_h)
-	overlay.add_child(hint)
-	if LevelManager:
-		LevelManager.mark_freeze_booster_tutorial_shown()
-
-func _close_freeze_booster_tutorial() -> void:
-	if _freeze_booster_tutorial_overlay != null and is_instance_valid(_freeze_booster_tutorial_overlay):
-		_freeze_booster_tutorial_overlay.queue_free()
-	_freeze_booster_tutorial_overlay = null
 
 func tutorial_forward_chip_click(screen_pos: Vector2) -> void:
 	if _level1_tutorial_phase != 2:
@@ -799,7 +584,7 @@ func _try_advance_level1_tutorial_to_goals_step() -> void:
 		return
 	if not _enemy_death_anims.is_empty():
 		return
-	if _level1_tutorial_overlay == null or not is_instance_valid(_level1_tutorial_overlay):
+	if _level1_tutorial_page == null or not is_instance_valid(_level1_tutorial_page):
 		return
 	_level1_tutorial_advancing_to_goals = true
 	_level1_tutorial_phase = 4
@@ -807,6 +592,8 @@ func _try_advance_level1_tutorial_to_goals_step() -> void:
 
 func _run_level1_goals_tutorial_step() -> void:
 	var overlay = _level1_tutorial_overlay
+	if overlay == null or not is_instance_valid(overlay):
+		overlay = await _ensure_level1_tutorial_flow()
 	if overlay == null or not is_instance_valid(overlay):
 		_level1_tutorial_advancing_to_goals = false
 		return
@@ -1144,13 +931,22 @@ func _setup_uiflow_root() -> void:
 		UIFlow.page_closed.connect(_on_uiflow_page_closed)
 
 
-func _on_uiflow_page_closed(_page_class: GDScript) -> void:
+func _on_uiflow_page_closed(page_class: GDScript) -> void:
 	_level_end_flow_open = false
 	_booster_purchase_flow_open = false
+	if page_class == LEVEL1_TUTORIAL_FLOW_PAGE_SCRIPT:
+		_level1_tutorial_flow_open = false
+		_level1_tutorial_overlay = null
+		_level1_tutorial_page = null
+	if page_class == INGAME_BOOSTER_TUTORIAL_FLOW_PAGE_SCRIPT:
+		_ingame_booster_tutorial_flow_open = false
 
 
 func _push_level_end_flow_page(data: Dictionary, to_menu_handler: Callable, refill_handler: Callable = Callable()) -> void:
-	if _level_end_flow_open or UIFlow.stack_depth() > 0:
+	if _level_end_flow_open or _booster_purchase_flow_open:
+		return
+	_dismiss_ingame_tutorial_uiflow_pages()
+	if UIFlow.stack_depth() > 0:
 		return
 	_level_end_flow_open = true
 	var page := LevelEndFlowPage.new()

@@ -6,6 +6,8 @@ const BOOSTER_PURCHASE_FLOW_PAGE := preload("res://scripts/ui_flow/pages/booster
 const SIMPLE_MESSAGE_FLOW_PAGE := preload("res://scripts/ui_flow/pages/simple_message_flow_page.gd")
 const MORT_HELMET_RULES_FLOW_PAGE := preload("res://scripts/ui_flow/pages/mort_helmet_rules_flow_page.gd")
 const MORT_HELMET_TUTORIAL_FLOW_PAGE := preload("res://scripts/ui_flow/pages/mort_helmet_tutorial_flow_page.gd")
+const LEVEL1_TUTORIAL_FLOW_PAGE := preload("res://scripts/ui_flow/pages/level1_tutorial_flow_page.gd")
+const INGAME_BOOSTER_TUTORIAL_FLOW_PAGE := preload("res://scripts/ui_flow/pages/ingame_booster_tutorial_flow_page.gd")
 
 
 func test_uiflow_autoloads_ready() -> void:
@@ -91,6 +93,27 @@ func test_mort_helmet_tutorial_flow_page_setup() -> void:
 	})
 	await wait_process_frames(3)
 	assert_not_null(page.find_child("MortHelmetTutorialDialogHost", true, false))
+
+
+func test_level1_tutorial_flow_page_setup() -> void:
+	var page = LEVEL1_TUTORIAL_FLOW_PAGE.new()
+	add_child_autofree(page)
+	page._on_opened({"board": null})
+	await wait_process_frames(3)
+	assert_not_null(page.find_child("Level1TutorialOverlayHost", true, false))
+	assert_not_null(page.get_overlay())
+
+
+func test_ingame_booster_tutorial_flow_page_setup() -> void:
+	var page = INGAME_BOOSTER_TUTORIAL_FLOW_PAGE.new()
+	add_child_autofree(page)
+	page._on_opened({
+		"highlight_rect": Rect2(40, 900, 112, 112),
+		"hint_text": "Тестовая подсказка бустера",
+		"tutorial_key": "hammer",
+	})
+	await wait_process_frames(5)
+	assert_not_null(page.find_child("IngameBoosterTutorialDialogHost", true, false))
 
 
 func test_level_end_flow_page_victory_setup() -> void:

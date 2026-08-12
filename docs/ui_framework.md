@@ -272,6 +272,8 @@ func _switch_tab(tab_name: String) -> void:
 | `SimpleMessageFlowPage` | [`scripts/ui_flow/pages/simple_message_flow_page.gd`](../scripts/ui_flow/pages/simple_message_flow_page.gd) | [`simple_message_dialog.gd`](../scripts/simple_message_dialog.gd) | см. ниже | `closed_pressed` |
 | `MortHelmetRulesFlowPage` | [`scripts/ui_flow/pages/mort_helmet_rules_flow_page.gd`](../scripts/ui_flow/pages/mort_helmet_rules_flow_page.gd) | [`mort_helmet_rules_dialog.gd`](../scripts/mort_helmet_rules_dialog.gd) | — | `closed_pressed` |
 | `MortHelmetTutorialFlowPage` | [`scripts/ui_flow/pages/mort_helmet_tutorial_flow_page.gd`](../scripts/ui_flow/pages/mort_helmet_tutorial_flow_page.gd) | [`mort_helmet_tutorial_dialog.gd`](../scripts/mort_helmet_tutorial_dialog.gd) | см. ниже | `closed_pressed` |
+| `Level1TutorialFlowPage` | [`scripts/ui_flow/pages/level1_tutorial_flow_page.gd`](../scripts/ui_flow/pages/level1_tutorial_flow_page.gd) | [`level1_tutorial_overlay.gd`](../scripts/level1_tutorial_overlay.gd) | `board: Node` | `step_advanced`, `tutorial_finished` |
+| `IngameBoosterTutorialFlowPage` | [`scripts/ui_flow/pages/ingame_booster_tutorial_flow_page.gd`](../scripts/ui_flow/pages/ingame_booster_tutorial_flow_page.gd) | [`ingame_booster_tutorial_dialog.gd`](../scripts/ingame_booster_tutorial_dialog.gd) | см. ниже | `closed_pressed` |
 
 #### LevelEndFlowPage — поля `data`
 
@@ -315,13 +317,25 @@ func _switch_tab(tab_name: String) -> void:
 
 Открывается из [`level_start_dialog.gd`](../scripts/level_start_dialog.gd) при первом показе фичи; правила — через `MortHelmetRulesFlowPage` по кнопке «i».
 
+#### IngameBoosterTutorialFlowPage — поля `data`
+
+```gdscript
+{"highlight_rect": Rect2, "hint_text": String, "tutorial_key": "hammer"|"row_blast"|"shuffle"|"freeze"}
+```
+
+#### Level1TutorialFlowPage — поля `data`
+
+```gdscript
+{"board": Node}  # game_board для tutorial_forward_chip_click
+```
+
 ### Где открывается UIFlow
 
 | Сцена | Файл | Страница | Защита от дубля |
 |-------|------|----------|-----------------|
 | Главное меню | [`scripts/main_menu.gd`](../scripts/main_menu.gd) | `MenuTabFlowPage` (база), `LevelStartFlowPage`, `GoldenPassFlowPage`, `SimpleMessageFlowPage` | таб: `_tab_switch_busy`; модалки: `_is_modal_uiflow_open()` |
 | Старт уровня | [`scripts/level_start_dialog.gd`](../scripts/level_start_dialog.gd) | `BoosterPurchaseFlowPage`, `MortHelmetRulesFlowPage`, `MortHelmetTutorialFlowPage` | `_prelevel_purchase_flow_open`, `_mort_helmet_*_flow_open`, `has_page(...)` |
-| Бой | [`scripts/game_board.gd`](../scripts/game_board.gd) | `LevelEndFlowPage`, `BoosterPurchaseFlowPage` | `_level_end_flow_open`, `_booster_purchase_flow_open`, `stack_depth()` |
+| Бой | [`scripts/game_board.gd`](../scripts/game_board.gd) | `LevelEndFlowPage`, `BoosterPurchaseFlowPage`, `Level1TutorialFlowPage`, `IngameBoosterTutorialFlowPage` | `_level_end_flow_open`, `_booster_purchase_flow_open`, tutorial flags, `stack_depth()` |
 
 `UIFlowRoot` в бою: z_index **250**, внутри `UIRoot`. В меню: z_index **200**.
 
@@ -353,7 +367,7 @@ func _switch_tab(tab_name: String) -> void:
 # Первый раз или после смены ассетов
 godot --headless --import --path .
 
-# Прогон всех тестов (40 тестов)
+# Прогон всех тестов (42 теста)
 godot --headless --path . -s addons/gut/gut_cmdln.gd -gexit
 ```
 
@@ -388,6 +402,8 @@ scripts/
   simple_message_dialog.gd             # Заголовок + текст + OK (контент для UIFlow)
   mort_helmet_rules_dialog.gd          # Правила Шлема Морта
   mort_helmet_tutorial_dialog.gd       # Туториал Шлема Морта
+  ingame_booster_tutorial_dialog.gd    # Туториал внутриуровневого бустера
+  level1_tutorial_overlay.gd           # Интерактивный туториал уровня 1 (контент UIFlow)
   ui_flow/
     eb_modal_flow_page.gd              # база flow pages
     pages/
@@ -399,6 +415,8 @@ scripts/
       simple_message_flow_page.gd
       mort_helmet_rules_flow_page.gd
       mort_helmet_tutorial_flow_page.gd
+      level1_tutorial_flow_page.gd
+      ingame_booster_tutorial_flow_page.gd
 addons/
   anima/                               # плагин Anima
   simple-gui-transitions/              # legacy (не подключён)
@@ -476,7 +494,6 @@ _my_dialog_open = false
 
 | Компонент | Причина | Файл |
 |-----------|---------|------|
-| Туториалы уровня 1 / бустеров | Отдельные overlay, z_index 180 | [`game_board.gd`](../scripts/game_board.gd) |
 | Анимации match-3 / TD | Кастомный tick-движок | [`game_board.gd`](../scripts/game_board.gd) |
 | Полная навигация меню как UIFlow routes | Табы уже на UIFlow; нижняя навигация остаётся в сцене | — |
 
@@ -503,4 +520,4 @@ _my_dialog_open = false
 
 ---
 
-*Последнее обновление: MortHelmet rules/tutorial на UIFlow, smoke phase menu_to_battle_transition, 40 GUT-тестов.*
+*Последнее обновление: туториалы боя на UIFlow (Level1 + IngameBooster), 42 GUT-теста.*
