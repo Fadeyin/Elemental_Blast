@@ -4,6 +4,12 @@ const MAIN_MENU_SCENE := preload("res://scenes/main_menu.tscn")
 const LEVEL_START_DIALOG_SCRIPT := preload("res://scripts/level_start_dialog.gd")
 const LEVEL_END_DIALOG_SCRIPT := preload("res://scripts/level_end_dialog.gd")
 
+const MAIN_MENU_TAB_NODES := {
+	"shop": "ShopTab",
+	"main": "MainTab",
+	"ranks": "RanksTab",
+}
+
 
 func before_each() -> void:
 	DisplayServer.window_set_size(Vector2i(648, 1200))
@@ -47,6 +53,27 @@ func test_main_menu_level_start_dialog_opens_once() -> void:
 		1,
 		"Повторные вызовы _show_level_start_dialog не должны создавать второй диалог"
 	)
+
+
+func test_main_menu_tabs_have_gui_transitions() -> void:
+	var menu := MAIN_MENU_SCENE.instantiate()
+	add_child_autofree(menu)
+	await wait_process_frames(5)
+	for tab_id in MAIN_MENU_TAB_NODES.keys():
+		var tab_path: String = "TabContent/%s" % MAIN_MENU_TAB_NODES[tab_id]
+		var tab := menu.get_node_or_null(tab_path) as Node
+		assert_not_null(tab, "Таб %s должен существовать" % tab_id)
+		assert_not_null(tab.get_node_or_null("GuiTransition"), "Таб %s должен иметь GuiTransition" % tab_id)
+
+
+func test_main_menu_switch_tab_ignores_same_tab() -> void:
+	var menu := MAIN_MENU_SCENE.instantiate()
+	add_child_autofree(menu)
+	await wait_process_frames(15)
+	menu._switch_tab("main")
+	await wait_process_frames(5)
+	menu._switch_tab("main")
+	assert_true(menu.main_tab.visible, "Повторный _switch_tab(main) не должен скрывать главный таб")
 
 
 func test_level_start_dialog_builds_expected_nodes() -> void:

@@ -32,6 +32,7 @@ var _golden_pass_dialog_open: bool = false
 var _golden_pass_fab: Button = null
 
 const GOLDEN_PASS_DIALOG_SCRIPT := preload("res://scripts/golden_pass_dialog.gd")
+const GUI_TRANSITION_SCRIPT := preload("res://addons/simple-gui-transitions/transition.gd")
 const TEX_UI_TOOLBAR_BG := preload("res://textures/ui_main_menu_toolbar_bg.png")
 const TEX_UI_BUY_COINS_BTN := preload("res://textures/ui_buy_coins_button.png")
 const TEX_UI_PLAY_BTN := preload("res://textures/ui_main_menu_play_button.png")
@@ -69,6 +70,7 @@ const UI_SHADOW_OFFSET_SOFT := Vector2(0, 3)
 
 var _syncing_ranks_level_edit: bool = false
 var _play_level_banner: Label = null
+var _current_tab_name: String = "main"
 
 func _ready():
 	if LevelManager:
@@ -92,7 +94,8 @@ func _ready():
 	_update_level_label()
 	_update_version_label()
 	_build_shop_tab()
-	_switch_tab("main")
+	_setup_tab_gui_transitions()
+	_update_nav_highlight("main")
 	
 	LevelManager.coins_changed.connect(_on_coins_changed)
 	LevelManager.boosters_changed.connect(_on_boosters_changed)
@@ -426,10 +429,31 @@ func _setup_navigation():
 	main_btn.pressed.connect(func(): _switch_tab("main"))
 	ranks_btn.pressed.connect(func(): _switch_tab("ranks"))
 
-func _switch_tab(tab_name: String):
-	shop_tab.visible = (tab_name == "shop")
-	main_tab.visible = (tab_name == "main")
-	ranks_tab.visible = (tab_name == "ranks")
+func _setup_tab_gui_transitions() -> void:
+	_add_tab_gui_transition(shop_tab, "shop")
+	_add_tab_gui_transition(main_tab, "main", true)
+	_add_tab_gui_transition(ranks_tab, "ranks")
+
+func _add_tab_gui_transition(tab: Control, tab_id: String, should_auto_start: bool = false) -> void:
+	if tab == null or not is_instance_valid(tab):
+		return
+	if tab.get_node_or_null("GuiTransition") != null:
+		return
+	var transition_node := Node.new()
+	transition_node.name = "GuiTransition"
+	transition_node.set_script(GUI_TRANSITION_SCRIPT)
+	transition_node.set("layout", NodePath(".."))
+	transition_node.set("layout_id", tab_id)
+	transition_node.set("auto_start", 1 if should_auto_start else 0)
+	tab.add_child(transition_node)
+
+func _switch_tab(tab_name: String) -> void:
+	if tab_name == _current_tab_name:
+		return
+	if GuiTransitions.in_transition():
+		return
+	_current_tab_name = tab_name
+	GuiTransitions.go_to(tab_name)
 	if is_instance_valid(_golden_pass_fab):
 		_golden_pass_fab.visible = (tab_name == "main")
 	if tab_name == "ranks":
@@ -793,6 +817,8 @@ func _build_shop_tab():
 	
 	var shop_tab_node = get_node("TabContent/ShopTab")
 	for child in shop_tab_node.get_children():
+		if child.name == "GuiTransition":
+			continue
 		child.queue_free()
 	
 	var scroll = ScrollContainer.new()
