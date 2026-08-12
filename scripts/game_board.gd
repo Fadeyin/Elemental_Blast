@@ -125,26 +125,21 @@ var obstacles := [] # 2D массив здоровья препятствий (y
 var obstacles_initial_hp := [] # Исходный HP препятствий
 var obstacles_unbreakable := [] # 2D массив неразрушаемых препятствий
 var _obstacle_spawn_on_destroy := {} # "x:y" -> {hp:int,count:int}
-var _projectiles := [] # [{x:int, start_y:float, end_y:float, t:float, d:float, delay:float, color:Color, hit_applied:bool, has_target:bool}]
-var _active_anims := [] # [{x:int, start_y:int, end_y:int, color:int, t:float, d:float}]
-var _enemy_death_anims := [] # [{x:int, y:int, t:float, d:float, hp:int, init:int, id:int}]
-var _monster_shakes := {} # monster_id -> {t:float, d:float, intensity:float}
+const MATCH3_ANIM_CONTROLLER_SCRIPT := preload("res://scripts/match3_anim_controller.gd")
+var _match3_anims: Match3AnimController = null
 # Многоячеечные боссы: якорь верхнего левого угла, общий пул HP в _boss_registry
 var _boss_anchor_of := [] # [y][x] -> Vector2i(anchor_x, anchor_y) или (-1,-1)
 var _boss_registry := {} # "ax:ay" -> {cells: Array, hp: int, max_hp: int, sprite: int}
-var _board_vfx := [] # [{type:str, pos:Vector2, color:Color, t:float, d:float, scale:float}]
 var _level_targets := {} # hp -> required count
 var _enemy_move_pending: bool = false
 var _enemy_attack_warn_pending: bool = false
 var _enemy_attack_warn_time_left: float = 0.0
 var _cached_enemy_moves: Array = []
-var _enemy_move_anims := [] # [{fx:int,fy:int,tx:int,ty:int,hp:int,init:int,t:float,d:float}]
 enum EnemyIntentKind { NONE, MOVE_DOWN, MOVE_SIDE, ATTACK, WAIT }
 var _enemy_intent_by_cell := {} # "x,y" -> {"kind": int, "side_dx": int}
 var _danger_attack_columns := {} # col_x -> true
 var _pending_life_attack_count: int = 0
 var _enemy_intent_refresh_after_move_anims: bool = false
-var _portal_spawn_burst_vfx := [] # [{x:int,y:int,t:float,d:float}]
 # Пока false — не засчитывать победу (избегаем ложного _check_level_completed до пересборки целей)
 var _level_ready_for_win: bool = false
 
@@ -258,6 +253,7 @@ func _execute_board_initialization() -> String:
 	_init_player_lives_for_level()
 	_init_ui()
 	_setup_uiflow_root()
+	_match3_anims = MATCH3_ANIM_CONTROLLER_SCRIPT.new()
 	LevelManager.ensure_ingame_booster_unlock_bonus_rewards()
 	_update_ui()
 	queue_redraw()
@@ -554,7 +550,7 @@ func _on_level1_tutorial_finished() -> void:
 func tutorial_forward_chip_click(screen_pos: Vector2) -> void:
 	if _level1_tutorial_phase != 2:
 		return
-	if not _active_anims.is_empty() or not _projectiles.is_empty() or _is_executing_combo:
+	if not _match3_anims.active_anims.is_empty() or not _match3_anims.projectiles.is_empty() or _is_executing_combo:
 		return
 	if _active_booster != BoosterType.NONE:
 		return
@@ -578,11 +574,11 @@ func _try_advance_level1_tutorial_to_goals_step() -> void:
 		return
 	if _level1_tutorial_advancing_to_goals:
 		return
-	if not _projectiles.is_empty():
+	if not _match3_anims.projectiles.is_empty():
 		return
-	if not _active_anims.is_empty():
+	if not _match3_anims.active_anims.is_empty():
 		return
-	if not _enemy_death_anims.is_empty():
+	if not _match3_anims.enemy_death_anims.is_empty():
 		return
 	if _level1_tutorial_page == null or not is_instance_valid(_level1_tutorial_page):
 		return
@@ -1123,7 +1119,7 @@ func _init_enemies_from_config(cfg: Dictionary):
 	_level_targets.clear()
 	_monster_spawn_queue.clear()
 	_scheduled_spawns.clear()
-	_portal_spawn_burst_vfx.clear()
+	_match3_anims.portal_spawn_burst_vfx.clear()
 	_use_scheduled_spawns = false
 	_player_turn_counter = 0
 	
@@ -1355,7 +1351,7 @@ func _apply_damage_to_enemy_cell(tx: int, ty: int) -> void:
 				var cy := int(c.y)
 				if cy >= 0 and cy < ENEMY_ROWS and cx >= 0 and cx < COLS:
 					_enemies_hit_this_turn[cy][cx] = true
-			_monster_shakes[mid] = {"t": 0.0, "d": 0.2, "intensity": 10.0}
+			_match3_anims.monster_shakes[mid] = {"t": 0.0, "d": 0.2, "intensity": 10.0}
 			if int(g.get("hp", 0)) <= 0:
 				GlobalTweens.shake(self, 7.0, 0.18)
 				for c in g.get("cells", []):
@@ -1369,27 +1365,27 @@ func _apply_damage_to_enemy_cell(tx: int, ty: int) -> void:
 				_boss_registry.erase(key)
 				_decrement_level_target_for_init_hp(BOSS_GOAL_VISUAL_HP)
 				_needs_ui_update = true
-				_enemy_death_anims.append({
+				_match3_anims.enemy_death_anims.append({
 					"x": anc.x, "y": anc.y, "t": 0.0, "d": 0.45,
 					"hp": 0, "init": int(g.get("max_hp", BOSS_GOAL_VISUAL_HP)), "id": mid,
 					"is_boss": true, "boss_span": boss_span_dead
 				})
-				_monster_shakes[mid] = {"t": 0.0, "d": 0.45, "intensity": 12.0}
+				_match3_anims.monster_shakes[mid] = {"t": 0.0, "d": 0.45, "intensity": 12.0}
 			return
 	enemies[ty][tx] -= 1
 	_enemies_hit_this_turn[ty][tx] = true
 	var mid2 := tx + ty * 10
-	_monster_shakes[mid2] = {"t": 0.0, "d": 0.2, "intensity": 10.0}
+	_match3_anims.monster_shakes[mid2] = {"t": 0.0, "d": 0.2, "intensity": 10.0}
 	if enemies[ty][tx] <= 0:
 		enemies[ty][tx] = 0
 		var init_hp: int = int(enemies_initial_hp[ty][tx])
 		_decrement_level_target_for_init_hp(int(init_hp))
 		_needs_ui_update = true
-		_enemy_death_anims.append({
+		_match3_anims.enemy_death_anims.append({
 			"x": tx, "y": ty, "t": 0.0, "d": 0.35,
 			"hp": 0, "init": init_hp, "id": mid2
 		})
-		_monster_shakes[mid2] = {"t": 0.0, "d": 0.35, "intensity": 15.0}
+		_match3_anims.monster_shakes[mid2] = {"t": 0.0, "d": 0.35, "intensity": 15.0}
 	_refresh_enemy_intent_preview()
 
 func _rebuild_level_targets_from_field() -> void:
@@ -1515,10 +1511,7 @@ func _apply_defeat_refill_paid() -> void:
 	queue_redraw()
 
 func _clear_board_vfx_after_refill() -> void:
-	_enemy_move_anims.clear()
-	_enemy_death_anims.clear()
-	_projectiles.clear()
-	_monster_shakes.clear()
+	_match3_anims.clear_after_refill()
 	_needs_ui_update = true
 
 func _fallback_project_viewport_size() -> Vector2:
@@ -1579,15 +1572,13 @@ func _on_viewport_size_changed():
 	queue_redraw()
 
 func _draw():
+	if _match3_anims == null:
+		return
 	var vp_size = _get_layout_viewport_size()
 	draw_rect(Rect2(Vector2.ZERO, vp_size), BG_COLOR)
 	if GAME_BG_TEXTURE:
 		draw_texture_rect(GAME_BG_TEXTURE, Rect2(Vector2.ZERO, vp_size), false)
-	var shake_offset := Vector2.ZERO
-	for vfx in _board_vfx:
-		if vfx.type == "shake":
-			var k_shake = 1.0 - (vfx.t / vfx.d)
-			shake_offset += Vector2(randf_range(-1, 1), randf_range(-1, 1)) * vfx.intensity * k_shake
+	var shake_offset := _match3_anims.get_shake_offset()
 	var field_xform := _field_board_transform()
 	field_xform.origin += shake_offset
 	draw_set_transform_matrix(field_xform)
@@ -1660,7 +1651,7 @@ func _draw():
 
 	# Предварительно находим все клетки, входящие в группы 8+
 	var bonus_cells := {}
-	if _active_anims.is_empty():
+	if _match3_anims.active_anims.is_empty():
 		var visited_bonus := {}
 		for y_b in range(ENEMY_ROWS, ROWS):
 			for x_b in range(COLS):
@@ -1682,7 +1673,7 @@ func _draw():
 
 	# Собираем цели для анимаций, чтобы не дублировать отрисовку конечных клеток
 	var anim_targets := {}
-	for a in _active_anims:
+	for a in _match3_anims.active_anims:
 		var delay = a.get("delay", 0.0)
 		# Считаем клетку занятой на весь период анимации, включая задержку
 		if a.t < delay + a.d:
@@ -1699,7 +1690,7 @@ func _draw():
 	var moving_to := {}
 	
 	# Собираем данные об активных перемещениях
-	for ma in _enemy_move_anims:
+	for ma in _match3_anims.enemy_move_anims:
 		moving_from[Vector2i(int(ma.fx), int(ma.fy))] = true
 		moving_to[Vector2i(int(ma.tx), int(ma.ty))] = true
 	
@@ -1708,7 +1699,7 @@ func _draw():
 	
 	# Сначала движущиеся
 	var ma_boss_done := {}
-	for ma in _enemy_move_anims:
+	for ma in _match3_anims.enemy_move_anims:
 		if ma.has("boss_key"):
 			var bk_m := str(ma.get("boss_key", ""))
 			if bk_m.is_empty() or ma_boss_done.has(bk_m):
@@ -1719,7 +1710,7 @@ func _draw():
 			var bax := int(parts_m[0])
 			var bay := int(parts_m[1])
 			var anchor_ma = ma
-			for ma2 in _enemy_move_anims:
+			for ma2 in _match3_anims.enemy_move_anims:
 				if str(ma2.get("boss_key", "")) != bk_m:
 					continue
 				if int(ma2.fx) == bax and int(ma2.fy) == bay:
@@ -1783,7 +1774,7 @@ func _draw():
 		})
 	
 	# Умирающие монстры (затухание) и босс (сжатие к верхнему левому углу)
-	for da in _enemy_death_anims:
+	for da in _match3_anims.enemy_death_anims:
 		if not bool(da.get("is_boss", false)):
 			var death_t_norm: float = float(da.t)
 			var death_d_norm: float = maxf(float(da.d), 0.001)
@@ -1834,7 +1825,7 @@ func _draw():
 					continue
 				# Проверяем, не умирает ли этот монстр (чтобы не рисовать дважды)
 				var is_dying = false
-				for da in _enemy_death_anims:
+				for da in _match3_anims.enemy_death_anims:
 					if da.x == x and da.y == y:
 						is_dying = true
 						break
@@ -1898,8 +1889,8 @@ func _draw():
 	var e_pad_x = (CELL_SIZE - e_chip_size.x) * 0.5
 	for m in monsters_to_draw:
 		var shake_off = Vector2.ZERO
-		if _monster_shakes.has(m.id):
-			var s = _monster_shakes[m.id]
+		if _match3_anims.monster_shakes.has(m.id):
+			var s = _match3_anims.monster_shakes[m.id]
 			var k_s = 1.0 - (s.t / s.d)
 			shake_off = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * s.intensity * k_s
 		var sz_use: Vector2 = e_chip_size
@@ -1958,7 +1949,7 @@ func _draw():
 					_draw_chip(top_left, size_v, idx)
 
 	# Движущиеся фишки
-	for a in _active_anims:
+	for a in _match3_anims.active_anims:
 		var delay = a.get("delay", 0.0)
 		var tt = a.t - delay
 		if tt < 0.0: continue
@@ -1995,7 +1986,7 @@ func _draw():
 				_draw_chip(top_left, size_v, a.color)
 
 	# Снаряды
-	for p in _projectiles:
+	for p in _match3_anims.projectiles:
 		var tt = p.t - p.delay
 		if tt < 0.0:
 			continue
@@ -2035,7 +2026,7 @@ func _draw():
 		draw_circle(Vector2(cx - proj_r * 0.3, cy - proj_r * 0.3), proj_r * 0.2, Color.WHITE)
 
 	# Анимации смерти обычных врагов (вспышка поверх клетки)
-	for da in _enemy_death_anims:
+	for da in _match3_anims.enemy_death_anims:
 		if bool(da.get("is_boss", false)):
 			continue
 		var k3 = clamp(da.t / da.d, 0.0, 1.0)
@@ -2051,7 +2042,7 @@ func _draw():
 	# (Теперь отрисовываются вместе со статичными монстрами выше для корректной сортировки по Y)
 	
 	# ОТРИСОВКА BOARD VFX
-	for vfx in _board_vfx:
+	for vfx in _match3_anims.board_vfx:
 		var k = vfx.t / vfx.d
 		var vfx_pos := _viewport_to_board_local(vfx.pos)
 		match vfx.type:
@@ -2159,10 +2150,7 @@ func _draw():
 	_draw_player_zone_overlay()
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 
-	# После отрисовки — удалить завершённые анимации, чтобы не зависали
-	for m in range(_enemy_move_anims.size() - 1, -1, -1):
-		if _enemy_move_anims[m].t >= _enemy_move_anims[m].d:
-			_enemy_move_anims.remove_at(m)
+	_match3_anims.prune_finished_enemy_move_anims()
 
 	
 
@@ -2172,14 +2160,14 @@ func _activate_bomb(bx: int, by: int, trigger_move: bool = true):
 	var origin = _board_pixel_origin()
 	var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (by - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 	var center_pos = origin + Vector2(bx * CELL_SIZE + CELL_SIZE * 0.5, y_pos + CELL_SIZE * 0.5)
-	_board_vfx.append({"type": "bomb_explosion", "pos": center_pos, "color": Color(1, 0.6, 0.2), "t": 0.0, "d": 0.3})
+	_match3_anims.board_vfx.append({"type": "bomb_explosion", "pos": center_pos, "color": Color(1, 0.6, 0.2), "t": 0.0, "d": 0.3})
 	
 	# Добавляем частицы (искры)
 	for i in range(12):
 		var angle = randf() * TAU
 		var speed = randf_range(150.0, 350.0)
 		var vel = Vector2.RIGHT.rotated(angle) * speed
-		_board_vfx.append({
+		_match3_anims.board_vfx.append({
 			"type": "particle",
 			"pos": center_pos,
 			"vel": vel,
@@ -2504,7 +2492,51 @@ func _draw_player_zone_overlay():
 	var line_end = Vector2(player_rect.end.x - 10, player_rect.position.y + 2)
 	draw_line(line_start, line_end, highlight_color, 2.0)
 
+func _apply_projectile_hit_at_cell(tx: int, ty: int) -> void:
+	if tx < 0 or ty < 0 or ty >= ENEMY_ROWS:
+		return
+	if enemies.size() <= ty or enemies[ty].size() <= tx:
+		return
+	if obstacles[ty][tx] > 0:
+		if obstacles_unbreakable[ty][tx]:
+			return
+		obstacles[ty][tx] -= 1
+		if obstacles[ty][tx] <= 0:
+			obstacles[ty][tx] = 0
+			obstacles_initial_hp[ty][tx] = 0
+			var origin := _board_pixel_origin()
+			var obs_center := origin + Vector2(
+				float(tx) * CELL_SIZE + CELL_SIZE * 0.5,
+				float(ty) * ENEMY_CELL_HEIGHT + ENEMY_CELL_HEIGHT * 0.5
+			)
+			_match3_anims.board_vfx.append({
+				"type": "explosion",
+				"pos": obs_center,
+				"color": OBSTACLE_COLOR,
+				"t": 0.0,
+				"d": 0.3,
+			})
+			var key := "%d:%d" % [tx, ty]
+			if _obstacle_spawn_on_destroy.has(key):
+				var sp: Dictionary = _obstacle_spawn_on_destroy[key]
+				var shp: int = maxi(1, int(sp.get("hp", 1)))
+				var scnt: int = maxi(1, int(sp.get("count", 1)))
+				for spawn_index in range(scnt):
+					_scheduled_spawns.append({
+						"hp": shp,
+						"x": tx,
+						"y": ty,
+						"spawn_after_player_turns": _player_turn_counter,
+					})
+				_obstacle_spawn_on_destroy.erase(key)
+		queue_redraw()
+		return
+	if enemies[ty][tx] > 0:
+		_apply_damage_to_enemy_cell(tx, ty)
+
 func _process(delta: float) -> void:
+	if _match3_anims == null:
+		return
 	if _enemy_attack_warn_pending:
 		_enemy_attack_warn_time_left -= delta
 		if _enemy_attack_warn_time_left <= 0.0:
@@ -2513,129 +2545,25 @@ func _process(delta: float) -> void:
 			_cached_enemy_moves = []
 			_apply_enemy_moves_from_plan(planned)
 			_refresh_enemy_intent_preview()
-	if _active_anims.is_empty():
+	if _match3_anims.has_active_chip_anims():
 		# Все падения окончены — проверяем нужно ли спавнить новые фишки
 		# Мы не ждем окончания стрельбы или движения монстров, чтобы игра ощущалась динамичнее
+		pass
+	else:
 		_spawn_new_chips_with_fall()
-	
-	# Обновляем Board VFX
-	var shake_offset = Vector2.ZERO
-	for i in range(_board_vfx.size() - 1, -1, -1):
-		var vfx = _board_vfx[i]
-		vfx.t += delta
-		
-		if vfx.type == "shake":
-			var k_shake = 1.0 - (vfx.t / vfx.d)
-			shake_offset += Vector2(randf_range(-1, 1), randf_range(-1, 1)) * vfx.intensity * k_shake
-		
-		if vfx.type == "particle":
-			vfx.pos += vfx.vel * delta
-			if vfx.has("gravity"):
-				vfx.vel += vfx.gravity * delta
-		
-		if vfx.t >= vfx.d:
-			_board_vfx.remove_at(i)
-
-	# Обновляем шейки монстров
-	var shakes_to_remove = []
-	for mid in _monster_shakes:
-		var s = _monster_shakes[mid]
-		s.t += delta
-		if s.t >= s.d:
-			shakes_to_remove.append(mid)
-	for mid in shakes_to_remove:
-		_monster_shakes.erase(mid)
-
-	for i in range(_active_anims.size() - 1, -1, -1):
-		_active_anims[i].t += delta
-		var delay = _active_anims[i].get("delay", 0.0)
-		if _active_anims[i].t - delay >= _active_anims[i].d:
-			_active_anims.remove_at(i)
-	# Обновляем снаряды
-	for j in range(_projectiles.size() - 1, -1, -1):
-		_projectiles[j].t += delta
-		var tt = _projectiles[j].t - _projectiles[j].delay
-		if tt >= _projectiles[j].d and not _projectiles[j].hit_applied:
-			# Применяем урон по цели, если цель есть
-			if _projectiles[j].has_target:
-				var tx = _projectiles[j].x
-				var ty = int(_projectiles[j].end_y)
-				if ty >= 0 and ty < ENEMY_ROWS and enemies.size() > ty and enemies[ty].size() > tx:
-					# Проверяем препятствие
-					if obstacles[ty][tx] > 0:
-						if obstacles_unbreakable[ty][tx]:
-							# Неразрушаемая стена просто блокирует снаряд
-							pass
-						else:
-							obstacles[ty][tx] -= 1
-							if obstacles[ty][tx] <= 0:
-								obstacles[ty][tx] = 0
-								obstacles_initial_hp[ty][tx] = 0
-								# VFX разрушения препятствия
-								var vp_size = _get_layout_viewport_size()
-								var origin = _board_pixel_origin()
-								var obs_center = origin + Vector2(float(tx) * CELL_SIZE + CELL_SIZE * 0.5, float(ty) * ENEMY_CELL_HEIGHT + ENEMY_CELL_HEIGHT * 0.5)
-								_board_vfx.append({
-									"type": "explosion",
-									"pos": obs_center,
-									"color": OBSTACLE_COLOR,
-									"t": 0.0,
-									"d": 0.3
-								})
-								var key = "%d:%d" % [tx, ty]
-								if _obstacle_spawn_on_destroy.has(key):
-									var sp = _obstacle_spawn_on_destroy[key]
-									var shp = max(1, int(sp.get("hp", 1)))
-									var scnt = max(1, int(sp.get("count", 1)))
-									for ii in range(scnt):
-										_scheduled_spawns.append({
-											"hp": shp,
-											"x": tx,
-											"y": ty,
-											"spawn_after_player_turns": _player_turn_counter
-										})
-									_obstacle_spawn_on_destroy.erase(key)
-						queue_redraw()
-					# Проверяем монстра (только если нет препятствия)
-					elif enemies[ty][tx] > 0:
-						_apply_damage_to_enemy_cell(tx, ty)
-			_projectiles[j].hit_applied = true
-		if tt >= _projectiles[j].d + 0.05:
-			_projectiles.remove_at(j)
-	# Обновляем анимации смерти
-	for k in range(_enemy_death_anims.size() - 1, -1, -1):
-		_enemy_death_anims[k].t += delta
-		if _enemy_death_anims[k].t >= _enemy_death_anims[k].d:
-			_enemy_death_anims.remove_at(k)
-	# Обновляем анимации движения врагов
-	for m in range(_enemy_move_anims.size() - 1, -1, -1):
-		_enemy_move_anims[m].t += delta
-		if _enemy_move_anims[m].t >= _enemy_move_anims[m].d:
-			_enemy_move_anims[m].t = _enemy_move_anims[m].d
-			# оставляем запись до конца кадра, удалим после отрисовки, чтобы дошли до цели визуально
-	if _enemy_intent_refresh_after_move_anims:
-		var all_move_anims_done := _enemy_move_anims.is_empty()
-		if not all_move_anims_done:
-			all_move_anims_done = true
-			for move_anim in _enemy_move_anims:
-				if move_anim.t < move_anim.d:
-					all_move_anims_done = false
-					break
-		if all_move_anims_done:
-			_refresh_enemy_intent_preview()
-	for bi in range(_portal_spawn_burst_vfx.size() - 1, -1, -1):
-		_portal_spawn_burst_vfx[bi].t += delta
-		if _portal_spawn_burst_vfx[bi].t >= _portal_spawn_burst_vfx[bi].d:
-			_portal_spawn_burst_vfx.remove_at(bi)
-	# Удаляем завершённые после отрисовки
+	var anim_tick: Dictionary = _match3_anims.tick(delta)
+	for hit in anim_tick.get("projectile_hits", []):
+		_apply_projectile_hit_at_cell(int(hit.get("x", -1)), int(hit.get("y", -1)))
+	if _enemy_intent_refresh_after_move_anims and bool(anim_tick.get("enemy_move_anims_done", false)):
+		_refresh_enemy_intent_preview()
 	# Автопобеда/поражение и шаги врагов после завершения всех эффектов
-	if _projectiles.is_empty() and _active_anims.is_empty() and _enemy_death_anims.is_empty():
+	if bool(anim_tick.get("combat_idle", false)):
 		# Отложенные спавны (порталы): раньше обрабатывались только после хода врагов —
 		# при пустом поле и уже наступившем ходе игрока волна не появлялась до следующего хода.
 		if _use_scheduled_spawns:
-			var anim_count_before_spawn := _enemy_move_anims.size()
+			var anim_count_before_spawn := _match3_anims.enemy_move_anims.size()
 			_process_scheduled_spawns()
-			if _enemy_move_anims.size() > anim_count_before_spawn:
+			if _match3_anims.enemy_move_anims.size() > anim_count_before_spawn:
 				set_process(true)
 		if not _defeat_dialog_shown and _player_lives_remaining <= 0:
 			_on_level_failed()
@@ -2680,7 +2608,7 @@ func _spawn_new_chips_with_fall():
 				})
 				count += 1
 	if any and not new_anims.is_empty():
-		_active_anims = _active_anims + new_anims
+		_match3_anims.active_anims = _match3_anims.active_anims + new_anims
 		set_process(true)
 
 func _unhandled_input(event):
@@ -2690,7 +2618,7 @@ func _unhandled_input(event):
 	if _level1_tutorial_phase == 2:
 		return
 		
-	if not _active_anims.is_empty() or not _projectiles.is_empty() or _is_executing_combo:
+	if not _match3_anims.active_anims.is_empty() or not _match3_anims.projectiles.is_empty() or _is_executing_combo:
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var cell = _point_to_cell(event.position)
@@ -2746,7 +2674,7 @@ func _apply_freeze():
 		for x in range(COLS):
 			if enemies[y][x] > 0:
 				var pos = origin + Vector2(x * CELL_SIZE + CELL_SIZE * 0.5, y * ENEMY_CELL_HEIGHT + ENEMY_CELL_HEIGHT * 0.5)
-				_board_vfx.append({
+				_match3_anims.board_vfx.append({
 					"type": "roots",
 					"pos": pos,
 					"color": Color(0.35, 0.7, 0.28, 0.95),
@@ -2756,7 +2684,7 @@ func _apply_freeze():
 				for leaf_i in range(4):
 					var angle = randf() * TAU
 					var speed = randf_range(40.0, 110.0)
-					_board_vfx.append({
+					_match3_anims.board_vfx.append({
 						"type": "particle",
 						"pos": pos,
 						"vel": Vector2.RIGHT.rotated(angle) * speed,
@@ -2775,7 +2703,7 @@ func _apply_hammer(cell: Vector2i):
 	var origin = _board_pixel_origin()
 	var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (cell.y - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 	var center_pos = origin + Vector2(cell.x * CELL_SIZE + CELL_SIZE * 0.5, y_pos + CELL_SIZE * 0.5)
-	_board_vfx.append({
+	_match3_anims.board_vfx.append({
 		"type": "water_splash",
 		"pos": center_pos,
 		"color": Color(0.25, 0.65, 1.0, 0.95),
@@ -2785,7 +2713,7 @@ func _apply_hammer(cell: Vector2i):
 	for i in range(10):
 		var angle = randf() * TAU
 		var speed = randf_range(120.0, 260.0)
-		_board_vfx.append({
+		_match3_anims.board_vfx.append({
 			"type": "particle",
 			"pos": center_pos,
 			"vel": Vector2.RIGHT.rotated(angle) * speed,
@@ -2804,10 +2732,10 @@ func _apply_row_blast(row_y: int, trigger_move: bool = true):
 	var origin = _board_pixel_origin()
 	var center_y = origin.y + row_y * CELL_SIZE + CELL_SIZE * 0.5
 	var beam_x: float = origin.x + float(COLS) * CELL_SIZE * 0.5
-	_board_vfx.append({"type": "fire_beam", "pos": Vector2(beam_x, center_y), "color": Color(1.0, 0.35, 0.08), "t": 0.0, "d": 0.35})
+	_match3_anims.board_vfx.append({"type": "fire_beam", "pos": Vector2(beam_x, center_y), "color": Color(1.0, 0.35, 0.08), "t": 0.0, "d": 0.35})
 	for i in range(8):
 		var px: float = origin.x + (float(i) + 0.5) / 8.0 * float(COLS) * CELL_SIZE
-		_board_vfx.append({
+		_match3_anims.board_vfx.append({
 			"type": "particle",
 			"pos": Vector2(px, center_y),
 			"vel": Vector2(randf_range(-40.0, 40.0), randf_range(-180.0, -60.0)),
@@ -2833,7 +2761,7 @@ func _apply_booster_shuffle():
 		float(COLS) * CELL_SIZE * 0.5,
 		float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + _field_gap_total + float(PLAYER_ROWS) * CELL_SIZE * 0.5
 	)
-	_board_vfx.append({
+	_match3_anims.board_vfx.append({
 		"type": "whirlwind",
 		"pos": zone_center,
 		"color": Color(0.55, 0.82, 1.0, 0.95),
@@ -2843,7 +2771,7 @@ func _apply_booster_shuffle():
 	for i in range(14):
 		var angle = randf() * TAU
 		var speed = randf_range(80.0, 220.0)
-		_board_vfx.append({
+		_match3_anims.board_vfx.append({
 			"type": "particle",
 			"pos": zone_center,
 			"vel": Vector2.RIGHT.rotated(angle) * speed,
@@ -3043,14 +2971,14 @@ func _pop_cluster(x: int, y: int):
 		for ay in range(ENEMY_ROWS, ROWS):
 			if chips[ay][x] == bonus_idx:
 				var found_anim = false
-				for a in _active_anims:
+				for a in _match3_anims.active_anims:
 					if a.x == x and a.end_y == ay:
 						a["type"] = "scale"
 						a["delay"] = 0.2 # Задержка, чтобы сначала вылетел снаряд
 						found_anim = true
 						break
 				if not found_anim:
-					_active_anims.append({
+					_match3_anims.active_anims.append({
 						"x": x, "start_y": ay, "end_y": ay,
 						"color": bonus_idx, "t": 0.0, "d": 0.3,
 						"delay": 0.2, "type": "scale"
@@ -3135,7 +3063,7 @@ func _combo_bomb_plus_rocket(cx: int, cy: int):
 			var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (target_y - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 			var center_y = origin.y + y_pos + CELL_SIZE * 0.5
 			var beam_x: float = origin.x + float(COLS) * CELL_SIZE * 0.5
-			_board_vfx.append({"type": "fire_beam", "pos": Vector2(beam_x, center_y), "color": Color(1.0, 0.35, 0.08), "t": 0.0, "d": 0.3})
+			_match3_anims.board_vfx.append({"type": "fire_beam", "pos": Vector2(beam_x, center_y), "color": Color(1.0, 0.35, 0.08), "t": 0.0, "d": 0.3})
 			set_process(true)
 			
 			for x in range(COLS):
@@ -3150,7 +3078,7 @@ func _combo_bomb_plus_rocket(cx: int, cy: int):
 			var origin = _board_pixel_origin()
 			var center_x = origin.x + target_x * CELL_SIZE + CELL_SIZE * 0.5
 			var center_y = origin.y + ENEMY_ROWS * ENEMY_CELL_HEIGHT + (PLAYER_ROWS * 0.5) * CELL_SIZE + _field_gap_total
-			_board_vfx.append({"type": "beam_vertical", "pos": Vector2(center_x, center_y), "color": Color(1.0, 0.6, 0.2), "t": 0.0, "d": 0.3})
+			_match3_anims.board_vfx.append({"type": "beam_vertical", "pos": Vector2(center_x, center_y), "color": Color(1.0, 0.6, 0.2), "t": 0.0, "d": 0.3})
 			set_process(true)
 			
 			for y in range(ENEMY_ROWS, ROWS):
@@ -3219,7 +3147,7 @@ func _activate_rainbow_chip(rx: int, ry: int, trigger_move: bool = true):
 			if chips[y][x] == target_color:
 				var end_y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (y - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 				var end_pos = origin + Vector2(x * CELL_SIZE + CELL_SIZE * 0.5, end_y_pos + CELL_SIZE * 0.5)
-				_board_vfx.append({
+				_match3_anims.board_vfx.append({
 					"type": "rainbow_link", 
 					"pos": start_pos, 
 					"target_pos": end_pos, 
@@ -3377,7 +3305,7 @@ func _enqueue_projectiles(col_x: int, from_y: int, count: int, base_delay: float
 		elif enemies.size() > yy and enemies[yy].size() > col_x:
 			row_hp = _enemy_hp_for_projectile_column(col_x, yy)
 		# Учитываем снаряды, которые уже летят в эту цель, чтобы не было "оверкилла"
-		for p in _projectiles:
+		for p in _match3_anims.projectiles:
 			if not p.hit_applied and p.has_target and p.x == col_x and int(p.end_y) == yy:
 				row_hp -= 1
 		hp_left.append(max(0, row_hp))
@@ -3407,7 +3335,7 @@ func _enqueue_projectiles(col_x: int, from_y: int, count: int, base_delay: float
 			"hit_applied": false,
 			"has_target": has
 		}
-		_projectiles.append(proj)
+		_match3_anims.projectiles.append(proj)
 	set_process(true)
 	if trigger_move:
 		_enemy_move_pending = true
@@ -3490,7 +3418,7 @@ func _should_show_enemy_intent_preview() -> bool:
 		return false
 	if _victory_dialog_shown or _defeat_dialog_shown:
 		return false
-	if not _enemy_move_anims.is_empty():
+	if not _match3_anims.enemy_move_anims.is_empty():
 		return false
 	return true
 
@@ -3567,7 +3495,7 @@ func _build_enemy_intent_preview_from_moves(moves: Array) -> void:
 func _refresh_enemy_intent_preview() -> void:
 	if not _can_refresh_enemy_intent_preview():
 		return
-	if not _enemy_move_anims.is_empty():
+	if not _match3_anims.enemy_move_anims.is_empty():
 		_enemy_intent_refresh_after_move_anims = true
 		return
 	_enemy_intent_refresh_after_move_anims = false
@@ -3706,7 +3634,7 @@ func _compute_enemy_move_plan() -> Array:
 	return moves
 
 func _plan_enemy_moves() -> Array:
-	_enemy_move_anims.clear()
+	_match3_anims.enemy_move_anims.clear()
 	return _compute_enemy_move_plan()
 
 func _plan_boss_group_moves(ax: int, ay: int, moves: Array, occupied_next: Array) -> void:
@@ -3826,7 +3754,7 @@ func _boss_interpolated_origin(boss_key: String, progress: float) -> Vector2:
 	var min_tx := 9999
 	var min_ty := 9999
 	var found := false
-	for ma2 in _enemy_move_anims:
+	for ma2 in _match3_anims.enemy_move_anims:
 		if str(ma2.get("boss_key", "")) != boss_key:
 			continue
 		found = true
@@ -3972,14 +3900,14 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 				var ay0 := int(parts0[1])
 				var y_pos_b0 = float(ay0) * ENEMY_CELL_HEIGHT
 				var center_pos0 = origin_apply + Vector2(float(ax0) * CELL_SIZE + CELL_SIZE * 0.5, y_pos_b0 + ENEMY_CELL_HEIGHT * 0.5)
-				_board_vfx.append({
+				_match3_anims.board_vfx.append({
 					"type": "shockwave",
 					"pos": center_pos0,
 					"color": Color(1.0, 0.25, 0.28),
 					"t": 0.0,
 					"d": 0.38
 				})
-				_board_vfx.append({
+				_match3_anims.board_vfx.append({
 					"type": "shake",
 					"t": 0.0,
 					"d": 0.18,
@@ -3987,7 +3915,7 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 				})
 				var strip_mid0 = float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + HEART_STRIP_HEIGHT * 0.5
 				var center_strip0 = origin_apply + Vector2(float(ax0) * CELL_SIZE + CELL_SIZE * 0.5, strip_mid0)
-				_board_vfx.append({
+				_match3_anims.board_vfx.append({
 					"type": "shockwave",
 					"pos": center_strip0,
 					"color": Color(1.0, 0.35, 0.45),
@@ -3995,7 +3923,7 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 					"d": 0.32
 				})
 				var mid_b := ax0 + ay0 * 100
-				_monster_shakes[mid_b] = {"t": 0.0, "d": 0.35, "intensity": 14.0}
+				_match3_anims.monster_shakes[mid_b] = {"t": 0.0, "d": 0.35, "intensity": 14.0}
 				_boss_sync_display(bk)
 			continue
 		var ax = int(m.fx)
@@ -4004,14 +3932,14 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 			var ty_attack = clampi(int(m.ty), 0, ENEMY_ROWS - 1)
 			var y_pos_b = float(ty_attack) * ENEMY_CELL_HEIGHT
 			var center_pos = origin_apply + Vector2(float(ax) * CELL_SIZE + CELL_SIZE * 0.5, y_pos_b + ENEMY_CELL_HEIGHT * 0.5)
-			_board_vfx.append({
+			_match3_anims.board_vfx.append({
 				"type": "shockwave",
 				"pos": center_pos,
 				"color": Color(1.0, 0.25, 0.28),
 				"t": 0.0,
 				"d": 0.38
 			})
-			_board_vfx.append({
+			_match3_anims.board_vfx.append({
 				"type": "shake",
 				"t": 0.0,
 				"d": 0.18,
@@ -4019,7 +3947,7 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 			})
 			var strip_mid_apply = float(ENEMY_ROWS) * ENEMY_CELL_HEIGHT + HEART_STRIP_HEIGHT * 0.5
 			var center_strip = origin_apply + Vector2(float(ax) * CELL_SIZE + CELL_SIZE * 0.5, strip_mid_apply)
-			_board_vfx.append({
+			_match3_anims.board_vfx.append({
 				"type": "shockwave",
 				"pos": center_strip,
 				"color": Color(1.0, 0.35, 0.45),
@@ -4029,7 +3957,7 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 			enemies[m.ty][m.tx] = m.hp
 			enemies_initial_hp[m.ty][m.tx] = m.init
 			var mid_attack = ax + ty_attack * 10
-			_monster_shakes[mid_attack] = {"t": 0.0, "d": 0.35, "intensity": 14.0}
+			_match3_anims.monster_shakes[mid_attack] = {"t": 0.0, "d": 0.35, "intensity": 14.0}
 		else:
 			enemies[m.ty][m.tx] = m.hp
 			if m.has("boss_key"):
@@ -4050,7 +3978,7 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 				anim["boss_key"] = str(m.get("boss_key", ""))
 			if m.has("boss_tex"):
 				anim["boss_tex"] = int(m.get("boss_tex", 1))
-			_enemy_move_anims.append(anim)
+			_match3_anims.enemy_move_anims.append(anim)
 	for bk3 in boss_keys_to_sync.keys():
 		_boss_sync_display(str(bk3))
 
@@ -4064,7 +3992,7 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 				var hp = _monster_spawn_queue.pop_front()
 				enemies[0][x] = hp
 				enemies_initial_hp[0][x] = hp
-				_enemy_move_anims.append({
+				_match3_anims.enemy_move_anims.append({
 					"fx": x, "fy": -1, 
 					"tx": x, "ty": 0, 
 					"hp": hp, 
@@ -4072,7 +4000,7 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 					"t": 0.0, "d": 0.25
 				})
 
-	if _enemy_move_anims.size() > 0:
+	if _match3_anims.enemy_move_anims.size() > 0:
 		set_process(true)
 
 func _enemy_move_step() -> void:
@@ -4155,7 +4083,7 @@ func _draw_spawn_portals(origin: Vector2) -> void:
 		_draw_outlined_countdown(center, str(countdown))
 
 func _draw_portal_spawn_burst_vfx(origin: Vector2) -> void:
-	for v in _portal_spawn_burst_vfx:
+	for v in _match3_anims.portal_spawn_burst_vfx:
 		var col_x := int(v.get("x", 0))
 		var spawn_y := int(v.get("y", 0))
 		var k := clampf(float(v.t) / float(v.d), 0.0, 1.0)
@@ -4175,7 +4103,7 @@ func _draw_portal_spawn_burst_vfx(origin: Vector2) -> void:
 			draw_circle(spark_pos, lerpf(5.0, 1.0, k), Color(0.95, 0.7, 1.0, (1.0 - k) * 0.8))
 
 func _trigger_portal_spawn_burst(col_x: int, spawn_y: int) -> void:
-	_portal_spawn_burst_vfx.append({
+	_match3_anims.portal_spawn_burst_vfx.append({
 		"x": col_x,
 		"y": spawn_y,
 		"t": 0.0,
@@ -4199,7 +4127,7 @@ func _process_scheduled_spawns():
 		_trigger_portal_spawn_burst(x, y)
 		enemies[y][x] = hp
 		enemies_initial_hp[y][x] = hp
-		_enemy_move_anims.append({
+		_match3_anims.enemy_move_anims.append({
 			"fx": x, "fy": y,
 			"tx": x, "ty": y,
 			"hp": hp,
@@ -4235,7 +4163,7 @@ func _apply_gravity_up():
 			chips[y][x] = -1
 	# Стартуем анимации падения и СРАЗУ заполняем пустоты новыми фишками
 	if not new_anims.is_empty():
-		_active_anims = _active_anims + new_anims
+		_match3_anims.active_anims = _match3_anims.active_anims + new_anims
 		set_process(true)
 	
 	# Заполняем образовавшиеся пустоты (они всегда снизу при гравитации вверх)
@@ -4272,7 +4200,7 @@ func _add_chip_pop_vfx(x: int, y: int, color_idx: int):
 		vfx_color = Color(0.3, 0.7, 1.0) # Голубой
 
 	# 1. Вспышка (ударная волна)
-	_board_vfx.append({
+	_match3_anims.board_vfx.append({
 		"type": "shockwave",
 		"pos": center,
 		"color": vfx_color,
@@ -4285,7 +4213,7 @@ func _add_chip_pop_vfx(x: int, y: int, color_idx: int):
 		var angle = randf() * TAU
 		var speed = randf_range(140.0, 280.0)
 		var vel = Vector2.RIGHT.rotated(angle) * speed
-		_board_vfx.append({
+		_match3_anims.board_vfx.append({
 			"type": "particle",
 			"pos": center,
 			"vel": vel,
@@ -4302,7 +4230,7 @@ func _add_chip_pop_vfx(x: int, y: int, color_idx: int):
 		var dist = randf_range(5.0, 20.0)
 		var p_color = vfx_color.lerp(Color.WHITE, 0.6)
 		p_color.a = 0.4
-		_board_vfx.append({
+		_match3_anims.board_vfx.append({
 			"type": "particle",
 			"pos": center + Vector2.RIGHT.rotated(angle) * dist,
 			"vel": Vector2.RIGHT.rotated(angle) * 50.0,
@@ -4394,7 +4322,7 @@ func _is_valid_mort_helmet_cell(x: int, y: int) -> bool:
 	if chips[y][x] < 0:
 		return false
 	# Клетка не должна участвовать в активной анимации.
-	for a in _active_anims:
+	for a in _match3_anims.active_anims:
 		if int(a.get("x", -1)) == x and int(a.get("end_y", -1)) == y:
 			return false
 	return true
@@ -4417,7 +4345,7 @@ func _place_bonus_chips_in_valid_cells(bonus_list: Array, with_anim: bool) -> Ar
 		chips[cell.y][cell.x] = bonus_type
 		placed.append(bonus_type)
 		if with_anim:
-			_active_anims.append({
+			_match3_anims.active_anims.append({
 				"x": cell.x,
 				"start_y": cell.y,
 				"end_y": cell.y,
