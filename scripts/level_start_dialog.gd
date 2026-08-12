@@ -14,10 +14,10 @@ var _selected_prelevel_boosts := {
 # Флаг для предотвращения множественного закрытия диалога
 var _dialog_closing: bool = false
 
-const PRELEVEL_PURCHASE_OVERLAY_SCRIPT := preload("res://scripts/ingame_booster_purchase_dialog.gd")
+const BOOSTER_PURCHASE_FLOW_PAGE_SCRIPT := preload("res://scripts/ui_flow/pages/booster_purchase_flow_page.gd")
 
 var _prelevel_boosts_row: HBoxContainer = null
-var _prelevel_purchase_overlay: Control = null
+var _prelevel_purchase_flow_open := false
 var _mort_helmet_section: Control = null
 var _mort_helmet_info_button: Button = null
 var _mort_helmet_rules_overlay: Control = null
@@ -637,13 +637,10 @@ func _populate_prelevel_boosts_row() -> void:
 func _refresh_prelevel_boosts_row() -> void:
 	_populate_prelevel_boosts_row()
 
-func _dismiss_prelevel_purchase_overlay() -> void:
-	if _prelevel_purchase_overlay != null and is_instance_valid(_prelevel_purchase_overlay):
-		_prelevel_purchase_overlay.queue_free()
-	_prelevel_purchase_overlay = null
-
 func _show_buy_prelevel_boost_dialog(boost_type: String) -> void:
 	if not LevelManager:
+		return
+	if _prelevel_purchase_flow_open or UIFlow.has_page(BOOSTER_PURCHASE_FLOW_PAGE_SCRIPT):
 		return
 	var display_names := {"bomb": "Бомба", "arrow": "Стрела", "rainbow": "Шар"}
 	var cost: int = LevelManager.get_prelevel_boost_pack_cost(boost_type)
@@ -651,26 +648,26 @@ func _show_buy_prelevel_boost_dialog(boost_type: String) -> void:
 	var player_coins: int = LevelManager.get_coins()
 	var can_afford: bool = player_coins >= cost
 	var icon_tex: Texture2D = LevelManager.get_prelevel_boost_texture(boost_type)
-	_dismiss_prelevel_purchase_overlay()
-	var overlay = Control.new()
-	overlay.set_script(PRELEVEL_PURCHASE_OVERLAY_SCRIPT)
-	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.z_index = 150
-	add_child(overlay)
-	overlay.move_to_front()
-	_prelevel_purchase_overlay = overlay
 	var title_name: String = display_names.get(boost_type, "Усиление")
-	overlay.setup(title_name, icon_tex, cost, qty, player_coins, can_afford, "ПОКУПКА УСИЛЕНИЯ")
 	var captured_boost: String = boost_type
-	overlay.purchase_pressed.connect(func():
-		if LevelManager.purchase_prelevel_boosts(captured_boost):
-			_dismiss_prelevel_purchase_overlay()
-			_refresh_prelevel_boosts_row()
-		else:
-			_dismiss_prelevel_purchase_overlay()
+	_prelevel_purchase_flow_open = true
+	var page: BoosterPurchaseFlowPage = BOOSTER_PURCHASE_FLOW_PAGE_SCRIPT.new()
+	page.closed_pressed.connect(func() -> void:
+		_prelevel_purchase_flow_open = false
 	)
-	overlay.closed_pressed.connect(_dismiss_prelevel_purchase_overlay)
+	page.purchase_pressed.connect(func() -> void:
+		if LevelManager.purchase_prelevel_boosts(captured_boost):
+			_refresh_prelevel_boosts_row()
+	)
+	UIFlow.push_instance(page, {
+		"display_name": title_name,
+		"icon_tex": icon_tex,
+		"cost": cost,
+		"pack_qty": qty,
+		"player_coins": player_coins,
+		"can_afford": can_afford,
+		"header_title": "ПОКУПКА УСИЛЕНИЯ",
+	})
 
 func _return_selected_prelevel_boosts_to_inventory() -> void:
 	if not LevelManager:

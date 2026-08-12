@@ -33,6 +33,7 @@ var _golden_pass_fab: Button = null
 var _golden_pass_fab_pulse_running: bool = false
 
 const MENU_TAB_FLOW_PAGE_SCRIPT := preload("res://scripts/ui_flow/pages/menu_tab_flow_page.gd")
+const SIMPLE_MESSAGE_FLOW_PAGE_SCRIPT := preload("res://scripts/ui_flow/pages/simple_message_flow_page.gd")
 const TEX_UI_TOOLBAR_BG := preload("res://textures/ui_main_menu_toolbar_bg.png")
 const TEX_UI_BUY_COINS_BTN := preload("res://textures/ui_buy_coins_button.png")
 const TEX_UI_PLAY_BTN := preload("res://textures/ui_main_menu_play_button.png")
@@ -393,37 +394,27 @@ func _create_settings_button() -> Button:
 func _on_buy_coins_pressed():
 	_show_buy_coins_dialog()
 
-func _on_settings_pressed():
-	var dialog = AcceptDialog.new()
-	dialog.title = "Настройки"
-	dialog.dialog_text = "Настройки будут добавлены позже"
-	dialog.ok_button_text = "Закрыть"
-	add_child(dialog)
-	dialog.popup_centered(Vector2(400, 150))
-	
-	var _on_close = func():
-		if not dialog.is_queued_for_deletion():
-			dialog.queue_free()
-	
-	dialog.confirmed.connect(_on_close)
-	dialog.close_requested.connect(_on_close)
+func _push_simple_message_flow(title: String, body: String, ok_text: String = "Закрыть") -> void:
+	if UIFlow.has_page(SIMPLE_MESSAGE_FLOW_PAGE_SCRIPT):
+		return
+	var page: SimpleMessageFlowPage = SIMPLE_MESSAGE_FLOW_PAGE_SCRIPT.new()
+	UIFlow.push_instance(page, {
+		"title": title,
+		"body": body,
+		"ok_text": ok_text,
+	})
 
-func _show_buy_coins_dialog():
-	var dialog = AcceptDialog.new()
-	dialog.title = "Купить монеты"
-	dialog.dialog_text = "Выберите пакет монет:\n\n100 монет - 50₽\n500 монет - 200₽\n1000 монет - 350₽\n\n(Покупка временно недоступна)"
-	dialog.ok_button_text = "Закрыть"
-	dialog.get_ok_button().disabled = false
-	
-	add_child(dialog)
-	dialog.popup_centered(Vector2(450, 250))
-	
-	var _on_close = func():
-		if not dialog.is_queued_for_deletion():
-			dialog.queue_free()
-	
-	dialog.confirmed.connect(_on_close)
-	dialog.close_requested.connect(_on_close)
+
+func _on_settings_pressed() -> void:
+	_push_simple_message_flow("Настройки", "Настройки будут добавлены позже", "Закрыть")
+
+
+func _show_buy_coins_dialog() -> void:
+	_push_simple_message_flow(
+		"Купить монеты",
+		"Выберите пакет монет:\n\n100 монет - 50₽\n500 монет - 200₽\n1000 монет - 350₽\n\n(Покупка временно недоступна)",
+		"Закрыть"
+	)
 
 func _ensure_bottom_nav_shadow() -> void:
 	if not is_instance_valid(bottom_nav_bg):
@@ -859,13 +850,11 @@ func _on_level_start_dialog_completed(selected_boosts: Dictionary, mort_bonuses:
 		_show_fatal_scene_switch_dialog(GAME_BOARD_SCENE_PATH, err)
 
 func _show_fatal_scene_switch_dialog(scene_path: String, err_code: int) -> void:
-	var dlg := AcceptDialog.new()
-	dlg.title = "Ошибка сцены"
-	dlg.dialog_text = "Не удалось открыть игру (%s).\nКод ошибки Godot: %s." % [scene_path, str(err_code)]
-	dlg.ok_button_text = "ОК"
-	add_child(dlg)
-	dlg.popup_centered_ratio(0.85)
-	dlg.confirmed.connect(func(): dlg.queue_free())
+	_push_simple_message_flow(
+		"Ошибка сцены",
+		"Не удалось открыть игру (%s).\nКод ошибки Godot: %s." % [scene_path, str(err_code)],
+		"ОК"
+	)
 
 func _build_shop_tab():
 	if shop_tab == null or not is_instance_valid(shop_tab):
@@ -1053,25 +1042,13 @@ func _create_shop_offer(title: String, subtitle: String, items: Array, price: St
 	
 	return panel
 
-func _on_shop_purchase(pack_type: String):
-	var dialog = AcceptDialog.new()
-	dialog.title = "Покупка"
-	
+func _on_shop_purchase(pack_type: String) -> void:
+	var body := ""
 	match pack_type:
 		"starter":
-			dialog.dialog_text = "Стартовый пакет:\n\n• 1000 золотых 🪙\n• 4× Водный шар, Огненная стрела, Вихрь, Корни 🎮\n• Цена: 1$\n\n(Покупка через платёжную систему\nвременно недоступна)"
+			body = "Стартовый пакет:\n\n• 1000 золотых 🪙\n• 4× Водный шар, Огненная стрела, Вихрь, Корни 🎮\n• Цена: 1$\n\n(Покупка через платёжную систему\nвременно недоступна)"
 		"medium":
-			dialog.dialog_text = "Средний пакет:\n\n• 2500 золотых 🪙\n• 5× Водный шар, Огненная стрела, Вихрь, Корни 🎮\n• Цена: 5$\n\n(Покупка через платёжную систему\nвременно недоступна)"
+			body = "Средний пакет:\n\n• 2500 золотых 🪙\n• 5× Водный шар, Огненная стрела, Вихрь, Корни 🎮\n• Цена: 5$\n\n(Покупка через платёжную систему\nвременно недоступна)"
 		"best":
-			dialog.dialog_text = "Самый выгодный пакет:\n\n• 5000 золотых 🪙\n• 10× Водный шар, Огненная стрела, Вихрь, Корни 🎮\n• Цена: 9$\n\n(Покупка через платёжную систему\nвременно недоступна)"
-	
-	dialog.ok_button_text = "Понятно"
-	add_child(dialog)
-	dialog.popup_centered(Vector2(500, 300))
-	
-	var _on_close = func():
-		if not dialog.is_queued_for_deletion():
-			dialog.queue_free()
-	
-	dialog.confirmed.connect(_on_close)
-	dialog.close_requested.connect(_on_close)
+			body = "Самый выгодный пакет:\n\n• 5000 золотых 🪙\n• 10× Водный шар, Огненная стрела, Вихрь, Корни 🎮\n• Цена: 9$\n\n(Покупка через платёжную систему\nвременно недоступна)"
+	_push_simple_message_flow("Покупка", body, "Понятно")
