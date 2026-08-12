@@ -269,6 +269,7 @@ func _switch_tab(tab_name: String) -> void:
 | `GoldenPassFlowPage` | [`scripts/ui_flow/pages/golden_pass_flow_page.gd`](../scripts/ui_flow/pages/golden_pass_flow_page.gd) | [`golden_pass_dialog.gd`](../scripts/golden_pass_dialog.gd) | — | — (только `closed`) |
 | `LevelEndFlowPage` | [`scripts/ui_flow/pages/level_end_flow_page.gd`](../scripts/ui_flow/pages/level_end_flow_page.gd) | [`level_end_dialog.gd`](../scripts/level_end_dialog.gd) | см. ниже | `to_menu_pressed`, `refill_lives_pressed` |
 | `BoosterPurchaseFlowPage` | [`scripts/ui_flow/pages/booster_purchase_flow_page.gd`](../scripts/ui_flow/pages/booster_purchase_flow_page.gd) | [`ingame_booster_purchase_dialog.gd`](../scripts/ingame_booster_purchase_dialog.gd) | см. ниже | `purchase_pressed`, `closed_pressed` |
+| `SimpleMessageFlowPage` | [`scripts/ui_flow/pages/simple_message_flow_page.gd`](../scripts/ui_flow/pages/simple_message_flow_page.gd) | [`simple_message_dialog.gd`](../scripts/simple_message_dialog.gd) | см. ниже | `closed_pressed` |
 
 #### LevelEndFlowPage — поля `data`
 
@@ -296,11 +297,20 @@ func _switch_tab(tab_name: String) -> void:
  "header_title": String}  # по умолчанию "БУСТЕР ЗАКОНЧИЛСЯ"
 ```
 
+#### SimpleMessageFlowPage — поля `data`
+
+```gdscript
+{"title": String, "body": String, "ok_text": String}  # ok_text по умолчанию "Закрыть"
+```
+
+Заменяет `AcceptDialog` в главном меню: настройки, покупка монет, ошибка сцены, подтверждение покупки в магазине.
+
 ### Где открывается UIFlow
 
 | Сцена | Файл | Страница | Защита от дубля |
 |-------|------|----------|-----------------|
-| Главное меню | [`scripts/main_menu.gd`](../scripts/main_menu.gd) | `MenuTabFlowPage` (база), `LevelStartFlowPage`, `GoldenPassFlowPage` | таб: `_tab_switch_busy`; модалки: `_is_modal_uiflow_open()` |
+| Главное меню | [`scripts/main_menu.gd`](../scripts/main_menu.gd) | `MenuTabFlowPage` (база), `LevelStartFlowPage`, `GoldenPassFlowPage`, `SimpleMessageFlowPage` | таб: `_tab_switch_busy`; модалки: `_is_modal_uiflow_open()` |
+| Старт уровня | [`scripts/level_start_dialog.gd`](../scripts/level_start_dialog.gd) | `BoosterPurchaseFlowPage` (покупка prelevel бустера поверх LevelStart) | `_prelevel_purchase_flow_open`, `has_page(BoosterPurchaseFlowPage)` |
 | Бой | [`scripts/game_board.gd`](../scripts/game_board.gd) | `LevelEndFlowPage`, `BoosterPurchaseFlowPage` | `_level_end_flow_open`, `_booster_purchase_flow_open`, `stack_depth()` |
 
 `UIFlowRoot` в бою: z_index **250**, внутри `UIRoot`. В меню: z_index **200**.
@@ -333,7 +343,7 @@ func _switch_tab(tab_name: String) -> void:
 # Первый раз или после смены ассетов
 godot --headless --import --path .
 
-# Прогон всех тестов (37 тестов)
+# Прогон всех тестов (38 тестов)
 godot --headless --path . -s addons/gut/gut_cmdln.gd -gexit
 ```
 
@@ -365,6 +375,7 @@ scripts/
   level_end_dialog.gd                  # UI победы/поражения (Anima)
   golden_pass_dialog.gd                # Golden Pass (GlobalTweens на claim)
   ingame_booster_purchase_dialog.gd    # Покупка бустера (контент для UIFlow)
+  simple_message_dialog.gd             # Заголовок + текст + OK (контент для UIFlow)
   ui_flow/
     eb_modal_flow_page.gd              # база flow pages
     pages/
@@ -373,6 +384,7 @@ scripts/
       golden_pass_flow_page.gd
       level_end_flow_page.gd
       booster_purchase_flow_page.gd
+      simple_message_flow_page.gd
 addons/
   anima/                               # плагин Anima
   simple-gui-transitions/              # legacy (не подключён)
@@ -450,7 +462,7 @@ _my_dialog_open = false
 
 | Компонент | Причина | Файл |
 |-----------|---------|------|
-| Prelevel purchase в level start | Прямой overlay в диалоге | [`level_start_dialog.gd`](../scripts/level_start_dialog.gd) (`_prelevel_purchase_overlay`) |
+| Mort helmet overlays в level start | Отдельные overlay, tutorial | [`level_start_dialog.gd`](../scripts/level_start_dialog.gd) (`_mort_helmet_rules_overlay`) |
 | Туториалы уровня 1 / бустеров | Отдельные overlay, z_index 180 | [`game_board.gd`](../scripts/game_board.gd) |
 | Анимации match-3 / TD | Кастомный tick-движок | [`game_board.gd`](../scripts/game_board.gd) |
 | Полная навигация меню как UIFlow routes | Табы уже на UIFlow; нижняя навигация остаётся в сцене | — |
@@ -460,9 +472,9 @@ _my_dialog_open = false
 ## Известные ограничения
 
 1. **Headless warning:** `UIFlowFocusNavigator` — «Trying to cast a freed object» при exit в GUT; тесты проходят, на игру не влияет.
-2. **Один модал на стек:** `stack_depth() > 0` блокирует второй диалог (level end, booster purchase, level start).
-3. **SceneTransition:** параллельный вызов возвращает `ERR_BUSY`.
-4. **GuiTransitions:** `_switch_tab` игнорирует клик, если `in_transition()`.
+2. **Глубина стека в меню:** базовый таб = 1; модалки = 2; покупка prelevel поверх LevelStart = **3**.
+3. **Смена таба:** блокируется при `_tab_switch_busy` или открытой модалке.
+4. **SceneTransition:** параллельный вызов возвращает `ERR_BUSY`.
 5. **GlobalTweens.shake** — async (`await` внутри); не блокирует геймплей, но повторные вызовы накладываются.
 
 ---
@@ -478,4 +490,4 @@ _my_dialog_open = false
 
 ---
 
-*Последнее обновление: UIFlow табы меню (MenuTabFlowPage), 37 GUT-тестов.*
+*Последнее обновление: SimpleMessageFlowPage, prelevel purchase через BoosterPurchaseFlowPage, 38 GUT-тестов.*
