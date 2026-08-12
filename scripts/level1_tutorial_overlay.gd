@@ -20,7 +20,7 @@ var _chips_step_hole_local: Rect2 = Rect2()
 var _chips_step_message: String = ""
 
 func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_instruction_label = Label.new()
 	_instruction_label.name = "TutorialInstruction"

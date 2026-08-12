@@ -23,7 +23,7 @@ func _ready() -> void:
 func _build_overlay() -> void:
 	var layer := CanvasLayer.new()
 	layer.name = "LogCopyOverlayLayer"
-	layer.layer = 120
+	layer.layer = 512
 	add_child(layer)
 	var root := Control.new()
 	root.name = "LogCopyOverlayRoot"

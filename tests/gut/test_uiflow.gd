@@ -75,6 +75,19 @@ func test_simple_message_flow_page_setup() -> void:
 	assert_not_null(page.find_child("SimpleMessagePanel", true, false))
 
 
+func test_simple_message_flow_page_scene_to_menu_action() -> void:
+	var page = SIMPLE_MESSAGE_FLOW_PAGE.new()
+	add_child_autofree(page)
+	page._on_opened({
+		"title": "Ошибка",
+		"body": "Тест",
+		"ok_text": "В меню",
+		"ok_action": "scene_to_menu",
+	})
+	await wait_process_frames(2)
+	assert_not_null(page.find_child("SimpleMessageDialogHost", true, false))
+
+
 func test_mort_helmet_rules_flow_page_setup() -> void:
 	var page = MORT_HELMET_RULES_FLOW_PAGE.new()
 	add_child_autofree(page)

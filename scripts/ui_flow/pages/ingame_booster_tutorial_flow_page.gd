@@ -9,6 +9,11 @@ var _dialog: Control = null
 var _closing := false
 
 
+func _init() -> void:
+	super._init()
+	is_modal = false
+
+
 func _on_opened(data: Variant = null) -> void:
 	super._on_opened(data)
 	if typeof(data) != TYPE_DICTIONARY:
@@ -24,9 +29,8 @@ func _on_opened(data: Variant = null) -> void:
 	_dialog.set_script(DIALOG_SCRIPT)
 	add_child(_dialog)
 	_dialog.closed_pressed.connect(_on_dialog_closed)
-	await get_tree().process_frame
 	if _dialog != null and is_instance_valid(_dialog):
-		await _dialog.setup(highlight_rect, hint_text)
+		_dialog.setup(highlight_rect, hint_text)
 
 
 func _mark_tutorial_shown(tutorial_key: String) -> void:

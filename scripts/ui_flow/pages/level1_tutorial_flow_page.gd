@@ -12,6 +12,7 @@ var _closing := false
 
 func _init() -> void:
 	super._init()
+	is_modal = false
 	var fade := UIFlowFadeEffect.new()
 	fade.duration = 0.0
 	enter_effect = fade

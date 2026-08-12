@@ -190,6 +190,7 @@ var _victory_dialog_shown: bool = false
 var _defeat_dialog_shown: bool = false
 const LEVEL1_TUTORIAL_FLOW_PAGE_SCRIPT := preload("res://scripts/ui_flow/pages/level1_tutorial_flow_page.gd")
 const INGAME_BOOSTER_TUTORIAL_FLOW_PAGE_SCRIPT := preload("res://scripts/ui_flow/pages/ingame_booster_tutorial_flow_page.gd")
+const SIMPLE_MESSAGE_FLOW_PAGE_SCRIPT := preload("res://scripts/ui_flow/pages/simple_message_flow_page.gd")
 var _level_end_flow_open: bool = false
 var _booster_purchase_flow_open: bool = false
 var _level1_tutorial_flow_open: bool = false
@@ -203,9 +204,9 @@ var _level1_tutorial_advancing_to_goals: bool = false
 var _enemy_rows_effective: int = ENEMY_ROWS
 var _heart_row_y: int = ENEMY_ROWS - 1
 var _field_gap_total: float = FIELD_GAP_BASE + HEART_STRIP_HEIGHT
-var _fatal_load_overlay_layer: CanvasLayer = null
 var _field_layout_scale: float = 1.0
 var _field_layout_origin: Vector2 = Vector2.ZERO
+var _fatal_load_flow_open := false
 
 func _ready():
 	randomize()
@@ -236,6 +237,9 @@ func _boot_async() -> void:
 	call_deferred("_request_board_redraw_after_layout")
 
 func _execute_board_initialization() -> String:
+	_match3_anims = MATCH3_ANIM_CONTROLLER_SCRIPT.new()
+	_init_ui()
+	_setup_uiflow_root()
 	if not is_instance_valid(LevelManager):
 		return "LevelManager (autoload) не загружен."
 	var cfg: Dictionary = LevelManager.get_level_config(LevelManager.current_level)
@@ -251,9 +255,6 @@ func _execute_board_initialization() -> String:
 	_init_obstacles_from_config(cfg)
 	_init_enemies_from_config(cfg)
 	_init_player_lives_for_level()
-	_init_ui()
-	_setup_uiflow_root()
-	_match3_anims = MATCH3_ANIM_CONTROLLER_SCRIPT.new()
 	LevelManager.ensure_ingame_booster_unlock_bonus_rewards()
 	_update_ui()
 	queue_redraw()
@@ -298,69 +299,24 @@ func _style_back_to_menu_button(back_btn: Button) -> void:
 	back_btn.focus_mode = Control.FOCUS_NONE
 
 func _show_board_load_failure_overlay(message: String) -> void:
-	if _fatal_load_overlay_layer != null and is_instance_valid(_fatal_load_overlay_layer):
+	if _fatal_load_flow_open or UIFlow.has_page(SIMPLE_MESSAGE_FLOW_PAGE_SCRIPT):
 		return
 	set_process(false)
-	var layer := CanvasLayer.new()
-	layer.layer = 200
-	layer.name = "FatalLevelLoadOverlay"
-	add_child(layer)
-	_fatal_load_overlay_layer = layer
-	var root := Control.new()
-	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(root)
-	var bg := ColorRect.new()
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0.11, 0.12, 0.14, 0.98)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	root.add_child(bg)
-	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 20)
-	margin.add_theme_constant_override("margin_right", 20)
-	margin.add_theme_constant_override("margin_top", 40)
-	margin.add_theme_constant_override("margin_bottom", 40)
-	margin.mouse_filter = Control.MOUSE_FILTER_STOP
-	root.add_child(margin)
-	var scroll := ScrollContainer.new()
-	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	margin.add_child(scroll)
-	var vbox := VBoxContainer.new()
-	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_theme_constant_override("separation", 14)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	scroll.add_child(vbox)
-	var title := Label.new()
-	title.text = "Не удалось загрузить уровень"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 26)
-	title.add_theme_color_override("font_color", Color(1.0, 0.52, 0.42))
-	vbox.add_child(title)
-	var body := Label.new()
-	body.text = message
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	body.add_theme_font_size_override("font_size", 17)
-	body.add_theme_color_override("font_color", Color(0.93, 0.94, 0.96))
-	vbox.add_child(body)
+	_setup_uiflow_root()
+	var body := message
 	if is_instance_valid(LevelManager):
-		var meta := Label.new()
-		meta.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		meta.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		meta.add_theme_font_size_override("font_size", 15)
-		meta.add_theme_color_override("font_color", Color(0.72, 0.76, 0.82))
-		meta.text = "Уровень: %d\nПодсказка: при повторении очистите данные приложения или пришлите этот текст разработчику." % LevelManager.current_level
-		vbox.add_child(meta)
-	var btn := Button.new()
-	btn.text = "В меню"
-	btn.custom_minimum_size = Vector2(240, 52)
-	btn.focus_mode = Control.FOCUS_NONE
-	btn.pressed.connect(func():
-		SceneTransition.change_scene_to("res://scenes/main_menu.tscn")
+		body += "\n\nУровень: %d\nПодсказка: при повторении очистите данные приложения или пришлите этот текст разработчику." % LevelManager.current_level
+	_fatal_load_flow_open = true
+	var page: SimpleMessageFlowPage = SIMPLE_MESSAGE_FLOW_PAGE_SCRIPT.new()
+	page.closed_pressed.connect(func() -> void:
+		_fatal_load_flow_open = false
 	)
-	vbox.add_child(btn)
+	UIFlow.push_instance(page, {
+		"title": "Не удалось загрузить уровень",
+		"body": body,
+		"ok_text": "В меню",
+		"ok_action": "scene_to_menu",
+	})
 
 func _request_board_redraw_after_layout() -> void:
 	queue_redraw()
@@ -550,7 +506,7 @@ func _on_level1_tutorial_finished() -> void:
 func tutorial_forward_chip_click(screen_pos: Vector2) -> void:
 	if _level1_tutorial_phase != 2:
 		return
-	if not _match3_anims.active_anims.is_empty() or not _match3_anims.projectiles.is_empty() or _is_executing_combo:
+	if (_match3_anims != null and _match3_anims.is_input_blocked()) or _is_executing_combo:
 		return
 	if _active_booster != BoosterType.NONE:
 		return
@@ -573,6 +529,8 @@ func _try_advance_level1_tutorial_to_goals_step() -> void:
 	if _level1_tutorial_phase != 3:
 		return
 	if _level1_tutorial_advancing_to_goals:
+		return
+	if _match3_anims == null:
 		return
 	if not _match3_anims.projectiles.is_empty():
 		return
@@ -1572,12 +1530,12 @@ func _on_viewport_size_changed():
 	queue_redraw()
 
 func _draw():
-	if _match3_anims == null:
-		return
 	var vp_size = _get_layout_viewport_size()
 	draw_rect(Rect2(Vector2.ZERO, vp_size), BG_COLOR)
 	if GAME_BG_TEXTURE:
 		draw_texture_rect(GAME_BG_TEXTURE, Rect2(Vector2.ZERO, vp_size), false)
+	if _match3_anims == null:
+		return
 	var shake_offset := _match3_anims.get_shake_offset()
 	var field_xform := _field_board_transform()
 	field_xform.origin += shake_offset
@@ -1651,7 +1609,7 @@ func _draw():
 
 	# Предварительно находим все клетки, входящие в группы 8+
 	var bonus_cells := {}
-	if _match3_anims.active_anims.is_empty():
+	if _match3_anims == null or _match3_anims.active_anims.is_empty():
 		var visited_bonus := {}
 		for y_b in range(ENEMY_ROWS, ROWS):
 			for x_b in range(COLS):
@@ -2618,7 +2576,7 @@ func _unhandled_input(event):
 	if _level1_tutorial_phase == 2:
 		return
 		
-	if not _match3_anims.active_anims.is_empty() or not _match3_anims.projectiles.is_empty() or _is_executing_combo:
+	if (_match3_anims != null and _match3_anims.is_input_blocked()) or _is_executing_combo:
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var cell = _point_to_cell(event.position)

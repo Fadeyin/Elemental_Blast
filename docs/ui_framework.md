@@ -305,10 +305,12 @@ func _switch_tab(tab_name: String) -> void:
 #### SimpleMessageFlowPage — поля `data`
 
 ```gdscript
-{"title": String, "body": String, "ok_text": String}  # ok_text по умолчанию "Закрыть"
+{"title": String, "body": String, "ok_text": String, "ok_action": String}
 ```
 
-Заменяет `AcceptDialog` в главном меню: настройки, покупка монет, ошибка сцены, подтверждение покупки в магазине.
+`ok_text` по умолчанию «Закрыть»; `ok_action`: `"close"` (по умолчанию) или `"scene_to_menu"` (переход в главное меню через `SceneTransition`).
+
+Заменяет `AcceptDialog` в главном меню и fatal overlay ошибки загрузки уровня в `game_board.gd`.
 
 #### MortHelmetTutorialFlowPage — поля `data`
 
@@ -336,7 +338,7 @@ func _switch_tab(tab_name: String) -> void:
 |-------|------|----------|-----------------|
 | Главное меню | [`scripts/main_menu.gd`](../scripts/main_menu.gd) | `MenuTabFlowPage` (база), `LevelStartFlowPage`, `GoldenPassFlowPage`, `SimpleMessageFlowPage` | таб: `_tab_switch_busy`; модалки: `_is_modal_uiflow_open()` |
 | Старт уровня | [`scripts/level_start_dialog.gd`](../scripts/level_start_dialog.gd) | `BoosterPurchaseFlowPage`, `MortHelmetRulesFlowPage`, `MortHelmetTutorialFlowPage` | `_prelevel_purchase_flow_open`, `_mort_helmet_*_flow_open`, `has_page(...)` |
-| Бой | [`scripts/game_board.gd`](../scripts/game_board.gd) | `LevelEndFlowPage`, `BoosterPurchaseFlowPage`, `Level1TutorialFlowPage`, `IngameBoosterTutorialFlowPage` | `_level_end_flow_open`, `_booster_purchase_flow_open`, tutorial flags, `stack_depth()` |
+| Бой | [`scripts/game_board.gd`](../scripts/game_board.gd) | `LevelEndFlowPage`, `BoosterPurchaseFlowPage`, `Level1TutorialFlowPage`, `IngameBoosterTutorialFlowPage`, `SimpleMessageFlowPage` (fatal load) | см. флаги flow + `Match3AnimController` |
 
 `UIFlowRoot` в бою: z_index **250**, внутри `UIRoot`. В меню: z_index **200**.
 
@@ -368,7 +370,7 @@ func _switch_tab(tab_name: String) -> void:
 # Первый раз или после смены ассетов
 godot --headless --import --path .
 
-# Прогон всех тестов (46 тестов)
+# Прогон всех тестов (47 тестов)
 godot --headless --path . -s addons/gut/gut_cmdln.gd -gexit
 ```
 
@@ -380,6 +382,7 @@ godot --headless --path . -s addons/gut/gut_cmdln.gd -gexit
 | [`test_dialog_single_open.gd`](../tests/gut/test_dialog_single_open.gd) | Один диалог за раз, level start + UIFlow stack |
 | [`test_level_manager.gd`](../tests/gut/test_level_manager.gd) | LevelManager: монеты, бусты, golden pass, buy_booster |
 | [`test_match3_anim_controller.gd`](../tests/gut/test_match3_anim_controller.gd) | Match3AnimController: снаряды, chip anims, combat_idle |
+| [`test_uiflow.gd`](../tests/gut/test_uiflow.gd) | UIFlow autoload, все flow pages |
 
 См. также [`docs/dialog_testing_checklist.md`](dialog_testing_checklist.md).
 
@@ -393,7 +396,8 @@ scripts/
   scene_transition.gd                  # fade между сценами
   ui_dialog_anima.gd                   # обёртка Anima для диалогов
   main_menu.gd                         # UIFlow табы + модалки + Anima + GlobalTweens
-  game_board.gd                        # UIFlow (конец уровня, бустеры) + GlobalTweens + SceneTransition
+  game_board.gd                        # UIFlow + Match3AnimController + GlobalTweens + SceneTransition
+  match3_anim_controller.gd            # tick-движок анимаций поля (фишки, снаряды, враги, VFX)
   level_editor.gd                      # SceneTransition
   LogCopyService.gd                    # UIFlowUI.Toast
   level_start_dialog.gd                # UI старта уровня (Anima)
@@ -521,4 +525,4 @@ _my_dialog_open = false
 
 ---
 
-*Последнее обновление: Match3AnimController для match-3/TD анимаций, 46 GUT-тестов.*
+*Последнее обновление: fatal load на SimpleMessageFlowPage, 47 GUT-тестов.*

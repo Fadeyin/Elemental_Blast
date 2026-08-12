@@ -9,7 +9,6 @@ var _closing := false
 
 func setup(highlight_global_rect: Rect2, hint_text: String) -> void:
 	_closing = false
-	await get_tree().process_frame
 	while get_child_count() > 0:
 		var ch = get_child(0)
 		remove_child(ch)
