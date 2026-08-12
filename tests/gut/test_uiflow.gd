@@ -1,5 +1,7 @@
 extends GutTest
 
+const LEVEL_END_FLOW_PAGE := preload("res://scripts/ui_flow/pages/level_end_flow_page.gd")
+
 
 func test_uiflow_autoloads_ready() -> void:
 	assert_not_null(UIFlow, "UIFlow должен быть autoload")
@@ -13,3 +15,26 @@ func test_level_start_flow_page_can_be_created() -> void:
 	add_child_autofree(page)
 	assert_true(page is UIFlowPage)
 	assert_true(page.is_modal)
+
+
+func test_level_end_flow_page_can_be_created() -> void:
+	var page = LEVEL_END_FLOW_PAGE.new()
+	add_child_autofree(page)
+	assert_true(page is UIFlowPage)
+	assert_true(page.is_modal)
+
+
+func test_level_end_flow_page_victory_setup() -> void:
+	var page = LEVEL_END_FLOW_PAGE.new()
+	add_child_autofree(page)
+	page._on_opened({
+		"mode": "victory",
+		"total": 100,
+		"base_reward": 50,
+		"chips_bonus": 50,
+		"bonus_chips_count": 2,
+		"coins_per_bonus_chip": 25,
+	})
+	await wait_process_frames(3)
+	assert_not_null(page.find_child("LevelEndDialogHost", true, false))
+	assert_not_null(page.find_child("LevelEndDimmer", true, false))

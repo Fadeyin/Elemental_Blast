@@ -193,10 +193,9 @@ var _player_made_valid_move: bool = false
 # Флаги защиты от повторного показа диалогов
 var _victory_dialog_shown: bool = false
 var _defeat_dialog_shown: bool = false
-const LEVEL_END_DIALOG_SCRIPT := preload("res://scripts/level_end_dialog.gd")
 const INGAME_BOOSTER_PURCHASE_SCRIPT := preload("res://scripts/ingame_booster_purchase_dialog.gd")
 const LEVEL1_TUTORIAL_OVERLAY_SCRIPT := preload("res://scripts/level1_tutorial_overlay.gd")
-var _level_end_overlay: Control = null
+var _level_end_flow_open: bool = false
 var _booster_purchase_overlay: Control = null
 var _level1_tutorial_overlay: Control = null
 # 0 — выкл; 1 — враги; 2 — фишки; 3 — полное затемнение, ожидание снарядов; 4 — цели (показ)
@@ -259,6 +258,7 @@ func _execute_board_initialization() -> String:
 	_init_enemies_from_config(cfg)
 	_init_player_lives_for_level()
 	_init_ui()
+	_setup_uiflow_root()
 	LevelManager.ensure_ingame_booster_unlock_bonus_rewards()
 	_update_ui()
 	queue_redraw()
@@ -1124,6 +1124,41 @@ func _play_life_loss_ui_feedback() -> void:
 	var panel := find_child("MonstersRemainingPanel", true, false) as CanvasItem
 	if panel != null:
 		GlobalTweens.color_flash(panel, Color(1.0, 0.32, 0.38), 0.22)
+	GlobalTweens.shake(self, 6.0, 0.14)
+
+
+func _setup_uiflow_root() -> void:
+	if has_node("UIFlowRoot"):
+		return
+	var flow_root := Control.new()
+	flow_root.name = "UIFlowRoot"
+	flow_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	flow_root.z_index = 250
+	flow_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ui := find_child("UIRoot", true, false)
+	if ui != null:
+		ui.add_child(flow_root)
+	else:
+		add_child(flow_root)
+	UIFlow.set_ui_root(flow_root)
+	if not UIFlow.page_closed.is_connected(_on_uiflow_page_closed):
+		UIFlow.page_closed.connect(_on_uiflow_page_closed)
+
+
+func _on_uiflow_page_closed(_page_class: GDScript) -> void:
+	_level_end_flow_open = false
+
+
+func _push_level_end_flow_page(data: Dictionary, to_menu_handler: Callable, refill_handler: Callable = Callable()) -> void:
+	if _level_end_flow_open or UIFlow.stack_depth() > 0:
+		return
+	_level_end_flow_open = true
+	var page := LevelEndFlowPage.new()
+	if to_menu_handler.is_valid():
+		page.to_menu_pressed.connect(to_menu_handler)
+	if refill_handler.is_valid():
+		page.refill_lives_pressed.connect(refill_handler)
+	UIFlow.push_instance(page, data)
 
 
 func _play_booster_purchase_feedback(lm_type: int) -> void:
@@ -3476,57 +3511,36 @@ func _on_level_completed():
 	
 	_show_level_end_victory(total_reward, base_reward, chips_bonus, bonus_chips)
 
-func _attach_level_end_overlay() -> Control:
-	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
-		return _level_end_overlay
-	var ui = find_child("UIRoot", true, false)
-	var parent: Node = self
-	if ui != null:
-		parent = ui
-	var overlay = Control.new()
-	overlay.set_script(LEVEL_END_DIALOG_SCRIPT)
-	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.z_index = 200
-	parent.add_child(overlay)
-	_level_end_overlay = overlay
-	return overlay
-
 func _show_level_end_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_count: int) -> void:
-	var overlay = _attach_level_end_overlay()
-	overlay.setup_victory(total, base_reward, chips_bonus, bonus_chips_count, COINS_PER_REMAINING_BONUS_CHIP)
-	if not overlay.to_menu_pressed.is_connected(_on_level_end_to_menu):
-		overlay.to_menu_pressed.connect(_on_level_end_to_menu)
+	_push_level_end_flow_page({
+		"mode": "victory",
+		"total": total,
+		"base_reward": base_reward,
+		"chips_bonus": chips_bonus,
+		"bonus_chips_count": bonus_chips_count,
+		"coins_per_bonus_chip": COINS_PER_REMAINING_BONUS_CHIP,
+	}, _on_level_end_to_menu)
 
 func _on_level_end_to_menu() -> void:
-	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
-		_level_end_overlay.queue_free()
-		_level_end_overlay = null
 	if LevelManager.is_editor_test_mode():
 		_return_to_editor_after_test()
 	else:
 		SceneTransition.change_scene_to("res://scenes/main_menu.tscn")
 
 func _show_level_end_defeat_no_lives() -> void:
-	var overlay = _attach_level_end_overlay()
-	if overlay.to_menu_pressed.is_connected(_on_level_end_to_menu):
-		overlay.to_menu_pressed.disconnect(_on_level_end_to_menu)
-	if overlay.refill_lives_pressed.is_connected(_on_defeat_refill_lives):
-		overlay.refill_lives_pressed.disconnect(_on_defeat_refill_lives)
 	var player_coins = LevelManager.get_coins()
 	var cost = _get_defeat_refill_cost()
 	var k_restore = _get_defeat_refill_lives_amount()
 	var can_refill = cost > 0 and k_restore > 0 and player_coins >= cost
-	overlay.setup_defeat_no_lives(cost, player_coins, k_restore, can_refill)
-	if not overlay.to_menu_pressed.is_connected(_on_defeat_no_lives_to_menu):
-		overlay.to_menu_pressed.connect(_on_defeat_no_lives_to_menu)
-	if can_refill and not overlay.refill_lives_pressed.is_connected(_on_defeat_refill_lives):
-		overlay.refill_lives_pressed.connect(_on_defeat_refill_lives)
+	_push_level_end_flow_page({
+		"mode": "defeat_no_lives",
+		"refill_cost": cost,
+		"player_coins": player_coins,
+		"hearts_to_restore": k_restore,
+		"can_refill": can_refill,
+	}, _on_defeat_no_lives_to_menu, _on_defeat_refill_lives)
 
 func _on_defeat_no_lives_to_menu() -> void:
-	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
-		_level_end_overlay.queue_free()
-		_level_end_overlay = null
 	if LevelManager.is_editor_test_mode():
 		_return_to_editor_after_test()
 		return
@@ -3534,9 +3548,6 @@ func _on_defeat_no_lives_to_menu() -> void:
 	SceneTransition.change_scene_to("res://scenes/main_menu.tscn")
 
 func _on_defeat_refill_lives() -> void:
-	if _level_end_overlay != null and is_instance_valid(_level_end_overlay):
-		_level_end_overlay.queue_free()
-		_level_end_overlay = null
 	var cost = _get_defeat_refill_cost()
 	if cost > 0 and LevelManager.spend_coins(cost):
 		_clear_board_vfx_after_refill()
@@ -4376,6 +4387,7 @@ func _trigger_portal_spawn_burst(col_x: int, spawn_y: int) -> void:
 		"t": 0.0,
 		"d": PORTAL_SPAWN_BURST_DURATION
 	})
+	GlobalTweens.shake(self, 4.0, 0.1)
 
 func _process_scheduled_spawns():
 	for i in range(_scheduled_spawns.size() - 1, -1, -1):
