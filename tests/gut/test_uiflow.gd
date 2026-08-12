@@ -1,6 +1,7 @@
 extends GutTest
 
 const LEVEL_END_FLOW_PAGE := preload("res://scripts/ui_flow/pages/level_end_flow_page.gd")
+const BOOSTER_PURCHASE_FLOW_PAGE := preload("res://scripts/ui_flow/pages/booster_purchase_flow_page.gd")
 
 
 func test_uiflow_autoloads_ready() -> void:
@@ -22,6 +23,30 @@ func test_level_end_flow_page_can_be_created() -> void:
 	add_child_autofree(page)
 	assert_true(page is UIFlowPage)
 	assert_true(page.is_modal)
+
+
+func test_booster_purchase_flow_page_can_be_created() -> void:
+	var page = BOOSTER_PURCHASE_FLOW_PAGE.new()
+	add_child_autofree(page)
+	assert_true(page is UIFlowPage)
+	assert_true(page.is_modal)
+
+
+func test_booster_purchase_flow_page_setup() -> void:
+	var page = BOOSTER_PURCHASE_FLOW_PAGE.new()
+	add_child_autofree(page)
+	page._on_opened({
+		"display_name": "Молот",
+		"icon_tex": null,
+		"cost": 200,
+		"pack_qty": 3,
+		"player_coins": 500,
+		"can_afford": true,
+		"header_title": "БУСТЕР ЗАКОНЧИЛСЯ",
+	})
+	await wait_process_frames(3)
+	assert_not_null(page.find_child("BoosterPurchaseDialogHost", true, false))
+	assert_not_null(page.find_child("BoosterShopPanel", true, false))
 
 
 func test_level_end_flow_page_victory_setup() -> void:

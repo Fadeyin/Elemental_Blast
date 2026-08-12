@@ -193,10 +193,9 @@ var _player_made_valid_move: bool = false
 # Флаги защиты от повторного показа диалогов
 var _victory_dialog_shown: bool = false
 var _defeat_dialog_shown: bool = false
-const INGAME_BOOSTER_PURCHASE_SCRIPT := preload("res://scripts/ingame_booster_purchase_dialog.gd")
 const LEVEL1_TUTORIAL_OVERLAY_SCRIPT := preload("res://scripts/level1_tutorial_overlay.gd")
 var _level_end_flow_open: bool = false
-var _booster_purchase_overlay: Control = null
+var _booster_purchase_flow_open: bool = false
 var _level1_tutorial_overlay: Control = null
 # 0 — выкл; 1 — враги; 2 — фишки; 3 — полное затемнение, ожидание снарядов; 4 — цели (показ)
 var _level1_tutorial_phase: int = 0
@@ -1147,6 +1146,7 @@ func _setup_uiflow_root() -> void:
 
 func _on_uiflow_page_closed(_page_class: GDScript) -> void:
 	_level_end_flow_open = false
+	_booster_purchase_flow_open = false
 
 
 func _push_level_end_flow_page(data: Dictionary, to_menu_handler: Callable, refill_handler: Callable = Callable()) -> void:
@@ -1216,13 +1216,10 @@ func _lm_booster_type_to_shop_icon_index(lm_type: int) -> int:
 		LevelManager.BoosterType.FREEZE: return 3
 	return -1
 
-func _dismiss_booster_purchase_overlay() -> void:
-	if _booster_purchase_overlay != null and is_instance_valid(_booster_purchase_overlay):
-		_booster_purchase_overlay.queue_free()
-	_booster_purchase_overlay = null
-
 func _show_buy_booster_dialog(lm_type: int) -> void:
 	if not LevelManager.is_ingame_booster_unlocked_at_current_level(lm_type):
+		return
+	if _booster_purchase_flow_open or UIFlow.stack_depth() > 0:
 		return
 	var booster_names = {
 		LevelManager.BoosterType.HAMMER: LevelManager.get_booster_display_name(LevelManager.BoosterType.HAMMER),
@@ -1236,35 +1233,34 @@ func _show_buy_booster_dialog(lm_type: int) -> void:
 	var pack_qty = LevelManager.get_ingame_booster_pack_quantity(lm_type)
 	var player_coins = LevelManager.get_coins()
 	var can_afford = player_coins >= cost
-	_dismiss_booster_purchase_overlay()
 	var icon_idx = _lm_booster_type_to_shop_icon_index(lm_type)
 	var icon_tex: Texture2D = null
 	if icon_idx >= 0 and icon_idx < shop_icon_paths.size():
 		var loaded = load(shop_icon_paths[icon_idx])
 		if loaded is Texture2D:
 			icon_tex = loaded
-	var ui = find_child("UIRoot", true, false)
-	var parent: Node = self if ui == null else ui
-	var overlay = Control.new()
-	overlay.set_script(INGAME_BOOSTER_PURCHASE_SCRIPT)
-	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.z_index = 190
-	parent.add_child(overlay)
-	_booster_purchase_overlay = overlay
-	overlay.setup(booster_name, icon_tex, cost, pack_qty, player_coins, can_afford)
-	overlay.purchase_pressed.connect(func(): _on_ingame_booster_purchase_confirm(lm_type))
-	overlay.closed_pressed.connect(_on_ingame_booster_purchase_closed)
+	_booster_purchase_flow_open = true
+	var page := BoosterPurchaseFlowPage.new()
+	page.purchase_pressed.connect(func(): _on_ingame_booster_purchase_confirm(lm_type))
+	page.closed_pressed.connect(_on_ingame_booster_purchase_closed)
+	UIFlow.push_instance(page, {
+		"display_name": booster_name,
+		"icon_tex": icon_tex,
+		"cost": cost,
+		"pack_qty": pack_qty,
+		"player_coins": player_coins,
+		"can_afford": can_afford,
+		"header_title": "БУСТЕР ЗАКОНЧИЛСЯ",
+	})
 
 func _on_ingame_booster_purchase_confirm(lm_type: int) -> void:
-	_dismiss_booster_purchase_overlay()
 	if LevelManager.buy_booster(lm_type):
 		_update_ui()
 		queue_redraw()
 		_play_booster_purchase_feedback(lm_type)
 
 func _on_ingame_booster_purchase_closed() -> void:
-	_dismiss_booster_purchase_overlay()
+	pass
 
 func _update_booster_buttons_visual() -> void:
 	var booster_types = [BoosterType.HAMMER, BoosterType.ROW_BLAST, BoosterType.SHUFFLE, BoosterType.FREEZE]
@@ -1565,6 +1561,7 @@ func _apply_damage_to_enemy_cell(tx: int, ty: int) -> void:
 					_enemies_hit_this_turn[cy][cx] = true
 			_monster_shakes[mid] = {"t": 0.0, "d": 0.2, "intensity": 10.0}
 			if int(g.get("hp", 0)) <= 0:
+				GlobalTweens.shake(self, 7.0, 0.18)
 				for c in g.get("cells", []):
 					var cx := int(c.x)
 					var cy := int(c.y)
@@ -3491,6 +3488,7 @@ func _on_level_completed():
 	var count_label := find_child("MonstersCountLabel", true, false) as CanvasItem
 	if count_label != null:
 		GlobalTweens.color_flash(count_label, Color(0.55, 1.0, 0.62), 0.24)
+	GlobalTweens.shake(self, 8.0, 0.2)
 	# Награда за победу: базовая + бонус за оставшиеся на поле бонусные фишки
 	var base_reward = 50
 	var bonus_chips = _count_bonus_chips_on_player_field()
