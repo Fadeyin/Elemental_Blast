@@ -76,6 +76,7 @@ flowchart TB
 | Модальный стек | `UIFlow` | Диалоги поверх текущей сцены |
 | Открытие диалога | `UiDialogAnima` + Anima | Dimmer, panel pop-in, кнопки |
 | Геймплейный фидбек | `GlobalTweens` | Shake, color_flash на поле и HUD |
+| Match-3 / TD анимации | `Match3AnimController` | Падение фишек, снаряды, смерть/движение врагов, board VFX |
 
 ---
 
@@ -367,7 +368,7 @@ func _switch_tab(tab_name: String) -> void:
 # Первый раз или после смены ассетов
 godot --headless --import --path .
 
-# Прогон всех тестов (42 теста)
+# Прогон всех тестов (46 тестов)
 godot --headless --path . -s addons/gut/gut_cmdln.gd -gexit
 ```
 
@@ -378,7 +379,7 @@ godot --headless --path . -s addons/gut/gut_cmdln.gd -gexit
 | [`test_scene_transition.gd`](../tests/gut/test_scene_transition.gd) | SceneTransition autoload, ошибки, busy |
 | [`test_dialog_single_open.gd`](../tests/gut/test_dialog_single_open.gd) | Один диалог за раз, level start + UIFlow stack |
 | [`test_level_manager.gd`](../tests/gut/test_level_manager.gd) | LevelManager: монеты, бусты, golden pass, buy_booster |
-| [`test_uiflow.gd`](../tests/gut/test_uiflow.gd) | UIFlow autoload, все flow pages |
+| [`test_match3_anim_controller.gd`](../tests/gut/test_match3_anim_controller.gd) | Match3AnimController: снаряды, chip anims, combat_idle |
 
 См. также [`docs/dialog_testing_checklist.md`](dialog_testing_checklist.md).
 
@@ -494,7 +495,7 @@ _my_dialog_open = false
 
 | Компонент | Причина | Файл |
 |-----------|---------|------|
-| Анимации match-3 / TD | Кастомный tick-движок | [`game_board.gd`](../scripts/game_board.gd) |
+| Immediate-mode отрисовка поля | `Node2D._draw`, не Control-узлы | [`game_board.gd`](../scripts/game_board.gd) |
 | Полная навигация меню как UIFlow routes | Табы уже на UIFlow; нижняя навигация остаётся в сцене | — |
 
 ---
@@ -520,4 +521,4 @@ _my_dialog_open = false
 
 ---
 
-*Последнее обновление: туториалы боя на UIFlow (Level1 + IngameBooster), 42 GUT-теста.*
+*Последнее обновление: Match3AnimController для match-3/TD анимаций, 46 GUT-тестов.*
