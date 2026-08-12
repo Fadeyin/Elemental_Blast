@@ -32,7 +32,7 @@ var _golden_pass_dialog_open: bool = false
 var _golden_pass_fab: Button = null
 var _golden_pass_fab_pulse_running: bool = false
 
-const GUI_TRANSITION_SCRIPT := preload("res://addons/simple-gui-transitions/transition.gd")
+const MENU_TAB_FLOW_PAGE_SCRIPT := preload("res://scripts/ui_flow/pages/menu_tab_flow_page.gd")
 const TEX_UI_TOOLBAR_BG := preload("res://textures/ui_main_menu_toolbar_bg.png")
 const TEX_UI_BUY_COINS_BTN := preload("res://textures/ui_buy_coins_button.png")
 const TEX_UI_PLAY_BTN := preload("res://textures/ui_main_menu_play_button.png")
@@ -71,6 +71,7 @@ const UI_SHADOW_OFFSET_SOFT := Vector2(0, 3)
 var _syncing_ranks_level_edit: bool = false
 var _play_level_banner: Label = null
 var _current_tab_name: String = "main"
+var _tab_switch_busy: bool = false
 
 func _ready():
 	if LevelManager:
@@ -95,8 +96,8 @@ func _ready():
 	_update_level_label()
 	_update_version_label()
 	_build_shop_tab()
-	_setup_tab_gui_transitions()
 	_setup_uiflow_root()
+	_setup_menu_tab_flow()
 	_update_nav_highlight("main")
 	
 	LevelManager.coins_changed.connect(_on_coins_changed)
@@ -115,6 +116,13 @@ func _setup_uiflow_root() -> void:
 	UIFlow.set_ui_root(flow_root)
 	if not UIFlow.page_closed.is_connected(_on_uiflow_page_closed):
 		UIFlow.page_closed.connect(_on_uiflow_page_closed)
+	if not UIFlow.page_opened.is_connected(_on_uiflow_page_opened):
+		UIFlow.page_opened.connect(_on_uiflow_page_opened)
+
+
+func _on_uiflow_page_opened(page_class: GDScript) -> void:
+	if page_class == MENU_TAB_FLOW_PAGE_SCRIPT:
+		_tab_switch_busy = false
 
 
 func _on_uiflow_page_closed(_page_class: GDScript) -> void:
@@ -244,7 +252,7 @@ func _stop_golden_pass_fab_pulse() -> void:
 		_golden_pass_fab.scale = Vector2.ONE
 
 func _show_golden_pass_dialog() -> void:
-	if _golden_pass_dialog_open or UIFlow.stack_depth() > 0:
+	if _golden_pass_dialog_open or _is_modal_uiflow_open():
 		return
 	_golden_pass_dialog_open = true
 	var page := GoldenPassFlowPage.new()
@@ -471,31 +479,54 @@ func _setup_navigation():
 	main_btn.pressed.connect(func(): _switch_tab("main"))
 	ranks_btn.pressed.connect(func(): _switch_tab("ranks"))
 
-func _setup_tab_gui_transitions() -> void:
-	_add_tab_gui_transition(shop_tab, "shop")
-	_add_tab_gui_transition(main_tab, "main", true)
-	_add_tab_gui_transition(ranks_tab, "ranks")
 
-func _add_tab_gui_transition(tab: Control, tab_id: String, should_auto_start: bool = false) -> void:
-	if tab == null or not is_instance_valid(tab):
-		return
-	if tab.get_node_or_null("GuiTransition") != null:
-		return
-	var transition_node := Node.new()
-	transition_node.name = "GuiTransition"
-	transition_node.set_script(GUI_TRANSITION_SCRIPT)
-	transition_node.set("layout", NodePath(".."))
-	transition_node.set("layout_id", tab_id)
-	transition_node.set("auto_start", 1 if should_auto_start else 0)
-	tab.add_child(transition_node)
+func _setup_menu_tab_flow() -> void:
+	shop_tab.visible = false
+	ranks_tab.visible = false
+	main_tab.visible = false
+	call_deferred("_push_menu_tab_page", "main", true)
+
+
+func _push_menu_tab_page(tab_id: String, instant: bool = false) -> void:
+	if UIFlow.has_page(MENU_TAB_FLOW_PAGE_SCRIPT):
+		UIFlow.close(MENU_TAB_FLOW_PAGE_SCRIPT)
+	var page: MenuTabFlowPage = MENU_TAB_FLOW_PAGE_SCRIPT.new()
+	var pushed := UIFlow.push_instance(page, _make_tab_flow_data(tab_id, instant))
+	if pushed == null:
+		push_warning("main_menu: не удалось открыть таб UIFlow '%s'" % tab_id)
+
+
+func _make_tab_flow_data(tab_id: String, instant: bool = false) -> Dictionary:
+	return {
+		"tab_id": tab_id,
+		"tab_root": _get_menu_tab_root(tab_id),
+		"all_tabs": [shop_tab, main_tab, ranks_tab],
+		"instant": instant,
+	}
+
+
+func _get_menu_tab_root(tab_id: String) -> Control:
+	match tab_id:
+		"shop":
+			return shop_tab
+		"ranks":
+			return ranks_tab
+		_:
+			return main_tab
+
+
+func _is_modal_uiflow_open() -> bool:
+	return UIFlow.stack_depth() > 1
+
 
 func _switch_tab(tab_name: String) -> void:
 	if tab_name == _current_tab_name:
 		return
-	if GuiTransitions.in_transition():
+	if _tab_switch_busy or _is_modal_uiflow_open():
 		return
+	_tab_switch_busy = true
 	_current_tab_name = tab_name
-	GuiTransitions.go_to(tab_name)
+	_push_menu_tab_page(tab_name)
 	if is_instance_valid(_golden_pass_fab):
 		_golden_pass_fab.visible = (tab_name == "main")
 	_refresh_golden_pass_fab_attention()
@@ -810,7 +841,7 @@ func _update_version_label():
 		version_label.add_theme_constant_override("outline_size", 2)
 
 func _show_level_start_dialog(level: int):
-	if _level_start_dialog_shown or UIFlow.stack_depth() > 0:
+	if _level_start_dialog_shown or _is_modal_uiflow_open():
 		return
 	_level_start_dialog_shown = true
 	var page := LevelStartFlowPage.new()
@@ -837,13 +868,11 @@ func _show_fatal_scene_switch_dialog(scene_path: String, err_code: int) -> void:
 	dlg.confirmed.connect(func(): dlg.queue_free())
 
 func _build_shop_tab():
-	if not has_node("TabContent/ShopTab"):
+	if shop_tab == null or not is_instance_valid(shop_tab):
 		return
 	
-	var shop_tab_node = get_node("TabContent/ShopTab")
+	var shop_tab_node = shop_tab
 	for child in shop_tab_node.get_children():
-		if child.name == "GuiTransition":
-			continue
 		child.queue_free()
 	
 	var scroll = ScrollContainer.new()

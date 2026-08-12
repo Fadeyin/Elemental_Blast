@@ -163,7 +163,7 @@ godot --check-only project.godot
 # Импорт ассетов (первый раз или после изменений ресурсов)
 godot --headless --import --path .
 
-# Прогон всех тестов (35 тестов, выход с кодом 0/1)
+# Прогон всех тестов (37 тестов, выход с кодом 0/1)
 godot --headless --path . -s addons/gut/gut_cmdln.gd -gexit
 ```
 

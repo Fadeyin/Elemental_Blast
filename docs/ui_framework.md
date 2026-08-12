@@ -12,7 +12,7 @@
 1. [Архитектура](#архитектура)
 2. [Autoload и плагины](#autoload-и-плагины)
 3. [SceneTransition — смена сцен](#scenetransition--смена-сцен)
-4. [Simple GUI Transitions — табы меню](#simple-gui-transitions--табы-меню)
+4. [UIFlow — табы главного меню](#uiflow--табы-главного-меню)
 5. [Anima + UiDialogAnima — анимации диалогов](#anima--uidialoganima--анимации-диалогов)
 6. [GlobalTweens — игровой фидбек](#globaltweens--игровой-фидбек)
 7. [UIFlow — стек модальных страниц](#uiflow--стек-модальных-страниц)
@@ -41,8 +41,8 @@ flowchart TB
     ST[SceneTransition autoload]
   end
 
-  subgraph menu_tabs [Табы внутри меню]
-    GT[GuiTransitions autoload]
+  subgraph menu_tabs [Табы главного меню]
+    MT[MenuTabFlowPage / UIFlow]
   end
 
   subgraph modals [Модальные окна]
@@ -56,7 +56,7 @@ flowchart TB
     GTW[GlobalTweens autoload]
   end
 
-  MM --> GT
+  MM --> MT
   MM --> UF
   GB --> UF
   UF --> Pages
@@ -72,7 +72,7 @@ flowchart TB
 | Слой | Инструмент | Когда использовать |
 |------|------------|-------------------|
 | Сцена ↔ сцена | `SceneTransition` | Меню → бой, бой → меню, редактор |
-| Таб ↔ таб | `GuiTransitions` | Shop / Main / Ranks в главном меню |
+| Таб ↔ таб | `UIFlow` + `MenuTabFlowPage` | Shop / Main / Ranks в главном меню |
 | Модальный стек | `UIFlow` | Диалоги поверх текущей сцены |
 | Открытие диалога | `UiDialogAnima` + Anima | Dimmer, panel pop-in, кнопки |
 | Геймплейный фидбек | `GlobalTweens` | Shake, color_flash на поле и HUD |
@@ -85,7 +85,6 @@ flowchart TB
 
 | Autoload | Путь | Назначение |
 |----------|------|------------|
-| `GuiTransitions` | [`addons/simple-gui-transitions/singleton.gd`](../addons/simple-gui-transitions/singleton.gd) | Переключение layout-табов |
 | `SceneTransition` | [`scripts/scene_transition.gd`](../scripts/scene_transition.gd) | Fade между сценами |
 | `GlobalTweens` | [`addons/global_tweens/GlobalTweens.gd`](../addons/global_tweens/GlobalTweens.gd) | Универсальные твины |
 | `UIFlow` | [`addons/ui_flow/core/ui_flow_autoload.tscn`](../addons/ui_flow/core/ui_flow_autoload.tscn) | Стек UI-страниц |
@@ -95,8 +94,8 @@ flowchart TB
 |-----------------|------|----------|
 | Anima 0.6 | [`addons/anima/`](../addons/anima/) | MIT |
 | GUT 9.6.1 | [`addons/gut/`](../addons/gut/) | MIT |
-| Simple GUI Transitions 0.5.0 | [`addons/simple-gui-transitions/`](../addons/simple-gui-transitions/) | MIT |
 | UIFlow | [`addons/ui_flow/`](../addons/ui_flow/) | (см. README плагина) |
+| Simple GUI Transitions 0.5.0 | [`addons/simple-gui-transitions/`](../addons/simple-gui-transitions/) | MIT (в проекте не используется, оставлен в addons) |
 
 Документация upstream UIFlow: [`addons/ui_flow/README.md`](../addons/ui_flow/README.md), [`addons/ui_flow/docs/getting_started.md`](../addons/ui_flow/docs/getting_started.md).
 
@@ -138,28 +137,46 @@ SceneTransition.is_busy() -> bool
 
 ---
 
-## Simple GUI Transitions — табы меню
+## UIFlow — табы главного меню
 
-**Плагин:** [`addons/simple-gui-transitions/`](../addons/simple-gui-transitions/)  
-**Настройки по умолчанию:** секция `[gui_transitions]` в [`project.godot`](../project.godot) (fade, QUAD IN_OUT, 0.5 с).
+**Страница:** [`scripts/ui_flow/pages/menu_tab_flow_page.gd`](../scripts/ui_flow/pages/menu_tab_flow_page.gd) (`class_name MenuTabFlowPage`)
 
-### Подключение в игре
+Табы Shop / Main / Ranks больше не переключаются через GuiTransitions. Контент остаётся в [`scenes/main_menu.tscn`](../scenes/main_menu.tscn) (`TabContent/*`), а UIFlow держит на стеке одну базовую страницу `MenuTabFlowPage`.
 
-| Файл | Что делает |
-|------|------------|
-| [`scenes/main_menu.tscn`](../scenes/main_menu.tscn) | Узлы `ShopTab`, `MainTab`, `RanksTab` под `TabContent` |
-| [`scripts/main_menu.gd`](../scripts/main_menu.gd) | `_setup_tab_gui_transitions()`, `_switch_tab()` |
+### Поведение
 
-На каждый таб в рантайме вешается дочерний узел `GuiTransition` (скрипт [`addons/simple-gui-transitions/transition.gd`](../addons/simple-gui-transitions/transition.gd)) с `layout_id`: `"shop"`, `"main"`, `"ranks"`.
+| Аспект | Реализация |
+|--------|------------|
+| Старт | `call_deferred("_push_menu_tab_page", "main", true)` в `_setup_menu_tab_flow()` |
+| Смена таба | `UIFlow.close(MenuTabFlowPage)` → `push_instance` новой страницы |
+| Анимация | Fade-in `tab_root.modulate.a` (0.35 с), без reparent узлов |
+| Глубина стека | Базовый таб = **1**; модалки (LevelStart, GoldenPass) = **2** |
+| Блокировка табов | `_tab_switch_busy`, `_is_modal_uiflow_open()` (`stack_depth() > 1`) |
 
 ```gdscript
-# scripts/main_menu.gd — переключение
-if GuiTransitions.in_transition():
-    return
-GuiTransitions.go_to(tab_name)  # "shop" | "main" | "ranks"
+# scripts/main_menu.gd
+func _switch_tab(tab_name: String) -> void:
+    if tab_name == _current_tab_name or _tab_switch_busy or _is_modal_uiflow_open():
+        return
+    _tab_switch_busy = true
+    _current_tab_name = tab_name
+    _push_menu_tab_page(tab_name)
 ```
 
-`MainTab` — `auto_start = true` (стартовый таб).
+### Данные `push_instance`
+
+```gdscript
+{
+    "tab_id": "shop" | "main" | "ranks",
+    "tab_root": Control,           # shop_tab / main_tab / ranks_tab
+    "all_tabs": [shop, main, ranks],
+    "instant": bool                # true при первом открытии (без fade)
+}
+```
+
+### Тесты
+
+[`tests/gut/test_dialog_single_open.gd`](../tests/gut/test_dialog_single_open.gd) — `test_main_menu_tabs_use_uiflow`, `test_main_menu_switch_tab_updates_uiflow`.
 
 ---
 
@@ -248,6 +265,7 @@ GuiTransitions.go_to(tab_name)  # "shop" | "main" | "ranks"
 | class_name | Файл | Диалог внутри | Данные `push_instance` | Сигналы наружу |
 |------------|------|---------------|------------------------|----------------|
 | `LevelStartFlowPage` | [`scripts/ui_flow/pages/level_start_flow_page.gd`](../scripts/ui_flow/pages/level_start_flow_page.gd) | [`level_start_dialog.gd`](../scripts/level_start_dialog.gd) | `level: int` (опционально) | `start_gameplay(boosts, bonuses)` |
+| `MenuTabFlowPage` | [`scripts/ui_flow/pages/menu_tab_flow_page.gd`](../scripts/ui_flow/pages/menu_tab_flow_page.gd) | `TabContent/*` в сцене | см. ниже | — |
 | `GoldenPassFlowPage` | [`scripts/ui_flow/pages/golden_pass_flow_page.gd`](../scripts/ui_flow/pages/golden_pass_flow_page.gd) | [`golden_pass_dialog.gd`](../scripts/golden_pass_dialog.gd) | — | — (только `closed`) |
 | `LevelEndFlowPage` | [`scripts/ui_flow/pages/level_end_flow_page.gd`](../scripts/ui_flow/pages/level_end_flow_page.gd) | [`level_end_dialog.gd`](../scripts/level_end_dialog.gd) | см. ниже | `to_menu_pressed`, `refill_lives_pressed` |
 | `BoosterPurchaseFlowPage` | [`scripts/ui_flow/pages/booster_purchase_flow_page.gd`](../scripts/ui_flow/pages/booster_purchase_flow_page.gd) | [`ingame_booster_purchase_dialog.gd`](../scripts/ingame_booster_purchase_dialog.gd) | см. ниже | `purchase_pressed`, `closed_pressed` |
@@ -263,6 +281,13 @@ GuiTransitions.go_to(tab_name)  # "shop" | "main" | "ranks"
  "hearts_to_restore": int, "can_refill": bool}
 ```
 
+#### MenuTabFlowPage — поля `data`
+
+```gdscript
+{"tab_id": "shop"|"main"|"ranks", "tab_root": Control,
+ "all_tabs": Array[Control], "instant": bool}
+```
+
 #### BoosterPurchaseFlowPage — поля `data`
 
 ```gdscript
@@ -275,7 +300,7 @@ GuiTransitions.go_to(tab_name)  # "shop" | "main" | "ranks"
 
 | Сцена | Файл | Страница | Защита от дубля |
 |-------|------|----------|-----------------|
-| Главное меню | [`scripts/main_menu.gd`](../scripts/main_menu.gd) | `LevelStartFlowPage`, `GoldenPassFlowPage` | `_level_start_dialog_shown`, `_golden_pass_dialog_open`, `UIFlow.stack_depth()` |
+| Главное меню | [`scripts/main_menu.gd`](../scripts/main_menu.gd) | `MenuTabFlowPage` (база), `LevelStartFlowPage`, `GoldenPassFlowPage` | таб: `_tab_switch_busy`; модалки: `_is_modal_uiflow_open()` |
 | Бой | [`scripts/game_board.gd`](../scripts/game_board.gd) | `LevelEndFlowPage`, `BoosterPurchaseFlowPage` | `_level_end_flow_open`, `_booster_purchase_flow_open`, `stack_depth()` |
 
 `UIFlowRoot` в бою: z_index **250**, внутри `UIRoot`. В меню: z_index **200**.
@@ -308,7 +333,7 @@ GuiTransitions.go_to(tab_name)  # "shop" | "main" | "ranks"
 # Первый раз или после смены ассетов
 godot --headless --import --path .
 
-# Прогон всех тестов (35 тестов)
+# Прогон всех тестов (37 тестов)
 godot --headless --path . -s addons/gut/gut_cmdln.gd -gexit
 ```
 
@@ -332,7 +357,7 @@ project.godot                          # autoload, gui_transitions defaults
 scripts/
   scene_transition.gd                  # fade между сценами
   ui_dialog_anima.gd                   # обёртка Anima для диалогов
-  main_menu.gd                         # GuiTransitions + UIFlow + Anima + GlobalTweens
+  main_menu.gd                         # UIFlow табы + модалки + Anima + GlobalTweens
   game_board.gd                        # UIFlow (конец уровня, бустеры) + GlobalTweens + SceneTransition
   level_editor.gd                      # SceneTransition
   LogCopyService.gd                    # UIFlowUI.Toast
@@ -343,13 +368,14 @@ scripts/
   ui_flow/
     eb_modal_flow_page.gd              # база flow pages
     pages/
+      menu_tab_flow_page.gd
       level_start_flow_page.gd
       golden_pass_flow_page.gd
       level_end_flow_page.gd
       booster_purchase_flow_page.gd
 addons/
   anima/                               # плагин Anima
-  simple-gui-transitions/              # табы меню
+  simple-gui-transitions/              # legacy (не подключён)
   global_tweens/GlobalTweens.gd        # shake, color_flash, ...
   ui_flow/                             # UIFlow + UIFlowUI
   gut/                                 # тестовый фреймворк
@@ -424,11 +450,10 @@ _my_dialog_open = false
 
 | Компонент | Причина | Файл |
 |-----------|---------|------|
-| Табы меню | Отдельный стек layout'ов | `GuiTransitions` |
 | Prelevel purchase в level start | Прямой overlay в диалоге | [`level_start_dialog.gd`](../scripts/level_start_dialog.gd) (`_prelevel_purchase_overlay`) |
 | Туториалы уровня 1 / бустеров | Отдельные overlay, z_index 180 | [`game_board.gd`](../scripts/game_board.gd) |
 | Анимации match-3 / TD | Кастомный tick-движок | [`game_board.gd`](../scripts/game_board.gd) |
-| Полная навигация меню как UIFlow routes | Не рефакторили; табы через GuiTransitions | — |
+| Полная навигация меню как UIFlow routes | Табы уже на UIFlow; нижняя навигация остаётся в сцене | — |
 
 ---
 
@@ -453,4 +478,4 @@ _my_dialog_open = false
 
 ---
 
-*Последнее обновление: этап 10 UI-плагинов (UIFlow booster purchase, GlobalTweens victory/boss shake, 35 GUT-тестов).*
+*Последнее обновление: UIFlow табы меню (MenuTabFlowPage), 37 GUT-тестов.*

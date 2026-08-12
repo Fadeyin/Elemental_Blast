@@ -1,6 +1,7 @@
 extends GutTest
 
 const LEVEL_END_FLOW_PAGE := preload("res://scripts/ui_flow/pages/level_end_flow_page.gd")
+const MENU_TAB_FLOW_PAGE := preload("res://scripts/ui_flow/pages/menu_tab_flow_page.gd")
 const BOOSTER_PURCHASE_FLOW_PAGE := preload("res://scripts/ui_flow/pages/booster_purchase_flow_page.gd")
 
 
@@ -23,6 +24,13 @@ func test_level_end_flow_page_can_be_created() -> void:
 	add_child_autofree(page)
 	assert_true(page is UIFlowPage)
 	assert_true(page.is_modal)
+
+
+func test_menu_tab_flow_page_can_be_created() -> void:
+	var page = MENU_TAB_FLOW_PAGE.new()
+	add_child_autofree(page)
+	assert_true(page is UIFlowPage)
+	assert_false(page.is_modal)
 
 
 func test_booster_purchase_flow_page_can_be_created() -> void:
