@@ -28,6 +28,7 @@ LevelManager="*res://scripts/LevelManager.gd"
 WebSmokeTestBridge="*res://scripts/web_smoke_test_bridge.gd"
 GuiTransitions="*res://addons/simple-gui-transitions/singleton.gd"
 SceneTransition="*res://scripts/scene_transition.gd"
+GlobalTweens="*res://addons/global_tweens/GlobalTweens.gd"
 
 [editor_plugins]
 

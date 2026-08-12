@@ -298,7 +298,7 @@ func _connect_buttons() -> void:
 	$Root/TopActions/ExportZipButton.pressed.connect(_on_export_zip_pressed)
 	$Root/TopActions/CopyJsonButton.pressed.connect(_on_copy_json_pressed)
 	$Root/TopActions/TestButton.pressed.connect(_on_test_pressed)
-	$Root/TopActions/BackButton.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
+	$Root/TopActions/BackButton.pressed.connect(func(): SceneTransition.change_scene_to("res://scenes/main_menu.tscn"))
 	$Root/TopActions/PrevLevelButton.pressed.connect(func(): _request_level_switch(_current_level_number - 1))
 	$Root/TopActions/NextLevelButton.pressed.connect(func(): _request_level_switch(_current_level_number + 1))
 	$Root/BottomPanel/DeleteSelectedEntityButton.pressed.connect(_on_delete_selected_entity)
@@ -463,7 +463,7 @@ func _on_test_pressed() -> void:
 	var temp_path = "user://editor_preview_level.json"
 	_save_to_path(temp_path)
 	LevelManager.begin_editor_test(temp_path, _current_level_number)
-	get_tree().change_scene_to_file("res://scenes/game_board.tscn")
+	SceneTransition.change_scene_to("res://scenes/game_board.tscn")
 
 func _on_export_json_pressed() -> void:
 	var btn: Button = $Root/TopActions/ExportJsonButton

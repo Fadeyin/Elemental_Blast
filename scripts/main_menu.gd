@@ -115,6 +115,7 @@ func _on_coins_changed(new_amount: int):
 	var coins_label = find_child("TopBarCoinsCount", true, false)
 	if coins_label:
 		coins_label.text = str(new_amount)
+		GlobalTweens.color_flash(coins_label, Color(1.0, 0.92, 0.45), 0.18)
 	_refresh_golden_pass_buy_button_if_visible()
 
 func _on_golden_pass_state_changed():
