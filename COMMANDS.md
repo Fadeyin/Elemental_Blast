@@ -157,6 +157,18 @@ godot project.godot --path scenes/main_menu.tscn
 godot --check-only project.godot
 ```
 
+### GUT (автотесты UI и LevelManager)
+
+```bash
+# Импорт ассетов (первый раз или после изменений ресурсов)
+godot --headless --import --path .
+
+# Прогон всех тестов (35 тестов, выход с кодом 0/1)
+godot --headless --path . -s addons/gut/gut_cmdln.gd -gexit
+```
+
+Конфиг: `.gutconfig.json` · Тесты: `tests/gut/` · Документация UI: `docs/ui_framework.md`
+
 ## Артефакты и скачивание
 
 ### Скачать артефакты через GitHub CLI

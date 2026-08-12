@@ -121,6 +121,7 @@ git push origin feature/my-feature
 | Документ | Описание |
 |----------|----------|
 | **[versioning.md](docs/versioning.md)** | 🔢 Система версионирования проекта |
+| **[ui_framework.md](docs/ui_framework.md)** | 🎨 **UI-фреймворк:** Anima, UIFlow, GlobalTweens, SceneTransition, GUT — карта файлов |
 | **[BRANCH_BUILD_QUICKSTART.md](.github/BRANCH_BUILD_QUICKSTART.md)** | ⚡ **НОВОЕ:** Билд из других веток (быстрый старт) |
 | **[MULTI_BRANCH_BUILD.md](.github/MULTI_BRANCH_BUILD.md)** | 🔀 **НОВОЕ:** Полное руководство по сборке из веток |
 | **[NETLIFY_SETUP.md](.github/NETLIFY_SETUP.md)** | ⭐ Настройка Netlify (рекомендуется) |
