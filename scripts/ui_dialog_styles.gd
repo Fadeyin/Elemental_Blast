@@ -1,16 +1,40 @@
 extends RefCounted
 class_name UiDialogStyles
 
-const PANEL_TEXTURE := "res://textures/ui_main_menu_toolbar_bg.png"
-const SECTION_TEXTURE := "res://textures/ingame_booster_slot_bg.png"
-const PRIMARY_BUTTON_TEXTURE := "res://textures/ui_main_menu_play_button.png"
-const SECONDARY_BUTTON_TEXTURE := "res://textures/ui_bottom_nav_bg.png"
-const SMALL_BUTTON_TEXTURE := "res://textures/ui_buy_coins_button.png"
-const ROUND_BUTTON_TEXTURE := "res://textures/ui_menu_round_button_bg.png"
+const PANEL_TEXTURE := preload("res://textures/ui_main_menu_toolbar_bg.png")
+const SECTION_TEXTURE := preload("res://textures/ingame_booster_slot_bg.png")
+const PRIMARY_BUTTON_TEXTURE := preload("res://textures/ui_main_menu_play_button.png")
+const SECONDARY_BUTTON_TEXTURE := preload("res://textures/ui_bottom_nav_bg.png")
+const SMALL_BUTTON_TEXTURE := preload("res://textures/ui_buy_coins_button.png")
+const ROUND_BUTTON_TEXTURE := preload("res://textures/ui_menu_round_button_bg.png")
 
-const PANEL_MARGIN := 18
-const SECTION_MARGIN := 10
-const BUTTON_CONTENT_MARGIN := 14
+# Размеры исходных текстур и 9-slice margins (left, top, right, bottom) в пикселях арта.
+const PANEL_TEX_SIZE := Vector2i(1640, 336)
+const PANEL_SLICE := Vector4i(168, 74, 168, 74)
+const PANEL_CONTENT_PAD := Vector4i(22, 18, 22, 18)
+
+const SECTION_TEX_SIZE := Vector2i(905, 919)
+const SECTION_SLICE := Vector4i(300, 300, 300, 300)
+const SECTION_CONTENT_PAD := Vector4i(12, 10, 12, 10)
+
+const PRIMARY_BTN_TEX_SIZE := Vector2i(1371, 474)
+const PRIMARY_BTN_SLICE := Vector4i(237, 86, 237, 86)
+const PRIMARY_BTN_CONTENT_PAD := Vector4i(20, 10, 20, 14)
+
+const SECONDARY_BTN_TEX_SIZE := Vector2i(2234, 416)
+const SECONDARY_BTN_SLICE := Vector4i(208, 78, 208, 78)
+const SECONDARY_BTN_CONTENT_PAD := Vector4i(18, 8, 18, 12)
+
+const SMALL_BTN_TEX_SIZE := Vector2i(705, 679)
+const SMALL_BTN_SLICE := Vector4i(230, 230, 230, 230)
+const SMALL_BTN_CONTENT_PAD := Vector4i(8, 6, 8, 8)
+
+const ROUND_BTN_TEX_SIZE := Vector2i(1091, 1121)
+const ROUND_BTN_SLICE := Vector4i(480, 480, 480, 480)
+const ROUND_BTN_CONTENT_PAD := Vector4i(10, 8, 10, 10)
+
+const COMPACT_DIALOG_WIDTH := 520.0
+const MEDIUM_DIALOG_WIDTH := 560.0
 
 const TITLE_COLOR := Color(0.18, 0.12, 0.08, 1.0)
 const BODY_COLOR := Color(0.28, 0.2, 0.14, 1.0)
@@ -20,40 +44,76 @@ const PRIMARY_TEXT_COLOR := Color(0.98, 0.96, 0.9, 1.0)
 const SECONDARY_TEXT_COLOR := Color(0.22, 0.14, 0.08, 1.0)
 
 
-static func create_dimmer() -> ColorRect:
+static func create_dimmer(alpha: float = 0.55) -> ColorRect:
 	var dimmer := ColorRect.new()
 	dimmer.set_anchors_preset(Control.PRESET_FULL_RECT)
-	dimmer.color = Color(0.0, 0.0, 0.0, 0.55)
+	dimmer.color = Color(0.0, 0.0, 0.0, alpha)
 	dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
 	return dimmer
 
 
-static func make_panel_stylebox() -> StyleBoxTexture:
+static func create_dialog_center(width: float = COMPACT_DIALOG_WIDTH) -> CenterContainer:
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.offset_left = 20.0
+	center.offset_top = 48.0
+	center.offset_right = -20.0
+	center.offset_bottom = -48.0
+	return center
+
+
+static func create_dialog_panel(width: float = COMPACT_DIALOG_WIDTH) -> Panel:
+	var panel := Panel.new()
+	panel.custom_minimum_size = Vector2(width, 0.0)
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	apply_panel_style(panel)
+	return panel
+
+
+static func _apply_nine_slice(style: StyleBoxTexture, slice: Vector4i, content_pad: Vector4i) -> void:
+	style.texture_margin_left = slice.x
+	style.texture_margin_top = slice.y
+	style.texture_margin_right = slice.z
+	style.texture_margin_bottom = slice.w
+	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	style.draw_center = true
+	style.content_margin_left = content_pad.x
+	style.content_margin_top = content_pad.y
+	style.content_margin_right = content_pad.z
+	style.content_margin_bottom = content_pad.w
+
+
+static func _make_stylebox(texture: Texture2D, slice: Vector4i, content_pad: Vector4i) -> StyleBoxTexture:
 	var style := StyleBoxTexture.new()
-	style.texture = load(PANEL_TEXTURE)
-	style.texture_margin_left = PANEL_MARGIN
-	style.texture_margin_top = PANEL_MARGIN
-	style.texture_margin_right = PANEL_MARGIN
-	style.texture_margin_bottom = PANEL_MARGIN
-	style.content_margin_left = PANEL_MARGIN + 4
-	style.content_margin_top = PANEL_MARGIN + 2
-	style.content_margin_right = PANEL_MARGIN + 4
-	style.content_margin_bottom = PANEL_MARGIN + 4
+	style.texture = texture
+	_apply_nine_slice(style, slice, content_pad)
 	return style
+
+
+static func make_panel_stylebox() -> StyleBoxTexture:
+	return _make_stylebox(PANEL_TEXTURE, PANEL_SLICE, PANEL_CONTENT_PAD)
 
 
 static func make_section_stylebox() -> StyleBoxTexture:
-	var style := StyleBoxTexture.new()
-	style.texture = load(SECTION_TEXTURE)
-	style.texture_margin_left = SECTION_MARGIN
-	style.texture_margin_top = SECTION_MARGIN
-	style.texture_margin_right = SECTION_MARGIN
-	style.texture_margin_bottom = SECTION_MARGIN
-	style.content_margin_left = SECTION_MARGIN + 2
-	style.content_margin_top = SECTION_MARGIN + 2
-	style.content_margin_right = SECTION_MARGIN + 2
-	style.content_margin_bottom = SECTION_MARGIN + 2
-	return style
+	return _make_stylebox(SECTION_TEXTURE, SECTION_SLICE, SECTION_CONTENT_PAD)
+
+
+static func make_primary_button_stylebox() -> StyleBoxTexture:
+	return _make_stylebox(PRIMARY_BUTTON_TEXTURE, PRIMARY_BTN_SLICE, PRIMARY_BTN_CONTENT_PAD)
+
+
+static func make_secondary_button_stylebox() -> StyleBoxTexture:
+	return _make_stylebox(SECONDARY_BUTTON_TEXTURE, SECONDARY_BTN_SLICE, SECONDARY_BTN_CONTENT_PAD)
+
+
+static func make_small_button_stylebox() -> StyleBoxTexture:
+	return _make_stylebox(SMALL_BUTTON_TEXTURE, SMALL_BTN_SLICE, SMALL_BTN_CONTENT_PAD)
+
+
+static func make_round_button_stylebox() -> StyleBoxTexture:
+	return _make_stylebox(ROUND_BUTTON_TEXTURE, ROUND_BTN_SLICE, ROUND_BTN_CONTENT_PAD)
 
 
 static func apply_panel(panel: PanelContainer) -> void:
@@ -74,14 +134,34 @@ static func make_slot_stylebox() -> StyleBoxTexture:
 
 static func make_slot_pressed_stylebox() -> StyleBoxTexture:
 	var style := make_section_stylebox()
-	style.modulate_color = Color(0.82, 0.92, 1.0, 1.0)
+	style.modulate_color = Color(0.88, 0.94, 1.0, 1.0)
 	return style
 
 
 static func make_slot_disabled_stylebox() -> StyleBoxTexture:
 	var style := make_section_stylebox()
-	style.modulate_color = Color(0.55, 0.55, 0.58, 0.75)
+	style.modulate_color = Color(0.62, 0.62, 0.66, 0.82)
 	return style
+
+
+static func primary_button_height_for_width(width: float) -> float:
+	return maxf(44.0, width * float(PRIMARY_BTN_TEX_SIZE.y) / float(PRIMARY_BTN_TEX_SIZE.x))
+
+
+static func secondary_button_height_for_width(width: float) -> float:
+	return maxf(42.0, width * float(SECONDARY_BTN_TEX_SIZE.y) / float(SECONDARY_BTN_TEX_SIZE.x))
+
+
+static func _apply_button_styleboxes(button: Button, normal: StyleBoxTexture, pressed_pad_delta: int = 2) -> void:
+	var hover := normal.duplicate() as StyleBoxTexture
+	var pressed := normal.duplicate() as StyleBoxTexture
+	pressed.content_margin_top = normal.content_margin_top + pressed_pad_delta
+	pressed.content_margin_bottom = maxi(0, normal.content_margin_bottom - pressed_pad_delta)
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("pressed", pressed)
+	button.add_theme_stylebox_override("focus", hover)
+	button.add_theme_stylebox_override("disabled", normal)
 
 
 static func create_accent_title_label(text: String, accent: Color = ACCENT_COLOR, font_size: int = 48) -> Label:
@@ -126,28 +206,13 @@ static func create_muted_label(text: String, font_size: int = 16) -> Label:
 	return label
 
 
-static func _make_button_stylebox(texture_path: String, content_margin: int) -> StyleBoxTexture:
-	var style := StyleBoxTexture.new()
-	style.texture = load(texture_path)
-	style.texture_margin_left = 12
-	style.texture_margin_top = 12
-	style.texture_margin_right = 12
-	style.texture_margin_bottom = 12
-	style.content_margin_left = content_margin
-	style.content_margin_top = content_margin - 2
-	style.content_margin_right = content_margin
-	style.content_margin_bottom = content_margin + 2
-	return style
-
-
-static func create_primary_button(text: String, min_height: float = 52.0) -> Button:
+static func create_primary_button(text: String, width: float = 280.0) -> Button:
 	var button := Button.new()
 	button.text = text
-	button.custom_minimum_size = Vector2(0.0, min_height)
-	button.add_theme_stylebox_override("normal", _make_button_stylebox(PRIMARY_BUTTON_TEXTURE, BUTTON_CONTENT_MARGIN))
-	button.add_theme_stylebox_override("hover", _make_button_stylebox(PRIMARY_BUTTON_TEXTURE, BUTTON_CONTENT_MARGIN))
-	button.add_theme_stylebox_override("pressed", _make_button_stylebox(PRIMARY_BUTTON_TEXTURE, BUTTON_CONTENT_MARGIN + 2))
-	button.add_theme_stylebox_override("focus", _make_button_stylebox(PRIMARY_BUTTON_TEXTURE, BUTTON_CONTENT_MARGIN))
+	var btn_width := width if width > 0.0 else 280.0
+	var height := primary_button_height_for_width(btn_width)
+	button.custom_minimum_size = Vector2(width if width > 0.0 else 0.0, height)
+	_apply_button_styleboxes(button, make_primary_button_stylebox())
 	button.add_theme_color_override("font_color", PRIMARY_TEXT_COLOR)
 	button.add_theme_color_override("font_hover_color", PRIMARY_TEXT_COLOR)
 	button.add_theme_color_override("font_pressed_color", PRIMARY_TEXT_COLOR)
@@ -156,14 +221,12 @@ static func create_primary_button(text: String, min_height: float = 52.0) -> But
 	return button
 
 
-static func create_secondary_button(text: String, min_height: float = 48.0) -> Button:
+static func create_secondary_button(text: String, width: float = 280.0) -> Button:
 	var button := Button.new()
 	button.text = text
-	button.custom_minimum_size = Vector2(0.0, min_height)
-	button.add_theme_stylebox_override("normal", _make_button_stylebox(SECONDARY_BUTTON_TEXTURE, BUTTON_CONTENT_MARGIN))
-	button.add_theme_stylebox_override("hover", _make_button_stylebox(SECONDARY_BUTTON_TEXTURE, BUTTON_CONTENT_MARGIN))
-	button.add_theme_stylebox_override("pressed", _make_button_stylebox(SECONDARY_BUTTON_TEXTURE, BUTTON_CONTENT_MARGIN + 2))
-	button.add_theme_stylebox_override("focus", _make_button_stylebox(SECONDARY_BUTTON_TEXTURE, BUTTON_CONTENT_MARGIN))
+	var height := secondary_button_height_for_width(width)
+	button.custom_minimum_size = Vector2(width, height)
+	_apply_button_styleboxes(button, make_secondary_button_stylebox())
 	button.add_theme_color_override("font_color", SECONDARY_TEXT_COLOR)
 	button.add_theme_color_override("font_hover_color", SECONDARY_TEXT_COLOR)
 	button.add_theme_color_override("font_pressed_color", SECONDARY_TEXT_COLOR)
@@ -176,11 +239,7 @@ static func create_small_icon_button(text: String = "+", size: float = 40.0) -> 
 	var button := Button.new()
 	button.text = text
 	button.custom_minimum_size = Vector2(size, size)
-	var margin := 8
-	button.add_theme_stylebox_override("normal", _make_button_stylebox(SMALL_BUTTON_TEXTURE, margin))
-	button.add_theme_stylebox_override("hover", _make_button_stylebox(SMALL_BUTTON_TEXTURE, margin))
-	button.add_theme_stylebox_override("pressed", _make_button_stylebox(SMALL_BUTTON_TEXTURE, margin + 1))
-	button.add_theme_stylebox_override("focus", _make_button_stylebox(SMALL_BUTTON_TEXTURE, margin))
+	_apply_button_styleboxes(button, make_small_button_stylebox(), 1)
 	button.add_theme_color_override("font_color", PRIMARY_TEXT_COLOR)
 	button.add_theme_color_override("font_hover_color", PRIMARY_TEXT_COLOR)
 	button.add_theme_color_override("font_pressed_color", PRIMARY_TEXT_COLOR)
@@ -193,11 +252,7 @@ static func create_round_info_button(text: String = "i", size: float = 36.0) -> 
 	var button := Button.new()
 	button.text = text
 	button.custom_minimum_size = Vector2(size, size)
-	var margin := 10
-	button.add_theme_stylebox_override("normal", _make_button_stylebox(ROUND_BUTTON_TEXTURE, margin))
-	button.add_theme_stylebox_override("hover", _make_button_stylebox(ROUND_BUTTON_TEXTURE, margin))
-	button.add_theme_stylebox_override("pressed", _make_button_stylebox(ROUND_BUTTON_TEXTURE, margin + 1))
-	button.add_theme_stylebox_override("focus", _make_button_stylebox(ROUND_BUTTON_TEXTURE, margin))
+	_apply_button_styleboxes(button, make_round_button_stylebox(), 1)
 	button.add_theme_color_override("font_color", SECONDARY_TEXT_COLOR)
 	button.add_theme_color_override("font_hover_color", SECONDARY_TEXT_COLOR)
 	button.add_theme_color_override("font_pressed_color", SECONDARY_TEXT_COLOR)

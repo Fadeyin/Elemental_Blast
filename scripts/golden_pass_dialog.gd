@@ -62,8 +62,10 @@ func setup() -> void:
 	sub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sub.clip_contents = true
 	root_v.add_child(sub)
-	_buy_pass_btn = UiDialogStyles.create_primary_button("", 52.0)
+	_buy_pass_btn = UiDialogStyles.create_primary_button("")
 	_buy_pass_btn.name = "GoldenPassBuyBtn"
+	_buy_pass_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_buy_pass_btn.custom_minimum_size = Vector2(0.0, UiDialogStyles.primary_button_height_for_width(UiDialogStyles.MEDIUM_DIALOG_WIDTH))
 	_buy_pass_btn.add_theme_font_size_override("font_size", 22)
 	_buy_pass_btn.pressed.connect(_on_buy_pass_pressed)
 	root_v.add_child(_buy_pass_btn)
@@ -99,8 +101,10 @@ func setup() -> void:
 	bar_margin.add_theme_constant_override("margin_right", 12)
 	bar_margin.add_theme_constant_override("margin_bottom", 8)
 	_claim_all_bar.add_child(bar_margin)
-	_claim_all_btn = UiDialogStyles.create_primary_button("ЗАБРАТЬ ВСЁ", 48.0)
+	_claim_all_btn = UiDialogStyles.create_primary_button("ЗАБРАТЬ ВСЁ")
 	_claim_all_btn.name = "GoldenPassClaimAllBtn"
+	_claim_all_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_claim_all_btn.custom_minimum_size = Vector2(0.0, UiDialogStyles.primary_button_height_for_width(UiDialogStyles.MEDIUM_DIALOG_WIDTH))
 	_claim_all_btn.focus_mode = Control.FOCUS_NONE
 	_claim_all_btn.add_theme_font_size_override("font_size", 20)
 	_claim_all_btn.pressed.connect(_on_claim_all_pressed)
@@ -325,8 +329,10 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 		got.add_theme_color_override("font_color", Color(0.55, 0.85, 0.55))
 		vb.add_child(got)
 	elif can_claim:
-		var claim := UiDialogStyles.create_primary_button("ЗАБРАТЬ", 40.0)
+		var claim := UiDialogStyles.create_primary_button("ЗАБРАТЬ", 0.0)
 		claim.name = "GoldenPassClaimBtn_%d_%s" % [tier_index, "premium" if is_premium else "free"]
+		claim.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		claim.custom_minimum_size = Vector2(0.0, UiDialogStyles.primary_button_height_for_width(120.0))
 		claim.mouse_filter = Control.MOUSE_FILTER_STOP
 		claim.add_theme_font_size_override("font_size", 16)
 		claim.pressed.connect(_on_claim_pressed.bind(tier_index, is_premium))

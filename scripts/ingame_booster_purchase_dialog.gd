@@ -15,32 +15,26 @@ func setup(display_name: String, icon, cost: int, quantity: int, player_coins: i
 		ch.free()
 	var bg = UiDialogStyles.create_dimmer()
 	add_child(bg)
-	var panel = Panel.new()
+	var center := UiDialogStyles.create_dialog_center()
+	add_child(center)
+	var panel = UiDialogStyles.create_dialog_panel(UiDialogStyles.MEDIUM_DIALOG_WIDTH)
 	panel.name = "BoosterShopPanel"
-	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	panel.offset_left = 20.0
-	panel.offset_top = 20.0
-	panel.offset_right = -20.0
-	panel.offset_bottom = -20.0
-	UiDialogStyles.apply_panel_style(panel)
-	add_child(panel)
+	center.add_child(panel)
 	var margin = MarginContainer.new()
 	margin.name = "BoosterShopMargin"
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
 	panel.add_child(margin)
 	var vbox = VBoxContainer.new()
 	vbox.name = "BoosterShopVBox"
-	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	vbox.add_theme_constant_override("separation", 20)
+	vbox.add_theme_constant_override("separation", 14)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	margin.add_child(vbox)
 	var header_row := HBoxContainer.new()
 	header_row.add_theme_constant_override("separation", 12)
-	var title := UiDialogStyles.create_accent_title_label(header_title, UiDialogStyles.ACCENT_COLOR, 34)
+	var title := UiDialogStyles.create_accent_title_label(header_title, UiDialogStyles.ACCENT_COLOR, 28)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.clip_contents = true
 	header_row.add_child(title)
@@ -50,15 +44,15 @@ func setup(display_name: String, icon, cost: int, quantity: int, player_coins: i
 		var icon_wrap = CenterContainer.new()
 		var tr = TextureRect.new()
 		tr.texture = icon
-		tr.custom_minimum_size = Vector2(112, 112)
+		tr.custom_minimum_size = Vector2(96, 96)
 		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon_wrap.add_child(tr)
 		vbox.add_child(icon_wrap)
-	var name_lbl = UiDialogStyles.create_title_label(display_name, 32)
+	var name_lbl = UiDialogStyles.create_title_label(display_name, 28)
 	name_lbl.clip_contents = true
 	vbox.add_child(name_lbl)
-	var body = UiDialogStyles.create_body_label("", 26)
+	var body = UiDialogStyles.create_body_label("", 20)
 	if can_afford:
 		if quantity > 1:
 			body.text = "Купить %d шт. за %d монет?\n\nУ вас: %d монет" % [quantity, cost, player_coins]
@@ -73,34 +67,30 @@ func setup(display_name: String, icon, cost: int, quantity: int, player_coins: i
 	body.clip_contents = true
 	vbox.add_child(body)
 	var spacer = Control.new()
-	spacer.custom_minimum_size = Vector2(0, 8)
+	spacer.custom_minimum_size = Vector2(0, 4)
 	vbox.add_child(spacer)
+	var btn_width := 260.0
 	if can_afford:
 		var actions = VBoxContainer.new()
-		actions.add_theme_constant_override("separation", 12)
+		actions.add_theme_constant_override("separation", 10)
 		actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		actions.add_child(_make_big_button("КУПИТЬ (%d)" % cost, _emit_purchase, true))
-		actions.add_child(_make_big_button("ОТМЕНА", _emit_closed, false))
+		actions.add_child(_make_big_button("КУПИТЬ (%d)" % cost, _emit_purchase, true, btn_width))
+		actions.add_child(_make_big_button("ОТМЕНА", _emit_closed, false, btn_width))
 		vbox.add_child(actions)
 	else:
 		var wrap = CenterContainer.new()
 		wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var close_btn := _make_big_button("ЗАКРЫТЬ", _emit_closed, false)
-		close_btn.custom_minimum_size = Vector2(280, 80)
-		close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		var close_btn := _make_big_button("ЗАКРЫТЬ", _emit_closed, false, btn_width)
 		wrap.add_child(close_btn)
 		vbox.add_child(wrap)
 
-func _make_big_button(text: String, callback: Callable, is_primary: bool) -> Button:
+func _make_big_button(text: String, callback: Callable, is_primary: bool, width: float) -> Button:
 	var btn: Button
 	if is_primary:
-		btn = UiDialogStyles.create_primary_button(text, 80.0)
+		btn = UiDialogStyles.create_primary_button(text, width)
 	else:
-		btn = UiDialogStyles.create_secondary_button(text, 80.0)
-	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn.clip_text = true
-	btn.clip_contents = true
-	btn.add_theme_font_size_override("font_size", 28)
+		btn = UiDialogStyles.create_secondary_button(text, width)
+	btn.add_theme_font_size_override("font_size", 20)
 	btn.focus_mode = Control.FOCUS_NONE
 	btn.pressed.connect(func():
 		if not _closing and not is_queued_for_deletion():

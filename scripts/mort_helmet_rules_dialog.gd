@@ -16,28 +16,25 @@ func setup() -> void:
 	var bg := UiDialogStyles.create_dimmer()
 	bg.gui_input.connect(_on_dimmer_gui_input)
 	add_child(bg)
-	var panel := Panel.new()
+	var center := UiDialogStyles.create_dialog_center()
+	add_child(center)
+	var panel := UiDialogStyles.create_dialog_panel(480.0)
 	panel.name = "MortHelmetRulesPanel"
-	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	panel.offset_left = -260
-	panel.offset_right = 260
-	panel.offset_top = -240
-	panel.offset_bottom = 240
-	UiDialogStyles.apply_panel_style(panel)
-	add_child(panel)
+	center.add_child(panel)
 	var box := VBoxContainer.new()
-	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	box.offset_left = 20
-	box.offset_top = 20
-	box.offset_right = -20
-	box.offset_bottom = -20
-	box.add_theme_constant_override("separation", 14)
-	panel.add_child(box)
-	var title := UiDialogStyles.create_accent_title_label("ШЛЕМ МОРТА", UiDialogStyles.ACCENT_COLOR, 32)
+	box.add_theme_constant_override("separation", 12)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	margin.add_child(box)
+	panel.add_child(margin)
+	var title := UiDialogStyles.create_accent_title_label("ШЛЕМ МОРТА", UiDialogStyles.ACCENT_COLOR, 28)
 	box.add_child(title)
 	var desc := UiDialogStyles.create_body_label(
 		"Побеждайте уровни подряд — стадия Шлема будет расти, а на старт следующего уровня вы получите больше бонусов на поле.",
-		20
+		18
 	)
 	desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	desc.clip_contents = true
@@ -47,19 +44,18 @@ func setup() -> void:
 		{"stage": 2, "text": "2 победы подряд → 2 стрелы + 2 бомбы"},
 		{"stage": 3, "text": "3+ побед подряд → 3 стрелы + 3 бомбы"},
 	]:
-		var row := UiDialogStyles.create_body_label(stage_data["text"], 20)
+		var row := UiDialogStyles.create_body_label(stage_data["text"], 18)
 		row.add_theme_color_override("font_color", Color(0.78, 0.42, 0.12, 1.0))
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.clip_contents = true
 		box.add_child(row)
-	var hint := UiDialogStyles.create_muted_label("Поражение или выход после хода сбрасывают серию.", 18)
+	var hint := UiDialogStyles.create_muted_label("Поражение или выход после хода сбрасывают серию.", 16)
 	hint.add_theme_color_override("font_color", Color(0.72, 0.38, 0.32, 1.0))
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hint.clip_contents = true
 	box.add_child(hint)
-	var close_btn := UiDialogStyles.create_primary_button("ПОНЯТНО", 64.0)
-	close_btn.custom_minimum_size = Vector2(220, 64)
-	close_btn.add_theme_font_size_override("font_size", 28)
+	var close_btn := UiDialogStyles.create_primary_button("ПОНЯТНО", 220.0)
+	close_btn.add_theme_font_size_override("font_size", 22)
 	close_btn.focus_mode = Control.FOCUS_NONE
 	close_btn.pressed.connect(_emit_closed)
 	var wrap := CenterContainer.new()

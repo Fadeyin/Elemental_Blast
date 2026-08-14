@@ -4,6 +4,8 @@
 extends Control
 
 const CONFETTI_OVERLAY_SCRIPT := preload("res://scripts/level_end_confetti_overlay.gd")
+const DIALOG_WIDTH := 500.0
+const ACTION_BUTTON_WIDTH := 260.0
 
 signal to_menu_pressed
 signal refill_lives_pressed
@@ -28,41 +30,36 @@ func _build_base() -> void:
 	var bg = UiDialogStyles.create_dimmer()
 	bg.name = "LevelEndDimmer"
 	add_child(bg)
-	var panel = Panel.new()
-	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	panel.offset_left = 16.0
-	panel.offset_top = 16.0
-	panel.offset_right = -16.0
-	panel.offset_bottom = -16.0
-	UiDialogStyles.apply_panel_style(panel)
+	var center = UiDialogStyles.create_dialog_center()
+	center.name = "LevelEndCenter"
+	add_child(center)
+	var panel = UiDialogStyles.create_dialog_panel(DIALOG_WIDTH)
 	panel.name = "LevelEndPanel"
-	add_child(panel)
+	center.add_child(panel)
 	var margin = MarginContainer.new()
 	margin.name = "LevelEndMargin"
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 28)
-	margin.add_theme_constant_override("margin_top", 28)
-	margin.add_theme_constant_override("margin_right", 28)
-	margin.add_theme_constant_override("margin_bottom", 28)
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
 	panel.add_child(margin)
 	var vbox = VBoxContainer.new()
-	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	vbox.add_theme_constant_override("separation", 24)
+	vbox.add_theme_constant_override("separation", 14)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	margin.add_child(vbox)
 	vbox.name = "ContentVBox"
 
 func _main_vbox() -> VBoxContainer:
-	return get_node("LevelEndPanel/LevelEndMargin/ContentVBox") as VBoxContainer
+	return get_node("LevelEndCenter/LevelEndPanel/LevelEndMargin/ContentVBox") as VBoxContainer
 
 func _fill_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_count: int, coins_per_bonus_chip: int) -> void:
 	var vbox = _main_vbox()
-	var title = UiDialogStyles.create_accent_title_label("ПОБЕДА!", Color(1.0, 0.92, 0.35), 56)
+	var title = UiDialogStyles.create_accent_title_label("ПОБЕДА!", Color(1.0, 0.92, 0.35), 40)
 	title.name = "TitleLabel"
 	vbox.add_child(title)
 	var body = UiDialogStyles.create_body_label(
-		"Уровень пройден.\n\nНаграда:\n  Базовая: %d монет\n  За бонусные фишки на поле: %d × %d = %d монет\n\nВсего: %d монет" % [base_reward, bonus_chips_count, coins_per_bonus_chip, chips_bonus, total],
-		26
+		"Уровень пройден.\n\nНаграда:\n  Базовая: %d монет\n  За бонусные фишки: %d × %d = %d\n\nВсего: %d монет" % [base_reward, bonus_chips_count, coins_per_bonus_chip, chips_bonus, total],
+		20
 	)
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.clip_contents = true
@@ -85,22 +82,22 @@ func _append_mort_helmet_progress_panel(vbox: VBoxContainer) -> void:
 	UiDialogStyles.apply_section(panel)
 	vbox.add_child(panel)
 	var inner := VBoxContainer.new()
-	inner.add_theme_constant_override("separation", 6)
+	inner.add_theme_constant_override("separation", 4)
 	panel.add_child(inner)
-	var lbl := UiDialogStyles.create_accent_title_label("", Color(1.0, 0.92, 0.4), 28)
+	var lbl := UiDialogStyles.create_accent_title_label("", Color(1.0, 0.92, 0.4), 22)
 	if unlocked_now:
 		lbl.text = "ШЛЕМ МОРТА ОТКРЫТ!"
 	elif stage_after > stage_before:
-		lbl.text = "ШЛЕМ МОРТА: СТАДИЯ %d → %d" % [stage_before, stage_after]
+		lbl.text = "ШЛЕМ МОРТА: %d → %d" % [stage_before, stage_after]
 	else:
 		# На стадии 3 не показываем рост, по GDD это допустимо.
 		return
 	inner.add_child(lbl)
-	var hint := UiDialogStyles.create_body_label("", 20)
+	var hint := UiDialogStyles.create_body_label("", 17)
 	var bonuses: Dictionary = LevelManager.get_mort_helmet_bonus_chips()
 	var arrows: int = int(bonuses.get("arrow", 0))
 	var bombs: int = int(bonuses.get("bomb", 0))
-	hint.text = "На старте следующего уровня: %d стрел + %d бомб" % [arrows, bombs]
+	hint.text = "На следующем уровне: %d стрел + %d бомб" % [arrows, bombs]
 	inner.add_child(hint)
 	call_deferred("_play_mort_helmet_panel_enter", panel)
 
@@ -111,7 +108,7 @@ func _play_mort_helmet_panel_enter(panel: PanelContainer) -> void:
 
 func _play_open_animations(is_victory: bool) -> void:
 	var dimmer := get_node_or_null("LevelEndDimmer") as CanvasItem
-	var panel := get_node_or_null("LevelEndPanel") as Control
+	var panel := find_child("LevelEndPanel", true, false) as Control
 	if dimmer != null and panel != null:
 		UiDialogAnima.play_dialog_open(dimmer, panel)
 	var title := _main_vbox().get_node_or_null("TitleLabel") as Control
@@ -137,33 +134,33 @@ func _spawn_victory_confetti() -> void:
 
 
 func _play_victory_panel_shake() -> void:
-	var panel := get_node_or_null("LevelEndPanel") as Control
+	var panel := find_child("LevelEndPanel", true, false) as Control
 	if panel != null:
 		UiDialogAnima.play_victory_celebration(panel)
 
 
 func _play_defeat_panel_shake() -> void:
-	var panel := get_node_or_null("LevelEndPanel") as Control
+	var panel := find_child("LevelEndPanel", true, false) as Control
 	if panel != null:
 		UiDialogAnima.play_panel_shake(panel, 6.0, 0.28)
 
 func _fill_defeat(refill_cost: int, player_coins: int, hearts_to_restore: int, can_refill: bool) -> void:
 	var vbox = _main_vbox()
-	var title = UiDialogStyles.create_accent_title_label("ПОРАЖЕНИЕ", Color(1.0, 0.45, 0.4), 56)
+	var title = UiDialogStyles.create_accent_title_label("ПОРАЖЕНИЕ", Color(1.0, 0.45, 0.4), 40)
 	title.name = "TitleLabel"
 	vbox.add_child(title)
-	var body = UiDialogStyles.create_body_label("", 26)
+	var body = UiDialogStyles.create_body_label("", 20)
 	if can_refill:
-		body.text = "Жизни закончились.\n\nЗа %d монет восстановить %d жизней на шкале и отодвинуть всех монстров на три клетки назад.\n\nУ вас: %d монет" % [refill_cost, hearts_to_restore, player_coins]
+		body.text = "Жизни закончились.\n\nЗа %d монет — %d жизней и отступ монстров на 3 клетки.\n\nУ вас: %d монет" % [refill_cost, hearts_to_restore, player_coins]
 	else:
-		body.text = "Жизни закончились.\n\nДля следующего восстановления нужно %d монет (%d жизней).\nУ вас: %d монет\n\nВернитесь в меню или попробуйте снова." % [refill_cost, hearts_to_restore, player_coins]
+		body.text = "Жизни закончились.\n\nНужно %d монет (%d жизней).\nУ вас: %d монет\n\nВернитесь в меню." % [refill_cost, hearts_to_restore, player_coins]
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.clip_contents = true
 	vbox.add_child(body)
 	vbox.add_child(_spacer())
 	if can_refill:
 		var actions = VBoxContainer.new()
-		actions.add_theme_constant_override("separation", 14)
+		actions.add_theme_constant_override("separation", 10)
 		actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		actions.add_child(_big_button("ВОССТАНОВИТЬ (%d)" % refill_cost, _on_refill_lives, true))
 		actions.add_child(_big_button("В МЕНЮ", _on_to_menu, false))
@@ -173,35 +170,29 @@ func _fill_defeat(refill_cost: int, player_coins: int, hearts_to_restore: int, c
 
 func _spacer() -> Control:
 	var c = Control.new()
-	c.custom_minimum_size = Vector2(0, 12)
+	c.custom_minimum_size = Vector2(0, 6)
 	c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	return c
 
-func _big_button(text: String, on_press: Callable, is_primary: bool) -> Button:
+func _big_button(text: String, on_press: Callable, is_primary: bool) -> CenterContainer:
+	var wrap := CenterContainer.new()
+	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var btn: Button
 	if is_primary:
-		btn = UiDialogStyles.create_primary_button(text, 88.0)
+		btn = UiDialogStyles.create_primary_button(text, ACTION_BUTTON_WIDTH)
 	else:
-		btn = UiDialogStyles.create_secondary_button(text, 88.0)
-	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn.clip_text = true
-	btn.clip_contents = true
-	btn.add_theme_font_size_override("font_size", 28)
+		btn = UiDialogStyles.create_secondary_button(text, ACTION_BUTTON_WIDTH)
+	btn.add_theme_font_size_override("font_size", 20)
 	btn.focus_mode = Control.FOCUS_NONE
 	btn.pressed.connect(func():
 		if not _closing and not is_queued_for_deletion():
 			on_press.call()
 	)
-	return btn
-
-func _wrap_big_button(text: String, on_press: Callable) -> CenterContainer:
-	var wrap = CenterContainer.new()
-	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var btn := _big_button(text, on_press, true)
-	btn.custom_minimum_size = Vector2(320, 88)
-	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	wrap.add_child(btn)
 	return wrap
+
+func _wrap_big_button(text: String, on_press: Callable) -> CenterContainer:
+	return _big_button(text, on_press, true)
 
 func _on_to_menu() -> void:
 	if _closing:

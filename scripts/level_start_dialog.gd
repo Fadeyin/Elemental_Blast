@@ -55,10 +55,10 @@ func _build_dialog():
 	var vbox = VBoxContainer.new()
 	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	vbox.add_theme_constant_override("separation", 20)
-	vbox.offset_left = 30
-	vbox.offset_right = -30
-	vbox.offset_top = 30
-	vbox.offset_bottom = -30
+	vbox.offset_left = 12
+	vbox.offset_right = -12
+	vbox.offset_top = 12
+	vbox.offset_bottom = -12
 	panel.add_child(vbox)
 	
 	var header_row = HBoxContainer.new()
@@ -91,10 +91,9 @@ func _build_dialog():
 	_add_prelevel_boosts_section(vbox)
 	
 	# Кнопка "Играть"
-	var play_btn = UiDialogStyles.create_primary_button("ИГРАТЬ", 80.0)
+	var play_btn = UiDialogStyles.create_primary_button("ИГРАТЬ", 360.0)
 	play_btn.name = "PlayButton"
-	play_btn.custom_minimum_size = Vector2(400, 80)
-	play_btn.add_theme_font_size_override("font_size", 42)
+	play_btn.add_theme_font_size_override("font_size", 36)
 	play_btn.focus_mode = Control.FOCUS_NONE
 	
 	play_btn.pressed.connect(func():
