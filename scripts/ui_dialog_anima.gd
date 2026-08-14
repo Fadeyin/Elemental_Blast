@@ -102,3 +102,20 @@ static func play_toast_in(label: Control) -> AnimaPlayback:
 static func play_toast_out(label: Control) -> AnimaPlayback:
 	var opacity_motion := Motion.to(NodePath("modulate:a"), 0.0).with_duration(0.18).with_ease(_ease_out_cubic())
 	return Anima.play(opacity_motion, label)
+
+
+static func play_panel_shake(panel: Control, intensity: float = 10.0, duration: float = 0.32) -> void:
+	if panel == null or not is_instance_valid(panel):
+		return
+	var base_pos: Vector2 = panel.position
+	var step: float = duration / 5.0
+	var tween := panel.create_tween()
+	tween.tween_property(panel, "position", base_pos + Vector2(intensity, 0.0), step)
+	tween.tween_property(panel, "position", base_pos + Vector2(-intensity * 0.85, intensity * 0.35), step)
+	tween.tween_property(panel, "position", base_pos + Vector2(intensity * 0.55, -intensity * 0.25), step)
+	tween.tween_property(panel, "position", base_pos + Vector2(-intensity * 0.35, intensity * 0.15), step)
+	tween.tween_property(panel, "position", base_pos, step * 1.2)
+
+
+static func play_victory_celebration(panel: Control) -> void:
+	play_panel_shake(panel, 11.0, 0.34)

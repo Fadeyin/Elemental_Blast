@@ -1330,6 +1330,7 @@ func _apply_damage_to_enemy_cell(tx: int, ty: int) -> void:
 				var boss_span_dead := _boss_cell_span_from_cells(g.get("cells", []))
 				_boss_registry.erase(key)
 				_decrement_level_target_for_init_hp(BOSS_GOAL_VISUAL_HP)
+				_flash_monsters_goal_counter()
 				_needs_ui_update = true
 				_match3_anims.enemy_death_anims.append({
 					"x": anc.x, "y": anc.y, "t": 0.0, "d": 0.45,
@@ -1346,6 +1347,7 @@ func _apply_damage_to_enemy_cell(tx: int, ty: int) -> void:
 		enemies[ty][tx] = 0
 		var init_hp: int = int(enemies_initial_hp[ty][tx])
 		_decrement_level_target_for_init_hp(int(init_hp))
+		_flash_monsters_goal_counter()
 		_needs_ui_update = true
 		_match3_anims.enemy_death_anims.append({
 			"x": tx, "y": ty, "t": 0.0, "d": 0.35,
@@ -1370,6 +1372,15 @@ func _rebuild_level_targets_from_field() -> void:
 func _decrement_level_target_for_init_hp(init_hp: int) -> void:
 	if _level_targets.has(init_hp):
 		_level_targets[init_hp] = max(0, int(_level_targets[init_hp]) - 1)
+
+func _flash_monsters_goal_counter() -> void:
+	var panel := find_child("MonstersRemainingPanel", true, false) as Control
+	if panel != null:
+		GlobalTweens.color_flash(panel, Color(1.0, 0.92, 0.38), 0.24)
+		UiDialogAnima.play_attention_pulse(panel)
+	var count_label := find_child("MonstersCountLabel", true, false) as CanvasItem
+	if count_label != null:
+		GlobalTweens.color_flash(count_label, Color(1.0, 1.0, 0.55), 0.18)
 
 func _increment_level_target_for_init_hp(init_hp: int) -> void:
 	if _level_targets.has(init_hp):
@@ -1922,12 +1933,12 @@ func _draw():
 		if tt < a.d:
 			var k = clamp(tt / a.d, 0.0, 1.0)
 			var top_left: Vector2
-			var size_v = Vector2(chip_size, chip_size)
+			var anim_type: String = str(a.get("type", ""))
+			var scale_xy: Vector2 = Match3AnimController.chip_draw_scale(anim_type, k)
+			var size_v = Vector2(chip_size * scale_xy.x, chip_size * scale_xy.y)
 			
-			if a.get("type", "") == "scale":
-				# Анимация появления через скейл
-				k = pow(k, 0.5) # Плавный вход
-				size_v *= k
+			if anim_type == "scale" or anim_type == "pop":
+				k = ease(k, -0.35) if anim_type == "scale" else k
 				var y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (float(a.end_y) - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 				var center = origin + Vector2(float(a.x) * CELL_SIZE + CELL_SIZE * 0.5, y_pos + CELL_SIZE * 0.5)
 				top_left = center - size_v * 0.5
@@ -1941,6 +1952,8 @@ func _draw():
 				else:
 					y_pos = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (y_interp - ENEMY_ROWS) * CELL_SIZE + _field_gap_total
 				top_left = Vector2(origin.x + float(a.x) * CELL_SIZE + pad, origin.y + y_pos + pad)
+				top_left.x += (chip_size - size_v.x) * 0.5
+				top_left.y += (chip_size - size_v.y) * 0.5
 			
 			if a.color == RAINBOW_CHIP_IDX:
 				_draw_rainbow_chip(top_left, size_v)
@@ -1970,26 +1983,28 @@ func _draw():
 		var cy = origin.y + cy_offset
 		var proj_r = maxf(4.0, float(CELL_SIZE) * 0.1)
 		
-		# Рисуем шлейф (несколько кружков по траектории назад)
-		for i in range(1, 4):
-			var trail_k = clamp(k2 - float(i) * 0.05, 0.0, 1.0)
-			var trail_y_interp = lerp(p.start_y, p.end_y, trail_k)
-			var trail_cy_offset = 0.0
+		# Шлейф снаряда (затухающие точки по траектории)
+		const TRAIL_STEPS := 7
+		for trail_i in range(1, TRAIL_STEPS + 1):
+			var trail_k: float = clamp(k2 - float(trail_i) * 0.045, 0.0, 1.0)
+			var trail_y_interp: float = lerp(p.start_y, p.end_y, trail_k)
+			var trail_cy_offset: float = 0.0
 			if trail_y_interp < ENEMY_ROWS:
 				trail_cy_offset = trail_y_interp * ENEMY_CELL_HEIGHT + ENEMY_CELL_HEIGHT * 0.5
 			else:
 				trail_cy_offset = ENEMY_ROWS * ENEMY_CELL_HEIGHT + (trail_y_interp - ENEMY_ROWS) * CELL_SIZE + _field_gap_total + CELL_SIZE * 0.5
-			var tcy = origin.y + trail_cy_offset
-			var t_alpha = (1.0 - float(i) / 4.0) * 0.5
-			draw_circle(Vector2(cx, tcy), proj_r * (1.0 - float(i) * 0.2), Color(p.color.r, p.color.g, p.color.b, t_alpha))
+			var tcy: float = origin.y + trail_cy_offset
+			var trail_alpha: float = (1.0 - float(trail_i) / float(TRAIL_STEPS + 1)) * 0.55
+			var trail_r: float = proj_r * (1.0 - float(trail_i) * 0.11)
+			draw_circle(Vector2(cx, tcy), trail_r * 1.35, Color(p.color.r, p.color.g, p.color.b, trail_alpha * 0.35))
+			draw_circle(Vector2(cx, tcy), trail_r, Color(p.color.r, p.color.g, p.color.b, trail_alpha))
 
-		# Тень
-		draw_circle(Vector2(cx, cy + 4), proj_r, Color(0, 0, 0, 0.25))
-		# Снаряд (ядро)
-		draw_circle(Vector2(cx, cy), proj_r, Color.WHITE) # Яркое ядро
-		draw_circle(Vector2(cx, cy), proj_r * 0.8, p.color) # Цветная оболочка
-		# Блик
-		draw_circle(Vector2(cx - proj_r * 0.3, cy - proj_r * 0.3), proj_r * 0.2, Color.WHITE)
+		draw_circle(Vector2(cx, cy + 4.0), proj_r, Color(0.0, 0.0, 0.0, 0.25))
+		# Снаряд (ядро + ореол)
+		draw_circle(Vector2(cx, cy), proj_r * 1.45, Color(p.color.r, p.color.g, p.color.b, 0.28))
+		draw_circle(Vector2(cx, cy), proj_r, Color.WHITE)
+		draw_circle(Vector2(cx, cy), proj_r * 0.82, p.color)
+		draw_circle(Vector2(cx - proj_r * 0.3, cy - proj_r * 0.3), proj_r * 0.22, Color.WHITE)
 
 	# Анимации смерти обычных врагов (вспышка поверх клетки)
 	for da in _match3_anims.enemy_death_anims:
@@ -2563,14 +2578,14 @@ func _spawn_new_chips_with_fall():
 				var color = int(randi() % CHIP_COLORS.size())
 				chips[y][x] = color
 				new_anims.append({
-					"x": x, 
-					"start_y": y, # Используем int
-					"end_y": y,   # Используем int
-					"color": color, 
-					"t": 0.0, 
-					"d": 0.25, 
+					"x": x,
+					"start_y": y,
+					"end_y": y,
+					"color": color,
+					"t": 0.0,
+					"d": 0.32,
 					"delay": float(count) * 0.02,
-					"type": "scale"
+					"type": "scale",
 				})
 				count += 1
 	if any and not new_anims.is_empty():
@@ -2925,6 +2940,18 @@ func _pop_cluster(x: int, y: int):
 		for cell in cluster:
 			# Эффект лопания фишки
 			_add_chip_pop_vfx(cell.x, cell.y, color_idx)
+			var skip_pop: bool = created_bonus and cell.x == x and cell.y == y
+			if not skip_pop:
+				_match3_anims.active_anims.append({
+					"x": cell.x,
+					"start_y": cell.y,
+					"end_y": cell.y,
+					"color": color_idx,
+					"t": 0.0,
+					"d": 0.17,
+					"delay": 0.0,
+					"type": "pop",
+				})
 			
 			var stagger = col_stagger.get(cell.x, 0)
 			_enqueue_projectiles(cell.x, cell.y, 1, stagger * 0.06)
@@ -4122,7 +4149,15 @@ func _apply_gravity_up():
 			var from_y = origins[i]
 			chips[write_y][x] = v
 			if from_y != write_y:
-				new_anims.append({"x": x, "start_y": from_y, "end_y": write_y, "color": v, "t": 0.0, "d": FALL_DURATION})
+				new_anims.append({
+					"x": x,
+					"start_y": from_y,
+					"end_y": write_y,
+					"color": v,
+					"t": 0.0,
+					"d": FALL_DURATION,
+					"type": "fall",
+				})
 			write_y += 1
 		# Остальные клетки снизу зоны игрока очищаем
 		for y in range(write_y, ROWS):

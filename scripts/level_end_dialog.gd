@@ -3,6 +3,8 @@
 
 extends Control
 
+const CONFETTI_OVERLAY_SCRIPT := preload("res://scripts/level_end_confetti_overlay.gd")
+
 signal to_menu_pressed
 signal refill_lives_pressed
 
@@ -158,8 +160,34 @@ func _play_open_animations(is_victory: bool) -> void:
 	if title != null:
 		if is_victory:
 			UiDialogAnima.play_victory_title(title)
+			_spawn_victory_confetti()
+			call_deferred("_play_victory_panel_shake")
 		else:
 			UiDialogAnima.play_defeat_title(title)
+			call_deferred("_play_defeat_panel_shake")
+
+
+func _spawn_victory_confetti() -> void:
+	if get_node_or_null("LevelEndConfetti") != null:
+		return
+	var confetti := Control.new()
+	confetti.name = "LevelEndConfetti"
+	confetti.set_script(CONFETTI_OVERLAY_SCRIPT)
+	confetti.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(confetti)
+	move_child(confetti, 1)
+
+
+func _play_victory_panel_shake() -> void:
+	var panel := get_node_or_null("LevelEndPanel") as Control
+	if panel != null:
+		UiDialogAnima.play_victory_celebration(panel)
+
+
+func _play_defeat_panel_shake() -> void:
+	var panel := get_node_or_null("LevelEndPanel") as Control
+	if panel != null:
+		UiDialogAnima.play_panel_shake(panel, 6.0, 0.28)
 
 func _fill_defeat(refill_cost: int, player_coins: int, hearts_to_restore: int, can_refill: bool) -> void:
 	var vbox = _main_vbox()

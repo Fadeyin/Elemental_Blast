@@ -150,6 +150,15 @@ func test_level_end_flow_page_victory_setup() -> void:
 	assert_not_null(page.find_child("LevelEndDimmer", true, false))
 
 
+func test_level_end_dialog_victory_confetti() -> void:
+	var dialog := Control.new()
+	dialog.set_script(load("res://scripts/level_end_dialog.gd"))
+	add_child_autofree(dialog)
+	dialog.setup_victory(100, 50, 50, 2, 25)
+	await wait_process_frames(3)
+	assert_not_null(dialog.find_child("LevelEndConfetti", true, false))
+
+
 func test_clear_stack_unblocks_level_end_after_menu_tab() -> void:
 	var host := Control.new()
 	host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

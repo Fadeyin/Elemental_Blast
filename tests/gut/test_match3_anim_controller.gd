@@ -64,3 +64,18 @@ func test_clear_after_refill_keeps_chip_anims() -> void:
 	assert_eq(controller.active_anims.size(), 1)
 	assert_eq(controller.projectiles.size(), 0)
 	assert_eq(controller.enemy_move_anims.size(), 0)
+
+
+func test_chip_spawn_bounce_overshoots_then_settles() -> void:
+	var mid_scale: float = Match3AnimController.chip_spawn_bounce_scale(0.5)
+	var end_scale: float = Match3AnimController.chip_spawn_bounce_scale(1.0)
+	assert_gt(mid_scale, 1.0)
+	assert_almost_eq(end_scale, 1.0, 0.02)
+
+
+func test_chip_fall_squash_at_landing() -> void:
+	var mid: Vector2 = Match3AnimController.chip_fall_squash_scale(0.5)
+	var land: Vector2 = Match3AnimController.chip_fall_squash_scale(0.92)
+	assert_almost_eq(mid.x, 1.0, 0.01)
+	assert_gt(land.x, 1.0)
+	assert_lt(land.y, 1.0)

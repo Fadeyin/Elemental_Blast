@@ -42,6 +42,32 @@ func has_active_chip_anims() -> bool:
 	return not active_anims.is_empty()
 
 
+static func chip_draw_scale(anim_type: String, progress: float) -> Vector2:
+	match anim_type:
+		"scale":
+			var uniform_scale: float = chip_spawn_bounce_scale(progress)
+			return Vector2(uniform_scale, uniform_scale)
+		"pop":
+			var shrink: float = 1.0 - ease(progress, 2.2)
+			return Vector2(shrink, shrink)
+		_:
+			return chip_fall_squash_scale(progress)
+
+
+static func chip_spawn_bounce_scale(progress: float) -> float:
+	if progress <= 0.62:
+		return ease(progress / 0.62, -0.45) * 1.2
+	return lerpf(1.2, 1.0, ease((progress - 0.62) / 0.38, -1.2))
+
+
+static func chip_fall_squash_scale(progress: float) -> Vector2:
+	if progress < 0.8:
+		return Vector2.ONE
+	var landing_phase: float = (progress - 0.8) / 0.2
+	var wobble: float = sin(landing_phase * PI) * 0.16
+	return Vector2(1.0 + wobble, 1.0 - wobble * 0.9)
+
+
 func get_shake_offset() -> Vector2:
 	var shake_offset := Vector2.ZERO
 	for vfx in board_vfx:
