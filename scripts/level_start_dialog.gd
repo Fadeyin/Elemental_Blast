@@ -21,7 +21,7 @@ const MORT_HELMET_TUTORIAL_FLOW_PAGE_SCRIPT := preload("res://scripts/ui_flow/pa
 var _prelevel_boosts_row: HBoxContainer = null
 var _prelevel_purchase_flow_open := false
 var _mort_helmet_section: Control = null
-var _mort_helmet_info_button: Button = null
+var _mort_helmet_info_button: Control = null
 var _mort_helmet_rules_flow_open := false
 var _mort_helmet_tutorial_flow_open := false
 
@@ -39,15 +39,14 @@ func _build_dialog():
 	add_child(bg)
 	
 	# Центральная панель диалога
-	var panel = Panel.new()
+	var panel = UiDialogStyles.create_dialog_panel(UiDialogStyles.MEDIUM_DIALOG_WIDTH)
 	panel.name = "LevelStartPanel"
-	panel.custom_minimum_size = Vector2(600, 700)
+	panel.custom_minimum_size = Vector2(UiDialogStyles.MEDIUM_DIALOG_WIDTH, 0.0)
 	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	panel.offset_left = -300
-	panel.offset_right = 300
-	panel.offset_top = -350
-	panel.offset_bottom = 350
-	UiDialogStyles.apply_panel_style(panel)
+	panel.offset_left = -UiDialogStyles.MEDIUM_DIALOG_WIDTH * 0.5
+	panel.offset_right = UiDialogStyles.MEDIUM_DIALOG_WIDTH * 0.5
+	panel.offset_top = -340.0
+	panel.offset_bottom = 340.0
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(panel)
 	
@@ -91,10 +90,9 @@ func _build_dialog():
 	_add_prelevel_boosts_section(vbox)
 	
 	# Кнопка "Играть"
-	var play_btn = UiDialogStyles.create_primary_button("ИГРАТЬ", 360.0)
+	var play_btn = UiDialogStyles.create_primary_button("ИГРАТЬ", 320.0)
 	play_btn.name = "PlayButton"
-	play_btn.add_theme_font_size_override("font_size", 36)
-	play_btn.focus_mode = Control.FOCUS_NONE
+	play_btn.set_font_size(32)
 	
 	play_btn.pressed.connect(func():
 		if not _dialog_closing and not is_queued_for_deletion():
@@ -341,7 +339,6 @@ func _populate_prelevel_boosts_row() -> void:
 		var buy_btn = UiDialogStyles.create_small_icon_button("+", minf(slot_size.x, slot_size.y) * 0.5)
 		buy_btn.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		buy_btn.focus_mode = Control.FOCUS_NONE
-		buy_btn.flat = true
 		var is_empty := boost_count <= 0
 		buy_btn.visible = is_empty
 		buy_btn.mouse_filter = Control.MOUSE_FILTER_STOP if is_empty else Control.MOUSE_FILTER_IGNORE

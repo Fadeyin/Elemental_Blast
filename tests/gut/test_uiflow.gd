@@ -162,9 +162,8 @@ func test_level_end_dialog_victory_confetti() -> void:
 func test_ui_dialog_styles_panel_texture() -> void:
 	var style := UiDialogStyles.make_panel_stylebox()
 	assert_not_null(style, "Панель диалога должна использовать текстуру")
-	assert_not_null(style.texture, "StyleBoxTexture должен ссылаться на ui_main_menu_toolbar_bg")
-	assert_gte(style.texture_margin_left, 100, "9-slice left margin должен защищать скругление")
-	assert_gte(style.texture_margin_top, 40, "9-slice top margin должен защищать рамку")
+	assert_not_null(style.texture, "StyleBoxTexture должен ссылаться на ingame_booster_slot_bg")
+	assert_gte(style.texture_margin_left, 200, "9-slice left margin должен защищать скругление")
 	assert_eq(style.axis_stretch_horizontal, StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH)
 
 

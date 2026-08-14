@@ -21,10 +21,10 @@ func setup(title: String, body: String, ok_text: String = "Закрыть") -> v
 	panel.name = "SimpleMessagePanel"
 	center.add_child(panel)
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_right", 8)
-	margin.add_theme_constant_override("margin_bottom", 8)
+	margin.add_theme_constant_override("margin_left", 4)
+	margin.add_theme_constant_override("margin_top", 4)
+	margin.add_theme_constant_override("margin_right", 4)
+	margin.add_theme_constant_override("margin_bottom", 4)
 	panel.add_child(margin)
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 14)
@@ -41,8 +41,8 @@ func setup(title: String, body: String, ok_text: String = "Закрыть") -> v
 	vbox.add_child(body_lbl)
 	var actions := CenterContainer.new()
 	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var ok_btn := UiDialogStyles.create_primary_button(ok_text, 240.0)
-	ok_btn.add_theme_font_size_override("font_size", 22)
+	var ok_btn := UiDialogStyles.create_primary_button(ok_text, 260.0)
+	ok_btn.set_font_size(22)
 	ok_btn.focus_mode = Control.FOCUS_NONE
 	ok_btn.pressed.connect(_emit_closed)
 	actions.add_child(ok_btn)

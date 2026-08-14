@@ -11,9 +11,9 @@ const TEX_ROOTS := preload("res://textures/Booster_Roots.png")
 const REWARD_ICON_BOX := 88
 
 var _scroll_content: VBoxContainer
-var _buy_pass_btn: Button
+var _buy_pass_btn: UiTexturedButton
 var _claim_all_bar: Control
-var _claim_all_btn: Button
+var _claim_all_btn: UiTexturedButton
 var _closing: bool = false
 
 func _ready() -> void:
@@ -28,13 +28,14 @@ func setup() -> void:
 	var dim := UiDialogStyles.create_dimmer()
 	dim.gui_input.connect(_on_dim_gui_input)
 	add_child(dim)
-	var panel := Panel.new()
+	var panel := UiDialogStyles.create_dialog_panel(UiDialogStyles.MEDIUM_DIALOG_WIDTH)
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	panel.offset_left = 12.0
-	panel.offset_top = 96.0
-	panel.offset_right = -12.0
-	panel.offset_bottom = -112.0
-	UiDialogStyles.apply_panel_style(panel)
+	panel.offset_left = 16.0
+	panel.offset_top = 88.0
+	panel.offset_right = -16.0
+	panel.offset_bottom = -104.0
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(panel)
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -62,13 +63,14 @@ func setup() -> void:
 	sub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sub.clip_contents = true
 	root_v.add_child(sub)
-	_buy_pass_btn = UiDialogStyles.create_primary_button("")
+	var buy_wrap := CenterContainer.new()
+	buy_wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_buy_pass_btn = UiDialogStyles.create_primary_button("", UiDialogStyles.MEDIUM_DIALOG_WIDTH - 48.0)
 	_buy_pass_btn.name = "GoldenPassBuyBtn"
-	_buy_pass_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_buy_pass_btn.custom_minimum_size = Vector2(0.0, UiDialogStyles.primary_button_height_for_width(UiDialogStyles.MEDIUM_DIALOG_WIDTH))
-	_buy_pass_btn.add_theme_font_size_override("font_size", 22)
+	_buy_pass_btn.set_font_size(20)
 	_buy_pass_btn.pressed.connect(_on_buy_pass_pressed)
-	root_v.add_child(_buy_pass_btn)
+	buy_wrap.add_child(_buy_pass_btn)
+	root_v.add_child(buy_wrap)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -101,12 +103,10 @@ func setup() -> void:
 	bar_margin.add_theme_constant_override("margin_right", 12)
 	bar_margin.add_theme_constant_override("margin_bottom", 8)
 	_claim_all_bar.add_child(bar_margin)
-	_claim_all_btn = UiDialogStyles.create_primary_button("ЗАБРАТЬ ВСЁ")
+	_claim_all_btn = UiDialogStyles.create_primary_button("ЗАБРАТЬ ВСЁ", UiDialogStyles.MEDIUM_DIALOG_WIDTH - 80.0)
 	_claim_all_btn.name = "GoldenPassClaimAllBtn"
-	_claim_all_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_claim_all_btn.custom_minimum_size = Vector2(0.0, UiDialogStyles.primary_button_height_for_width(UiDialogStyles.MEDIUM_DIALOG_WIDTH))
 	_claim_all_btn.focus_mode = Control.FOCUS_NONE
-	_claim_all_btn.add_theme_font_size_override("font_size", 20)
+	_claim_all_btn.set_font_size(18)
 	_claim_all_btn.pressed.connect(_on_claim_all_pressed)
 	bar_margin.add_child(_claim_all_btn)
 	panel.add_child(_claim_all_bar)
@@ -161,8 +161,8 @@ func _rebuild_all() -> void:
 		else:
 			_buy_pass_btn.visible = true
 			var p := LevelManager.GOLDEN_PASS_PREMIUM_PRICE_COINS
-			_buy_pass_btn.text = "Купить золотой пропуск за %d монет" % p
-			_buy_pass_btn.disabled = LevelManager.get_coins() < p
+			_buy_pass_btn.set_text("Купить золотой пропуск за %d монет" % p)
+			_buy_pass_btn.set_disabled(LevelManager.get_coins() < p)
 	var header := HBoxContainer.new()
 	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header.add_theme_constant_override("separation", 6)
@@ -182,7 +182,7 @@ func _update_claim_all_bar() -> void:
 	var show_bar := pending > 0
 	_claim_all_bar.visible = show_bar
 	if show_bar:
-		_claim_all_btn.text = "ЗАБРАТЬ ВСЁ (%d)" % pending
+		_claim_all_btn.set_text("ЗАБРАТЬ ВСЁ (%d)" % pending)
 
 func _on_claim_all_pressed() -> void:
 	if not LevelManager:
@@ -229,7 +229,12 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 	var inner := PanelContainer.new()
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var st := UiDialogStyles.make_section_stylebox()
+	var st := StyleBoxFlat.new()
+	st.set_corner_radius_all(10)
+	st.border_width_left = 2
+	st.border_width_top = 2
+	st.border_width_right = 2
+	st.border_width_bottom = 2
 	var unlocked := tier_index < LevelManager.get_golden_pass_unlocked_tiers()
 	var claimed := false
 	var can_claim := false
@@ -240,12 +245,17 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 		claimed = LevelManager.is_golden_pass_free_claimed(tier_index)
 		can_claim = LevelManager.can_claim_golden_pass_free(tier_index)
 	if not unlocked:
-		st = UiDialogStyles.make_slot_disabled_stylebox()
+		st.bg_color = Color(0.82, 0.84, 0.88, 0.75)
+		st.border_color = Color(0.62, 0.65, 0.7, 1.0)
 	elif claimed:
-		st = UiDialogStyles.make_slot_stylebox()
-		st.modulate_color = Color(0.72, 0.92, 0.72, 1.0)
+		st.bg_color = Color(0.86, 0.92, 0.86, 0.92)
+		st.border_color = Color(0.45, 0.62, 0.45, 1.0)
 	elif can_claim:
-		st = UiDialogStyles.make_slot_pressed_stylebox()
+		st.bg_color = Color(0.96, 0.9, 0.78, 0.96)
+		st.border_color = Color(0.78, 0.42, 0.12, 1.0)
+	else:
+		st.bg_color = Color(0.94, 0.9, 0.84, 0.92)
+		st.border_color = Color(0.28, 0.62, 0.72, 1.0)
 	inner.add_theme_stylebox_override("panel", st)
 	wrap.add_child(inner)
 	var vb := VBoxContainer.new()
@@ -276,7 +286,10 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 	icon_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon_bg.custom_minimum_size = Vector2(REWARD_ICON_BOX, REWARD_ICON_BOX)
 	icon_bg.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	icon_bg.add_theme_stylebox_override("panel", UiDialogStyles.make_slot_stylebox())
+	icon_bg.add_theme_stylebox_override("panel", UiDialogStyles.make_flat_cell_stylebox(
+		Color(0.9, 0.88, 0.82, 0.95),
+		Color(0.28, 0.62, 0.72, 1.0)
+	))
 	var inner_icon := MarginContainer.new()
 	inner_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner_icon.add_theme_constant_override("margin_left", 6)
@@ -329,14 +342,14 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 		got.add_theme_color_override("font_color", Color(0.55, 0.85, 0.55))
 		vb.add_child(got)
 	elif can_claim:
-		var claim := UiDialogStyles.create_primary_button("ЗАБРАТЬ", 0.0)
+		var claim_wrap := CenterContainer.new()
+		var claim := UiDialogStyles.create_primary_button("ЗАБРАТЬ", 108.0)
 		claim.name = "GoldenPassClaimBtn_%d_%s" % [tier_index, "premium" if is_premium else "free"]
-		claim.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		claim.custom_minimum_size = Vector2(0.0, UiDialogStyles.primary_button_height_for_width(120.0))
 		claim.mouse_filter = Control.MOUSE_FILTER_STOP
-		claim.add_theme_font_size_override("font_size", 16)
+		claim.set_font_size(14)
 		claim.pressed.connect(_on_claim_pressed.bind(tier_index, is_premium))
-		vb.add_child(claim)
+		claim_wrap.add_child(claim)
+		vb.add_child(claim_wrap)
 	return wrap
 
 func _on_claim_pressed(tier_index: int, is_premium: bool) -> void:
