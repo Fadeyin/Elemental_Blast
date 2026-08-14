@@ -13,10 +13,7 @@ func setup(display_name: String, icon, cost: int, quantity: int, player_coins: i
 		var ch = get_child(0)
 		remove_child(ch)
 		ch.free()
-	var bg = ColorRect.new()
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0, 0, 0, 0.72)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	var bg = UiDialogStyles.create_dimmer()
 	add_child(bg)
 	var panel = Panel.new()
 	panel.name = "BoosterShopPanel"
@@ -25,17 +22,7 @@ func setup(display_name: String, icon, cost: int, quantity: int, player_coins: i
 	panel.offset_top = 20.0
 	panel.offset_right = -20.0
 	panel.offset_bottom = -20.0
-	var panel_style = StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.09, 0.12, 0.17, 0.98)
-	panel_style.set_corner_radius_all(22)
-	panel_style.border_width_left = 4
-	panel_style.border_width_top = 4
-	panel_style.border_width_right = 4
-	panel_style.border_width_bottom = 4
-	panel_style.border_color = Color(0.82, 0.68, 0.26, 1.0)
-	panel_style.shadow_color = Color(0, 0, 0, 0.5)
-	panel_style.shadow_size = 22
-	panel.add_theme_stylebox_override("panel", panel_style)
+	UiDialogStyles.apply_panel_style(panel)
 	add_child(panel)
 	var margin = MarginContainer.new()
 	margin.name = "BoosterShopMargin"
@@ -53,16 +40,9 @@ func setup(display_name: String, icon, cost: int, quantity: int, player_coins: i
 	margin.add_child(vbox)
 	var header_row := HBoxContainer.new()
 	header_row.add_theme_constant_override("separation", 12)
-	var title := Label.new()
-	title.text = header_title
+	var title := UiDialogStyles.create_accent_title_label(header_title, UiDialogStyles.ACCENT_COLOR, 34)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.clip_contents = true
-	title.add_theme_font_size_override("font_size", 34)
-	title.add_theme_color_override("font_color", Color(1.0, 0.88, 0.38))
-	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	title.add_theme_constant_override("outline_size", 5)
 	header_row.add_child(title)
 	header_row.add_child(UiCloseButton.create(_emit_closed))
 	vbox.add_child(header_row)
@@ -75,18 +55,10 @@ func setup(display_name: String, icon, cost: int, quantity: int, player_coins: i
 		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon_wrap.add_child(tr)
 		vbox.add_child(icon_wrap)
-	var name_lbl = Label.new()
-	name_lbl.text = display_name
-	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var name_lbl = UiDialogStyles.create_title_label(display_name, 32)
 	name_lbl.clip_contents = true
-	name_lbl.add_theme_font_size_override("font_size", 32)
-	name_lbl.add_theme_color_override("font_color", Color(0.95, 0.96, 1.0))
-	name_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	name_lbl.add_theme_constant_override("outline_size", 4)
 	vbox.add_child(name_lbl)
-	var body = Label.new()
+	var body = UiDialogStyles.create_body_label("", 26)
 	if can_afford:
 		if quantity > 1:
 			body.text = "Купить %d шт. за %d монет?\n\nУ вас: %d монет" % [quantity, cost, player_coins]
@@ -97,14 +69,8 @@ func setup(display_name: String, icon, cost: int, quantity: int, player_coins: i
 			body.text = "Недостаточно монет.\nПакет: %d шт. за %d монет\nУ вас: %d монет" % [quantity, cost, player_coins]
 		else:
 			body.text = "Недостаточно монет.\nЦена: %d монет\nУ вас: %d монет" % [cost, player_coins]
-	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.clip_contents = true
-	body.add_theme_font_size_override("font_size", 26)
-	body.add_theme_color_override("font_color", Color(0.92, 0.93, 0.96))
-	body.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
-	body.add_theme_constant_override("outline_size", 4)
 	vbox.add_child(body)
 	var spacer = Control.new()
 	spacer.custom_minimum_size = Vector2(0, 8)
@@ -113,43 +79,29 @@ func setup(display_name: String, icon, cost: int, quantity: int, player_coins: i
 		var actions = VBoxContainer.new()
 		actions.add_theme_constant_override("separation", 12)
 		actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		actions.add_child(_make_big_button("КУПИТЬ (%d)" % cost, _emit_purchase, Color(0.22, 0.55, 0.3), Color(0.38, 0.78, 0.45)))
-		actions.add_child(_make_big_button("ОТМЕНА", _emit_closed, Color(0.35, 0.28, 0.28), Color(0.55, 0.42, 0.42)))
+		actions.add_child(_make_big_button("КУПИТЬ (%d)" % cost, _emit_purchase, true))
+		actions.add_child(_make_big_button("ОТМЕНА", _emit_closed, false))
 		vbox.add_child(actions)
 	else:
 		var wrap = CenterContainer.new()
 		wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var close_btn := _make_big_button("ЗАКРЫТЬ", _emit_closed, Color(0.28, 0.36, 0.52), Color(0.45, 0.58, 0.82))
+		var close_btn := _make_big_button("ЗАКРЫТЬ", _emit_closed, false)
 		close_btn.custom_minimum_size = Vector2(280, 80)
 		close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		wrap.add_child(close_btn)
 		vbox.add_child(wrap)
 
-func _make_big_button(text: String, callback: Callable, bg: Color, border: Color) -> Button:
-	var btn = Button.new()
-	btn.text = text
-	btn.custom_minimum_size = Vector2(0, 80)
+func _make_big_button(text: String, callback: Callable, is_primary: bool) -> Button:
+	var btn: Button
+	if is_primary:
+		btn = UiDialogStyles.create_primary_button(text, 80.0)
+	else:
+		btn = UiDialogStyles.create_secondary_button(text, 80.0)
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn.clip_text = true
 	btn.clip_contents = true
 	btn.add_theme_font_size_override("font_size", 28)
-	btn.add_theme_color_override("font_color", Color.WHITE)
-	btn.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.88))
-	btn.add_theme_constant_override("outline_size", 5)
 	btn.focus_mode = Control.FOCUS_NONE
-	var st = StyleBoxFlat.new()
-	st.bg_color = bg
-	st.set_corner_radius_all(16)
-	st.border_width_left = 3
-	st.border_width_top = 3
-	st.border_width_right = 3
-	st.border_width_bottom = 3
-	st.border_color = border
-	var st_h = st.duplicate()
-	st_h.bg_color = bg.lightened(0.1)
-	btn.add_theme_stylebox_override("normal", st)
-	btn.add_theme_stylebox_override("hover", st_h)
-	btn.add_theme_stylebox_override("pressed", st)
 	btn.pressed.connect(func():
 		if not _closing and not is_queued_for_deletion():
 			callback.call()

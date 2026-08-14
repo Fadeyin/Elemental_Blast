@@ -159,6 +159,12 @@ func test_level_end_dialog_victory_confetti() -> void:
 	assert_not_null(dialog.find_child("LevelEndConfetti", true, false))
 
 
+func test_ui_dialog_styles_panel_texture() -> void:
+	var style := UiDialogStyles.make_panel_stylebox()
+	assert_not_null(style, "Панель диалога должна использовать текстуру")
+	assert_not_null(style.texture, "StyleBoxTexture должен ссылаться на ui_main_menu_toolbar_bg")
+
+
 func test_clear_stack_unblocks_level_end_after_menu_tab() -> void:
 	var host := Control.new()
 	host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

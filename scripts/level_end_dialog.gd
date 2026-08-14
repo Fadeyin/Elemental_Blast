@@ -25,11 +25,8 @@ func _build_base() -> void:
 		var ch = get_child(0)
 		remove_child(ch)
 		ch.free()
-	var bg = ColorRect.new()
+	var bg = UiDialogStyles.create_dimmer()
 	bg.name = "LevelEndDimmer"
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0, 0, 0, 0.75)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(bg)
 	var panel = Panel.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -37,17 +34,7 @@ func _build_base() -> void:
 	panel.offset_top = 16.0
 	panel.offset_right = -16.0
 	panel.offset_bottom = -16.0
-	var panel_style = StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.1, 0.13, 0.18, 0.98)
-	panel_style.set_corner_radius_all(24)
-	panel_style.border_width_left = 5
-	panel_style.border_width_top = 5
-	panel_style.border_width_right = 5
-	panel_style.border_width_bottom = 5
-	panel_style.border_color = Color(0.85, 0.72, 0.28, 1.0)
-	panel_style.shadow_color = Color(0, 0, 0, 0.55)
-	panel_style.shadow_size = 28
-	panel.add_theme_stylebox_override("panel", panel_style)
+	UiDialogStyles.apply_panel_style(panel)
 	panel.name = "LevelEndPanel"
 	add_child(panel)
 	var margin = MarginContainer.new()
@@ -70,25 +57,15 @@ func _main_vbox() -> VBoxContainer:
 
 func _fill_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_count: int, coins_per_bonus_chip: int) -> void:
 	var vbox = _main_vbox()
-	var title = Label.new()
+	var title = UiDialogStyles.create_accent_title_label("ПОБЕДА!", Color(1.0, 0.92, 0.35), 56)
 	title.name = "TitleLabel"
-	title.text = "ПОБЕДА!"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 56)
-	title.add_theme_color_override("font_color", Color(1.0, 0.92, 0.35))
-	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	title.add_theme_constant_override("outline_size", 8)
 	vbox.add_child(title)
-	var body = Label.new()
-	body.text = "Уровень пройден.\n\nНаграда:\n  Базовая: %d монет\n  За бонусные фишки на поле: %d × %d = %d монет\n\nВсего: %d монет" % [base_reward, bonus_chips_count, coins_per_bonus_chip, chips_bonus, total]
-	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var body = UiDialogStyles.create_body_label(
+		"Уровень пройден.\n\nНаграда:\n  Базовая: %d монет\n  За бонусные фишки на поле: %d × %d = %d монет\n\nВсего: %d монет" % [base_reward, bonus_chips_count, coins_per_bonus_chip, chips_bonus, total],
+		26
+	)
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.clip_contents = true
-	body.add_theme_font_size_override("font_size", 26)
-	body.add_theme_color_override("font_color", Color(0.95, 0.95, 1.0))
-	body.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	body.add_theme_constant_override("outline_size", 4)
 	vbox.add_child(body)
 	_append_mort_helmet_progress_panel(vbox)
 	vbox.add_child(_spacer())
@@ -105,25 +82,12 @@ func _append_mort_helmet_progress_panel(vbox: VBoxContainer) -> void:
 		return
 	var panel := PanelContainer.new()
 	panel.name = "MortHelmetProgressPanel"
-	var ps := StyleBoxFlat.new()
-	ps.bg_color = Color(0.18, 0.16, 0.28, 0.85)
-	ps.set_corner_radius_all(12)
-	ps.border_width_left = 3
-	ps.border_width_top = 3
-	ps.border_width_right = 3
-	ps.border_width_bottom = 3
-	ps.border_color = Color(0.85, 0.72, 0.28, 1.0)
-	panel.add_theme_stylebox_override("panel", ps)
+	UiDialogStyles.apply_section(panel)
 	vbox.add_child(panel)
 	var inner := VBoxContainer.new()
 	inner.add_theme_constant_override("separation", 6)
 	panel.add_child(inner)
-	var lbl := Label.new()
-	lbl.add_theme_font_size_override("font_size", 28)
-	lbl.add_theme_color_override("font_color", Color(1.0, 0.92, 0.4))
-	lbl.add_theme_color_override("font_outline_color", Color.BLACK)
-	lbl.add_theme_constant_override("outline_size", 4)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var lbl := UiDialogStyles.create_accent_title_label("", Color(1.0, 0.92, 0.4), 28)
 	if unlocked_now:
 		lbl.text = "ШЛЕМ МОРТА ОТКРЫТ!"
 	elif stage_after > stage_before:
@@ -132,13 +96,7 @@ func _append_mort_helmet_progress_panel(vbox: VBoxContainer) -> void:
 		# На стадии 3 не показываем рост, по GDD это допустимо.
 		return
 	inner.add_child(lbl)
-	var hint := Label.new()
-	hint.add_theme_font_size_override("font_size", 20)
-	hint.add_theme_color_override("font_color", Color(0.95, 0.9, 0.95))
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hint.clip_contents = true
+	var hint := UiDialogStyles.create_body_label("", 20)
 	var bonuses: Dictionary = LevelManager.get_mort_helmet_bonus_chips()
 	var arrows: int = int(bonuses.get("arrow", 0))
 	var bombs: int = int(bonuses.get("bomb", 0))
@@ -191,36 +149,24 @@ func _play_defeat_panel_shake() -> void:
 
 func _fill_defeat(refill_cost: int, player_coins: int, hearts_to_restore: int, can_refill: bool) -> void:
 	var vbox = _main_vbox()
-	var title = Label.new()
+	var title = UiDialogStyles.create_accent_title_label("ПОРАЖЕНИЕ", Color(1.0, 0.45, 0.4), 56)
 	title.name = "TitleLabel"
-	title.text = "ПОРАЖЕНИЕ"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 56)
-	title.add_theme_color_override("font_color", Color(1.0, 0.45, 0.4))
-	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	title.add_theme_constant_override("outline_size", 8)
 	vbox.add_child(title)
-	var body = Label.new()
+	var body = UiDialogStyles.create_body_label("", 26)
 	if can_refill:
 		body.text = "Жизни закончились.\n\nЗа %d монет восстановить %d жизней на шкале и отодвинуть всех монстров на три клетки назад.\n\nУ вас: %d монет" % [refill_cost, hearts_to_restore, player_coins]
 	else:
 		body.text = "Жизни закончились.\n\nДля следующего восстановления нужно %d монет (%d жизней).\nУ вас: %d монет\n\nВернитесь в меню или попробуйте снова." % [refill_cost, hearts_to_restore, player_coins]
-	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.clip_contents = true
-	body.add_theme_font_size_override("font_size", 26)
-	body.add_theme_color_override("font_color", Color(0.92, 0.92, 0.95))
-	body.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	body.add_theme_constant_override("outline_size", 4)
 	vbox.add_child(body)
 	vbox.add_child(_spacer())
 	if can_refill:
 		var actions = VBoxContainer.new()
 		actions.add_theme_constant_override("separation", 14)
 		actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		actions.add_child(_big_button("ВОССТАНОВИТЬ (%d)" % refill_cost, _on_refill_lives, Color(0.22, 0.48, 0.58), Color(0.35, 0.65, 0.78)))
-		actions.add_child(_big_button("В МЕНЮ", _on_to_menu, Color(0.45, 0.22, 0.22), Color(0.65, 0.35, 0.35)))
+		actions.add_child(_big_button("ВОССТАНОВИТЬ (%d)" % refill_cost, _on_refill_lives, true))
+		actions.add_child(_big_button("В МЕНЮ", _on_to_menu, false))
 		vbox.add_child(actions)
 	else:
 		vbox.add_child(_wrap_big_button("В МЕНЮ", _on_to_menu))
@@ -231,31 +177,17 @@ func _spacer() -> Control:
 	c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	return c
 
-func _big_button(text: String, on_press: Callable, bg: Color, border: Color) -> Button:
-	var btn = Button.new()
-	btn.text = text
-	btn.custom_minimum_size = Vector2(0, 88)
+func _big_button(text: String, on_press: Callable, is_primary: bool) -> Button:
+	var btn: Button
+	if is_primary:
+		btn = UiDialogStyles.create_primary_button(text, 88.0)
+	else:
+		btn = UiDialogStyles.create_secondary_button(text, 88.0)
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn.clip_text = true
 	btn.clip_contents = true
 	btn.add_theme_font_size_override("font_size", 28)
-	btn.add_theme_color_override("font_color", Color.WHITE)
-	btn.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	btn.add_theme_constant_override("outline_size", 6)
 	btn.focus_mode = Control.FOCUS_NONE
-	var st = StyleBoxFlat.new()
-	st.bg_color = bg
-	st.set_corner_radius_all(18)
-	st.border_width_left = 4
-	st.border_width_top = 4
-	st.border_width_right = 4
-	st.border_width_bottom = 4
-	st.border_color = border
-	var st_h = st.duplicate()
-	st_h.bg_color = bg.lightened(0.12)
-	btn.add_theme_stylebox_override("normal", st)
-	btn.add_theme_stylebox_override("hover", st_h)
-	btn.add_theme_stylebox_override("pressed", st)
 	btn.pressed.connect(func():
 		if not _closing and not is_queued_for_deletion():
 			on_press.call()
@@ -265,7 +197,7 @@ func _big_button(text: String, on_press: Callable, bg: Color, border: Color) -> 
 func _wrap_big_button(text: String, on_press: Callable) -> CenterContainer:
 	var wrap = CenterContainer.new()
 	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var btn := _big_button(text, on_press, Color(0.25, 0.38, 0.62), Color(0.45, 0.6, 0.9))
+	var btn := _big_button(text, on_press, true)
 	btn.custom_minimum_size = Vector2(320, 88)
 	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	wrap.add_child(btn)

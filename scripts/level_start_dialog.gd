@@ -33,11 +33,8 @@ func setup():
 
 func _build_dialog():
 	# Полупрозрачный фон (клик вне панели — закрыть без старта)
-	var bg = ColorRect.new()
+	var bg = UiDialogStyles.create_dimmer()
 	bg.name = "LevelStartDimmer"
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0, 0, 0, 0.7)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	bg.gui_input.connect(_on_dimmer_gui_input)
 	add_child(bg)
 	
@@ -50,18 +47,7 @@ func _build_dialog():
 	panel.offset_right = 300
 	panel.offset_top = -350
 	panel.offset_bottom = 350
-	
-	var panel_style = StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.12, 0.15, 0.2, 0.95)
-	panel_style.set_corner_radius_all(20)
-	panel_style.border_width_left = 4
-	panel_style.border_width_top = 4
-	panel_style.border_width_right = 4
-	panel_style.border_width_bottom = 4
-	panel_style.border_color = Color(0.8, 0.7, 0.3, 1.0)
-	panel_style.shadow_color = Color(0, 0, 0, 0.6)
-	panel_style.shadow_size = 20
-	panel.add_theme_stylebox_override("panel", panel_style)
+	UiDialogStyles.apply_panel_style(panel)
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(panel)
 	
@@ -90,14 +76,11 @@ func _build_dialog():
 	vbox.add_child(header_row)
 	
 	# Заголовок
-	var title = Label.new()
-	var level_num = LevelManager.current_level if LevelManager else 1
-	title.text = "УРОВЕНЬ " + str(level_num)
-	title.add_theme_font_size_override("font_size", 48)
-	title.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4))
-	title.add_theme_color_override("font_outline_color", Color.BLACK)
-	title.add_theme_constant_override("outline_size", 6)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var title = UiDialogStyles.create_accent_title_label(
+		"УРОВЕНЬ " + str(LevelManager.current_level if LevelManager else 1),
+		UiDialogStyles.ACCENT_COLOR,
+		48
+	)
 	vbox.add_child(title)
 	
 	# Шлем Морта (Win Streak прогресс) — показываем только после открытия фичи (GDD §2,§7)
@@ -108,29 +91,10 @@ func _build_dialog():
 	_add_prelevel_boosts_section(vbox)
 	
 	# Кнопка "Играть"
-	var play_btn = Button.new()
+	var play_btn = UiDialogStyles.create_primary_button("ИГРАТЬ", 80.0)
 	play_btn.name = "PlayButton"
-	play_btn.text = "ИГРАТЬ"
 	play_btn.custom_minimum_size = Vector2(400, 80)
-	
-	var play_style = StyleBoxFlat.new()
-	play_style.bg_color = Color(0.2, 0.6, 0.3, 1.0)
-	play_style.set_corner_radius_all(15)
-	play_style.border_width_left = 3
-	play_style.border_width_top = 3
-	play_style.border_width_right = 3
-	play_style.border_width_bottom = 3
-	play_style.border_color = Color(0.4, 0.9, 0.5, 1.0)
-	
-	var play_hover = play_style.duplicate()
-	play_hover.bg_color = Color(0.3, 0.7, 0.4, 1.0)
-	
-	play_btn.add_theme_stylebox_override("normal", play_style)
-	play_btn.add_theme_stylebox_override("hover", play_hover)
 	play_btn.add_theme_font_size_override("font_size", 42)
-	play_btn.add_theme_color_override("font_color", Color.WHITE)
-	play_btn.add_theme_color_override("font_outline_color", Color.BLACK)
-	play_btn.add_theme_constant_override("outline_size", 5)
 	play_btn.focus_mode = Control.FOCUS_NONE
 	
 	play_btn.pressed.connect(func():
@@ -162,15 +126,7 @@ func _add_mort_helmet_section(vbox: VBoxContainer):
 	
 	# Контейнер всей секции — нужен, чтобы туториал мог подсветить именно её.
 	var section := PanelContainer.new()
-	var section_style := StyleBoxFlat.new()
-	section_style.bg_color = Color(0.18, 0.2, 0.28, 0.6)
-	section_style.set_corner_radius_all(12)
-	section_style.border_width_left = 2
-	section_style.border_width_top = 2
-	section_style.border_width_right = 2
-	section_style.border_width_bottom = 2
-	section_style.border_color = Color(0.55, 0.45, 0.7, 0.8)
-	section.add_theme_stylebox_override("panel", section_style)
+	UiDialogStyles.apply_section(section)
 	section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(section)
 	_mort_helmet_section = section
@@ -190,12 +146,7 @@ func _add_mort_helmet_section(vbox: VBoxContainer):
 	left_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header_row.add_child(left_spacer)
 	
-	var helmet_title := Label.new()
-	helmet_title.text = "ШЛЕМ МОРТА"
-	helmet_title.add_theme_font_size_override("font_size", 32)
-	helmet_title.add_theme_color_override("font_color", Color(0.9, 0.8, 1.0))
-	helmet_title.add_theme_color_override("font_outline_color", Color.BLACK)
-	helmet_title.add_theme_constant_override("outline_size", 4)
+	var helmet_title := UiDialogStyles.create_title_label("ШЛЕМ МОРТА", 32)
 	helmet_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_row.add_child(helmet_title)
 	
@@ -203,25 +154,8 @@ func _add_mort_helmet_section(vbox: VBoxContainer):
 	right_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header_row.add_child(right_spacer)
 	
-	var info_btn := Button.new()
-	info_btn.text = "i"
-	info_btn.custom_minimum_size = Vector2(44, 44)
+	var info_btn := UiDialogStyles.create_round_info_button("i", 44.0)
 	info_btn.focus_mode = Control.FOCUS_NONE
-	var info_style := StyleBoxFlat.new()
-	info_style.bg_color = Color(0.25, 0.4, 0.6, 0.9)
-	info_style.set_corner_radius_all(22)
-	info_style.border_width_left = 2
-	info_style.border_width_top = 2
-	info_style.border_width_right = 2
-	info_style.border_width_bottom = 2
-	info_style.border_color = Color(0.6, 0.8, 1.0, 1.0)
-	info_btn.add_theme_stylebox_override("normal", info_style)
-	info_btn.add_theme_stylebox_override("hover", info_style)
-	info_btn.add_theme_stylebox_override("pressed", info_style)
-	info_btn.add_theme_font_size_override("font_size", 26)
-	info_btn.add_theme_color_override("font_color", Color.WHITE)
-	info_btn.add_theme_color_override("font_outline_color", Color.BLACK)
-	info_btn.add_theme_constant_override("outline_size", 3)
 	info_btn.pressed.connect(_show_mort_helmet_rules)
 	header_row.add_child(info_btn)
 	_mort_helmet_info_button = info_btn
@@ -232,22 +166,12 @@ func _add_mort_helmet_section(vbox: VBoxContainer):
 	helmet_progress.add_theme_constant_override("separation", 15)
 	
 	for i in range(1, 4):
-		var stage := Panel.new()
+		var stage := PanelContainer.new()
 		stage.custom_minimum_size = Vector2(60, 60)
-		
-		var stage_style := StyleBoxFlat.new()
 		if i <= helmet_level:
-			stage_style.bg_color = Color(0.9, 0.7, 0.2, 1.0)
-			stage_style.border_color = Color(1.0, 0.9, 0.5, 1.0)
+			stage.add_theme_stylebox_override("panel", UiDialogStyles.make_slot_pressed_stylebox())
 		else:
-			stage_style.bg_color = Color(0.3, 0.3, 0.35, 0.5)
-			stage_style.border_color = Color(0.5, 0.5, 0.55, 1.0)
-		stage_style.set_corner_radius_all(10)
-		stage_style.border_width_left = 3
-		stage_style.border_width_top = 3
-		stage_style.border_width_right = 3
-		stage_style.border_width_bottom = 3
-		stage.add_theme_stylebox_override("panel", stage_style)
+			stage.add_theme_stylebox_override("panel", UiDialogStyles.make_slot_disabled_stylebox())
 		
 		var stage_label := Label.new()
 		stage_label.text = str(i)
@@ -355,12 +279,7 @@ func _push_mort_helmet_tutorial_flow() -> void:
 func _add_prelevel_boosts_section(vbox: VBoxContainer):
 	if not LevelManager:
 		return
-	var boosts_title = Label.new()
-	boosts_title.text = "ПРЕДУРОВНЕВЫЕ УСИЛЕНИЯ"
-	boosts_title.add_theme_font_size_override("font_size", 26)
-	boosts_title.add_theme_color_override("font_color", Color(0.8, 0.9, 1.0))
-	boosts_title.add_theme_color_override("font_outline_color", Color.BLACK)
-	boosts_title.add_theme_constant_override("outline_size", 4)
+	var boosts_title = UiDialogStyles.create_title_label("ПРЕДУРОВНЕВЫЕ УСИЛЕНИЯ", 26)
 	boosts_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	boosts_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	boosts_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -401,19 +320,11 @@ func _populate_prelevel_boosts_row() -> void:
 		if texture:
 			boost_btn.icon = texture
 			boost_btn.expand_icon = true
-		var btn_style = StyleBoxFlat.new()
-		btn_style.bg_color = Color(0.2, 0.25, 0.3, 0.8) if boost_count > 0 else Color(0.15, 0.15, 0.15, 0.5)
-		btn_style.set_corner_radius_all(15)
-		btn_style.border_width_left = 3
-		btn_style.border_width_top = 3
-		btn_style.border_width_right = 3
-		btn_style.border_width_bottom = 3
-		btn_style.border_color = Color(0.6, 0.6, 0.7, 1.0) if boost_count > 0 else Color(0.3, 0.3, 0.3, 0.5)
-		var btn_pressed = btn_style.duplicate()
-		btn_pressed.bg_color = Color(0.3, 0.6, 0.9, 1.0)
-		btn_pressed.border_color = Color(0.5, 0.8, 1.0, 1.0)
-		boost_btn.add_theme_stylebox_override("normal", btn_style)
-		boost_btn.add_theme_stylebox_override("pressed", btn_pressed)
+		if boost_count > 0:
+			boost_btn.add_theme_stylebox_override("normal", UiDialogStyles.make_slot_stylebox())
+		else:
+			boost_btn.add_theme_stylebox_override("normal", UiDialogStyles.make_slot_disabled_stylebox())
+		boost_btn.add_theme_stylebox_override("pressed", UiDialogStyles.make_slot_pressed_stylebox())
 		boost_btn.focus_mode = Control.FOCUS_NONE
 		var captured_type: String = boost_type
 		boost_btn.toggled.connect(func(pressed: bool):
@@ -428,29 +339,10 @@ func _populate_prelevel_boosts_row() -> void:
 					_selected_prelevel_boosts[captured_type] = false
 		)
 		slot.add_child(boost_btn)
-		var buy_btn = Button.new()
-		buy_btn.text = "+"
+		var buy_btn = UiDialogStyles.create_small_icon_button("+", minf(slot_size.x, slot_size.y) * 0.5)
 		buy_btn.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		buy_btn.focus_mode = Control.FOCUS_NONE
 		buy_btn.flat = true
-		var plus_r := int(floor(min(slot_size.x, slot_size.y) * 0.5))
-		var buy_normal = StyleBoxFlat.new()
-		buy_normal.bg_color = Color(0.18, 0.62, 0.22, 0.92)
-		buy_normal.set_corner_radius_all(plus_r)
-		buy_normal.border_width_left = 3
-		buy_normal.border_width_top = 3
-		buy_normal.border_width_right = 3
-		buy_normal.border_width_bottom = 3
-		buy_normal.border_color = Color(0.35, 0.85, 0.42, 1.0)
-		var buy_hover = buy_normal.duplicate()
-		buy_hover.bg_color = Color(0.25, 0.72, 0.3, 0.95)
-		buy_btn.add_theme_stylebox_override("normal", buy_normal)
-		buy_btn.add_theme_stylebox_override("hover", buy_hover)
-		buy_btn.add_theme_stylebox_override("pressed", buy_normal)
-		buy_btn.add_theme_font_size_override("font_size", 36)
-		buy_btn.add_theme_color_override("font_color", Color.WHITE)
-		buy_btn.add_theme_color_override("font_outline_color", Color.BLACK)
-		buy_btn.add_theme_constant_override("outline_size", 4)
 		var is_empty := boost_count <= 0
 		buy_btn.visible = is_empty
 		buy_btn.mouse_filter = Control.MOUSE_FILTER_STOP if is_empty else Control.MOUSE_FILTER_IGNORE
@@ -459,10 +351,7 @@ func _populate_prelevel_boosts_row() -> void:
 		)
 		slot.add_child(buy_btn)
 		boost_vbox.add_child(slot)
-		var name_label = Label.new()
-		name_label.text = boost_names[boost_type]
-		name_label.add_theme_font_size_override("font_size", 20)
-		name_label.add_theme_color_override("font_color", Color.WHITE)
+		var name_label = UiDialogStyles.create_body_label(boost_names[boost_type], 20)
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		boost_vbox.add_child(name_label)
 		var count_label = Label.new()

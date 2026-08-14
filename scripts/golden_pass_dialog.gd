@@ -25,10 +25,7 @@ func setup() -> void:
 		var ch = get_child(0)
 		remove_child(ch)
 		ch.free()
-	var dim := ColorRect.new()
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(0, 0, 0, 0.78)
-	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	var dim := UiDialogStyles.create_dimmer()
 	dim.gui_input.connect(_on_dim_gui_input)
 	add_child(dim)
 	var panel := Panel.new()
@@ -37,15 +34,7 @@ func setup() -> void:
 	panel.offset_top = 96.0
 	panel.offset_right = -12.0
 	panel.offset_bottom = -112.0
-	var ps := StyleBoxFlat.new()
-	ps.bg_color = Color(0.07, 0.09, 0.14, 0.98)
-	ps.set_corner_radius_all(20)
-	ps.border_width_left = 3
-	ps.border_width_top = 3
-	ps.border_width_right = 3
-	ps.border_width_bottom = 3
-	ps.border_color = Color(0.92, 0.72, 0.22, 1.0)
-	panel.add_theme_stylebox_override("panel", ps)
+	UiDialogStyles.apply_panel_style(panel)
 	add_child(panel)
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -61,29 +50,20 @@ func setup() -> void:
 	margin.add_child(root_v)
 	var top_row := HBoxContainer.new()
 	top_row.add_theme_constant_override("separation", 12)
-	var title := Label.new()
-	title.text = "ЗОЛОТОЙ ПРОПУСК"
+	var title := UiDialogStyles.create_accent_title_label("ЗОЛОТОЙ ПРОПУСК", UiDialogStyles.ACCENT_COLOR, 28)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.add_theme_font_size_override("font_size", 28)
-	title.add_theme_color_override("font_color", Color(1.0, 0.86, 0.35))
-	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	title.add_theme_constant_override("outline_size", 5)
 	top_row.add_child(title)
 	var close_btn := UiCloseButton.create(_on_close_pressed)
 	top_row.add_child(close_btn)
 	root_v.add_child(top_row)
-	var sub := Label.new()
+	var sub := UiDialogStyles.create_body_label("", 17)
 	sub.name = "GoldenPassSubLabel"
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	sub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sub.clip_contents = true
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub.add_theme_font_size_override("font_size", 17)
-	sub.add_theme_color_override("font_color", Color(0.88, 0.9, 0.95))
 	root_v.add_child(sub)
-	_buy_pass_btn = Button.new()
+	_buy_pass_btn = UiDialogStyles.create_primary_button("", 52.0)
 	_buy_pass_btn.name = "GoldenPassBuyBtn"
-	_buy_pass_btn.custom_minimum_size = Vector2(0, 52)
 	_buy_pass_btn.add_theme_font_size_override("font_size", 22)
 	_buy_pass_btn.pressed.connect(_on_buy_pass_pressed)
 	root_v.add_child(_buy_pass_btn)
@@ -111,18 +91,7 @@ func setup() -> void:
 	_claim_all_bar.offset_top = -82.0
 	_claim_all_bar.offset_bottom = -14.0
 	_claim_all_bar.z_index = 6
-	var bar_st := StyleBoxFlat.new()
-	bar_st.bg_color = Color(0.06, 0.08, 0.12, 0.97)
-	bar_st.set_corner_radius_all(14)
-	bar_st.border_width_left = 2
-	bar_st.border_width_top = 2
-	bar_st.border_width_right = 2
-	bar_st.border_width_bottom = 2
-	bar_st.border_color = Color(0.88, 0.68, 0.22, 1.0)
-	bar_st.shadow_color = Color(0, 0, 0, 0.45)
-	bar_st.shadow_size = 8
-	bar_st.shadow_offset = Vector2(0, 3)
-	_claim_all_bar.add_theme_stylebox_override("panel", bar_st)
+	UiDialogStyles.apply_section(_claim_all_bar)
 	var bar_margin := MarginContainer.new()
 	bar_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar_margin.add_theme_constant_override("margin_left", 12)
@@ -130,28 +99,10 @@ func setup() -> void:
 	bar_margin.add_theme_constant_override("margin_right", 12)
 	bar_margin.add_theme_constant_override("margin_bottom", 8)
 	_claim_all_bar.add_child(bar_margin)
-	_claim_all_btn = Button.new()
+	_claim_all_btn = UiDialogStyles.create_primary_button("ЗАБРАТЬ ВСЁ", 48.0)
 	_claim_all_btn.name = "GoldenPassClaimAllBtn"
 	_claim_all_btn.focus_mode = Control.FOCUS_NONE
-	_claim_all_btn.text = "ЗАБРАТЬ ВСЁ"
-	_claim_all_btn.custom_minimum_size = Vector2(0, 48)
 	_claim_all_btn.add_theme_font_size_override("font_size", 20)
-	var c0 := StyleBoxFlat.new()
-	c0.bg_color = Color(0.22, 0.42, 0.72, 1.0)
-	c0.set_corner_radius_all(12)
-	c0.border_width_left = 2
-	c0.border_width_top = 2
-	c0.border_width_right = 2
-	c0.border_width_bottom = 2
-	c0.border_color = Color(0.45, 0.65, 0.95, 1.0)
-	var c1 := c0.duplicate()
-	c1.bg_color = Color(0.28, 0.52, 0.85, 1.0)
-	var c2 := c0.duplicate()
-	c2.bg_color = Color(0.16, 0.32, 0.58, 1.0)
-	_claim_all_btn.add_theme_stylebox_override("normal", c0)
-	_claim_all_btn.add_theme_stylebox_override("hover", c1)
-	_claim_all_btn.add_theme_stylebox_override("pressed", c2)
-	_claim_all_btn.add_theme_color_override("font_color", Color.WHITE)
 	_claim_all_btn.pressed.connect(_on_claim_all_pressed)
 	bar_margin.add_child(_claim_all_btn)
 	panel.add_child(_claim_all_bar)
@@ -274,12 +225,7 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 	var inner := PanelContainer.new()
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var st := StyleBoxFlat.new()
-	st.set_corner_radius_all(12)
-	st.border_width_left = 2
-	st.border_width_top = 2
-	st.border_width_right = 2
-	st.border_width_bottom = 2
+	var st := UiDialogStyles.make_section_stylebox()
 	var unlocked := tier_index < LevelManager.get_golden_pass_unlocked_tiers()
 	var claimed := false
 	var can_claim := false
@@ -290,17 +236,12 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 		claimed = LevelManager.is_golden_pass_free_claimed(tier_index)
 		can_claim = LevelManager.can_claim_golden_pass_free(tier_index)
 	if not unlocked:
-		st.bg_color = Color(0.12, 0.14, 0.18, 0.85)
-		st.border_color = Color(0.25, 0.28, 0.35, 1.0)
+		st = UiDialogStyles.make_slot_disabled_stylebox()
 	elif claimed:
-		st.bg_color = Color(0.14, 0.18, 0.14, 0.9)
-		st.border_color = Color(0.3, 0.45, 0.3, 1.0)
+		st = UiDialogStyles.make_slot_stylebox()
+		st.modulate_color = Color(0.72, 0.92, 0.72, 1.0)
 	elif can_claim:
-		st.bg_color = Color(0.18, 0.22, 0.32, 0.95)
-		st.border_color = Color(0.85, 0.65, 0.2, 1.0)
-	else:
-		st.bg_color = Color(0.15, 0.16, 0.2, 0.9)
-		st.border_color = Color(0.35, 0.38, 0.45, 1.0)
+		st = UiDialogStyles.make_slot_pressed_stylebox()
 	inner.add_theme_stylebox_override("panel", st)
 	wrap.add_child(inner)
 	var vb := VBoxContainer.new()
@@ -331,15 +272,7 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 	icon_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon_bg.custom_minimum_size = Vector2(REWARD_ICON_BOX, REWARD_ICON_BOX)
 	icon_bg.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var icon_panel := StyleBoxFlat.new()
-	icon_panel.bg_color = Color(0.1, 0.11, 0.14, 0.95)
-	icon_panel.set_corner_radius_all(10)
-	icon_panel.border_width_left = 2
-	icon_panel.border_width_top = 2
-	icon_panel.border_width_right = 2
-	icon_panel.border_width_bottom = 2
-	icon_panel.border_color = Color(0.32, 0.35, 0.42, 1.0)
-	icon_bg.add_theme_stylebox_override("panel", icon_panel)
+	icon_bg.add_theme_stylebox_override("panel", UiDialogStyles.make_slot_stylebox())
 	var inner_icon := MarginContainer.new()
 	inner_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner_icon.add_theme_constant_override("margin_left", 6)
@@ -392,11 +325,9 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 		got.add_theme_color_override("font_color", Color(0.55, 0.85, 0.55))
 		vb.add_child(got)
 	elif can_claim:
-		var claim := Button.new()
+		var claim := UiDialogStyles.create_primary_button("ЗАБРАТЬ", 40.0)
 		claim.name = "GoldenPassClaimBtn_%d_%s" % [tier_index, "premium" if is_premium else "free"]
 		claim.mouse_filter = Control.MOUSE_FILTER_STOP
-		claim.text = "ЗАБРАТЬ"
-		claim.custom_minimum_size = Vector2(0, 40)
 		claim.add_theme_font_size_override("font_size", 16)
 		claim.pressed.connect(_on_claim_pressed.bind(tier_index, is_premium))
 		vb.add_child(claim)
