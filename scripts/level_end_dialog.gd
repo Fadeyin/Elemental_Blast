@@ -55,10 +55,16 @@ func _build_base() -> void:
 	vbox.name = "ContentVBox"
 
 func _main_vbox() -> VBoxContainer:
-	return get_node("LevelEndCenter/LevelEndPanel/LevelEndMargin/ContentVBox") as VBoxContainer
+	var panel := find_child("LevelEndPanel", true, false) as PanelContainer
+	if panel == null:
+		return null
+	return panel.find_child("ContentVBox", true, false) as VBoxContainer
 
 func _fill_victory(total: int, base_reward: int, chips_bonus: int, bonus_chips_count: int, coins_per_bonus_chip: int) -> void:
 	var vbox = _main_vbox()
+	if vbox == null:
+		push_error("LevelEndDialog: ContentVBox не найден")
+		return
 	var title = UiDialogStyles.create_accent_title_label("ПОБЕДА!", Color(1.0, 0.92, 0.35), 38)
 	title.name = "TitleLabel"
 	vbox.add_child(title)
@@ -114,7 +120,10 @@ func _play_open_animations(is_victory: bool) -> void:
 	var panel := find_child("LevelEndPanel", true, false) as Control
 	if dimmer != null and panel != null:
 		UiDialogAnima.play_dialog_open(dimmer, panel)
-	var title := _main_vbox().get_node_or_null("TitleLabel") as Control
+	var vbox := _main_vbox()
+	if vbox == null:
+		return
+	var title := vbox.get_node_or_null("TitleLabel") as Control
 	if title != null:
 		if is_victory:
 			UiDialogAnima.play_victory_title(title)
@@ -181,6 +190,9 @@ func _play_defeat_panel_shake() -> void:
 
 func _fill_defeat(refill_cost: int, player_coins: int, hearts_to_restore: int, can_refill: bool) -> void:
 	var vbox = _main_vbox()
+	if vbox == null:
+		push_error("LevelEndDialog: ContentVBox не найден")
+		return
 	var title = UiDialogStyles.create_accent_title_label("ПОРАЖЕНИЕ", Color(1.0, 0.45, 0.4), 38)
 	title.name = "TitleLabel"
 	vbox.add_child(title)
