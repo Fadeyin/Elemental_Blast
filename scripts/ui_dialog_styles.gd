@@ -61,14 +61,6 @@ static func mount_dialog_center(parent: Control, host_name: String = "DialogCent
 	return center
 
 
-static func create_dialog_center() -> CenterContainer:
-	return mount_dialog_center(Control.new(), "DialogCenterHost")
-
-
-static func create_level_end_dialog_center() -> CenterContainer:
-	return mount_dialog_center(Control.new(), "LevelEndCenterHost", "LevelEndCenter")
-
-
 static func create_dialog_panel(width: float = COMPACT_DIALOG_WIDTH) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(width, 0.0)
