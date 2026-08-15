@@ -39,9 +39,7 @@ func _build_dialog():
 	add_child(bg)
 	
 	# Центральная панель диалога
-	var center := UiDialogStyles.create_dialog_center()
-	center.name = "LevelStartCenter"
-	add_child(center)
+	var center := UiDialogStyles.mount_dialog_center(self, "LevelStartCenterHost", "LevelStartCenter")
 	var panel = UiDialogStyles.create_dialog_panel(UiDialogStyles.MEDIUM_DIALOG_WIDTH)
 	panel.name = "LevelStartPanel"
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -76,6 +74,7 @@ func _build_dialog():
 		UiDialogStyles.ACCENT_COLOR,
 		36
 	)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(title)
 	
 	# Шлем Морта (Win Streak прогресс) — показываем только после открытия фичи (GDD §2,§7)
@@ -132,21 +131,13 @@ func _add_mort_helmet_section(vbox: VBoxContainer):
 	# Шапка с заголовком и кнопкой "i"
 	var header_row := HBoxContainer.new()
 	header_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	header_row.add_theme_constant_override("separation", 8)
 	inner.add_child(header_row)
-	
-	var left_spacer := Control.new()
-	left_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header_row.add_child(left_spacer)
-	
-	var helmet_title := UiDialogStyles.create_title_label("ШЛЕМ МОРТА", 32)
+	var helmet_title := UiDialogStyles.create_title_label("ШЛЕМ МОРТА", 32, false)
+	helmet_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	helmet_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	helmet_title.clip_contents = false
 	header_row.add_child(helmet_title)
-	
-	var right_spacer := Control.new()
-	right_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header_row.add_child(right_spacer)
-	
 	var info_btn := UiDialogStyles.create_round_info_button("i", 44.0)
 	info_btn.focus_mode = Control.FOCUS_NONE
 	info_btn.pressed.connect(_show_mort_helmet_rules)

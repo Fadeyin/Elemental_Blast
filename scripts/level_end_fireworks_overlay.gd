@@ -1,55 +1,46 @@
-# Фоновые фейерверки за окном победы/поражения (immediate-mode).
+# Фоновые фейерверки за окном победы (одноразовый салют).
 
 extends Control
 
-const ROCKET_SPAWN_INTERVAL := 0.42
-const MAX_ACTIVE_ROCKETS := 6
-const BURST_PARTICLE_COUNT := 28
+const ROCKET_SPAWN_INTERVAL := 0.38
+const MAX_ACTIVE_ROCKETS := 4
+const MAX_TOTAL_ROCKETS := 9
+const BURST_PARTICLE_COUNT := 24
+const SALUTE_DURATION := 4.2
 
 var _rockets: Array = []
 var _bursts: Array = []
 var _spawn_timer := 0.0
-var _palette: Array[Color] = []
-var _muted := false
-
-
-func setup(muted_palette: bool = false) -> void:
-	_muted = muted_palette
-	if _muted:
-		_palette = [
-			Color(0.75, 0.55, 0.95),
-			Color(0.55, 0.72, 1.0),
-			Color(0.95, 0.62, 0.72),
-			Color(0.68, 0.82, 0.95),
-		]
-	else:
-		_palette = [
-			Color(1.0, 0.92, 0.35),
-			Color(1.0, 0.55, 0.45),
-			Color(0.45, 0.9, 1.0),
-			Color(0.55, 1.0, 0.55),
-			Color(1.0, 0.7, 0.25),
-			Color(0.9, 0.55, 1.0),
-		]
+var _elapsed := 0.0
+var _rockets_spawned := 0
+var _finished := false
+var _palette: Array[Color] = [
+	Color(1.0, 0.92, 0.35),
+	Color(1.0, 0.55, 0.45),
+	Color(0.45, 0.9, 1.0),
+	Color(0.55, 1.0, 0.55),
+	Color(1.0, 0.7, 0.25),
+	Color(0.9, 0.55, 1.0),
+]
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	z_index = 4
+	z_index = 2
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	if _palette.is_empty():
-		setup(false)
 	set_process(true)
+	_spawn_rocket()
 
 
 func _process(delta: float) -> void:
+	if _finished:
+		return
+	_elapsed += delta
 	_spawn_timer += delta
-	if _spawn_timer >= ROCKET_SPAWN_INTERVAL and _rockets.size() < MAX_ACTIVE_ROCKETS:
+	if _elapsed < SALUTE_DURATION and _spawn_timer >= ROCKET_SPAWN_INTERVAL:
 		_spawn_timer = 0.0
-		_spawn_rocket()
-	var vp_size := size
-	if vp_size.x < 32.0:
-		vp_size = get_viewport_rect().size
+		if _rockets.size() < MAX_ACTIVE_ROCKETS and _rockets_spawned < MAX_TOTAL_ROCKETS:
+			_spawn_rocket()
 	var any_alive := false
 	for i in range(_rockets.size() - 1, -1, -1):
 		var rocket: Dictionary = _rockets[i]
@@ -74,6 +65,9 @@ func _process(delta: float) -> void:
 		particle.vx *= 0.985
 	if any_alive or _rockets.size() > 0:
 		queue_redraw()
+	elif _elapsed >= SALUTE_DURATION:
+		_finished = true
+		set_process(false)
 
 
 func _spawn_rocket() -> void:
@@ -82,20 +76,21 @@ func _spawn_rocket() -> void:
 		vp_size = get_viewport_rect().size
 	var color: Color = _palette[randi() % _palette.size()]
 	_rockets.append({
-		"x": randf_range(vp_size.x * 0.12, vp_size.x * 0.88),
+		"x": randf_range(vp_size.x * 0.14, vp_size.x * 0.86),
 		"y": vp_size.y + 12.0,
 		"vx": randf_range(-18.0, 18.0),
-		"vy": randf_range(-360.0, -280.0) if not _muted else randf_range(-300.0, -240.0),
-		"target_y": randf_range(vp_size.y * 0.12, vp_size.y * 0.42),
+		"vy": randf_range(-360.0, -280.0),
+		"target_y": randf_range(vp_size.y * 0.14, vp_size.y * 0.46),
 		"color": color,
 		"t": 0.0,
 	})
+	_rockets_spawned += 1
 
 
 func _spawn_burst(x: float, y: float, color: Color) -> void:
 	for _i in range(BURST_PARTICLE_COUNT):
 		var angle := randf() * TAU
-		var speed := randf_range(90.0, 220.0) if not _muted else randf_range(70.0, 170.0)
+		var speed := randf_range(90.0, 210.0)
 		var spark := color.lightened(randf_range(-0.08, 0.12))
 		_bursts.append({
 			"x": x,
@@ -105,7 +100,7 @@ func _spawn_burst(x: float, y: float, color: Color) -> void:
 			"gravity": randf_range(120.0, 200.0),
 			"radius": randf_range(2.0, 4.5),
 			"color": spark,
-			"life": randf_range(0.55, 1.1),
+			"life": randf_range(0.55, 1.05),
 			"t": 0.0,
 		})
 

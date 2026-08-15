@@ -5,6 +5,7 @@ extends Control
 
 const CONFETTI_OVERLAY_SCRIPT := preload("res://scripts/level_end_confetti_overlay.gd")
 const FIREWORKS_OVERLAY_SCRIPT := preload("res://scripts/level_end_fireworks_overlay.gd")
+const VICTORY_GLOW_OVERLAY_SCRIPT := preload("res://scripts/level_end_victory_glow_overlay.gd")
 const DIALOG_WIDTH := 460.0
 const ACTION_BUTTON_WIDTH := 280.0
 
@@ -31,9 +32,12 @@ func _build_base() -> void:
 	var bg = UiDialogStyles.create_dimmer()
 	bg.name = "LevelEndDimmer"
 	add_child(bg)
-	var center = UiDialogStyles.create_level_end_dialog_center()
-	center.name = "LevelEndCenter"
-	add_child(center)
+	var effects_back := Control.new()
+	effects_back.name = "LevelEndEffectsBack"
+	effects_back.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	effects_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(effects_back)
+	var center = UiDialogStyles.mount_dialog_center(self, "LevelEndCenterHost", "LevelEndCenter")
 	var panel = UiDialogStyles.create_dialog_panel(DIALOG_WIDTH)
 	panel.name = "LevelEndPanel"
 	center.add_child(panel)
@@ -118,41 +122,50 @@ func _play_open_animations(is_victory: bool) -> void:
 			call_deferred("_play_victory_panel_shake")
 		else:
 			UiDialogAnima.play_defeat_title(title)
-			_spawn_defeat_effects()
 			call_deferred("_play_defeat_panel_shake")
 
 
+func _effects_back() -> Control:
+	return get_node_or_null("LevelEndEffectsBack") as Control
+
+
 func _spawn_victory_effects() -> void:
-	_spawn_fireworks(false)
-	_spawn_confetti()
+	var effects_back := _effects_back()
+	if effects_back == null:
+		return
+	_spawn_victory_glow(effects_back)
+	_spawn_fireworks(effects_back)
+	_spawn_confetti(effects_back)
 
 
-func _spawn_defeat_effects() -> void:
-	_spawn_fireworks(true)
+func _spawn_victory_glow(parent: Control) -> void:
+	if parent.get_node_or_null("LevelEndVictoryGlow") != null:
+		return
+	var glow := Control.new()
+	glow.name = "LevelEndVictoryGlow"
+	glow.set_script(VICTORY_GLOW_OVERLAY_SCRIPT)
+	glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	parent.add_child(glow)
 
 
-func _spawn_fireworks(muted: bool) -> void:
-	if get_node_or_null("LevelEndFireworks") != null:
+func _spawn_fireworks(parent: Control) -> void:
+	if parent.get_node_or_null("LevelEndFireworks") != null:
 		return
 	var fireworks := Control.new()
 	fireworks.name = "LevelEndFireworks"
 	fireworks.set_script(FIREWORKS_OVERLAY_SCRIPT)
 	fireworks.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	if fireworks.has_method("setup"):
-		fireworks.setup(muted)
-	add_child(fireworks)
-	move_child(fireworks, 1)
+	parent.add_child(fireworks)
 
 
-func _spawn_confetti() -> void:
-	if get_node_or_null("LevelEndConfetti") != null:
+func _spawn_confetti(parent: Control) -> void:
+	if parent.get_node_or_null("LevelEndConfetti") != null:
 		return
 	var confetti := Control.new()
 	confetti.name = "LevelEndConfetti"
 	confetti.set_script(CONFETTI_OVERLAY_SCRIPT)
 	confetti.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(confetti)
-	move_child(confetti, 2)
+	parent.add_child(confetti)
 
 
 func _play_victory_panel_shake() -> void:

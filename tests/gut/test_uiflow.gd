@@ -150,14 +150,34 @@ func test_level_end_flow_page_victory_setup() -> void:
 	assert_not_null(page.find_child("LevelEndDimmer", true, false))
 
 
+func test_settings_cheats_flow_page_setup() -> void:
+	var page = SETTINGS_CHEATS_FLOW_PAGE.new()
+	add_child_autofree(page)
+	page._on_opened({})
+	await wait_process_frames(3)
+	assert_not_null(page.find_child("SettingsCheatsPanel", true, false))
+
+
 func test_level_end_dialog_victory_confetti() -> void:
 	var dialog := Control.new()
 	dialog.set_script(load("res://scripts/level_end_dialog.gd"))
 	add_child_autofree(dialog)
 	dialog.setup_victory(100, 50, 50, 2, 25)
 	await wait_process_frames(3)
+	assert_not_null(dialog.find_child("LevelEndVictoryGlow", true, false))
 	assert_not_null(dialog.find_child("LevelEndConfetti", true, false))
 	assert_not_null(dialog.find_child("LevelEndFireworks", true, false))
+
+
+func test_level_end_dialog_defeat_has_no_victory_effects() -> void:
+	var dialog := Control.new()
+	dialog.set_script(load("res://scripts/level_end_dialog.gd"))
+	add_child_autofree(dialog)
+	dialog.setup_defeat_no_lives(100, 50, 3, true)
+	await wait_process_frames(3)
+	assert_null(dialog.find_child("LevelEndFireworks", true, false))
+	assert_null(dialog.find_child("LevelEndConfetti", true, false))
+	assert_null(dialog.find_child("LevelEndVictoryGlow", true, false))
 
 
 func test_ui_dialog_styles_panel_uses_flat_style() -> void:

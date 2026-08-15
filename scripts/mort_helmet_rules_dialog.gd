@@ -16,8 +16,7 @@ func setup() -> void:
 	var bg := UiDialogStyles.create_dimmer()
 	bg.gui_input.connect(_on_dimmer_gui_input)
 	add_child(bg)
-	var center := UiDialogStyles.create_dialog_center()
-	add_child(center)
+	var center := UiDialogStyles.mount_dialog_center(self, "MortHelmetRulesCenterHost", "MortHelmetRulesCenter")
 	var panel := UiDialogStyles.create_dialog_panel(460.0)
 	panel.name = "MortHelmetRulesPanel"
 	center.add_child(panel)

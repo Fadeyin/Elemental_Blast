@@ -199,7 +199,7 @@ func _header_cell(txt: String, w: float, narrow: bool) -> Control:
 	l.text = txt
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.add_theme_font_size_override("font_size", 17)
-	l.add_theme_color_override("font_color", Color(1.0, 0.82, 0.4))
+	l.add_theme_color_override("font_color", UiDialogStyles.ACCENT_COLOR)
 	if narrow:
 		l.custom_minimum_size = Vector2(w, 0)
 	else:
@@ -279,7 +279,7 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 	title_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title_l.add_theme_font_size_override("font_size", 16)
-	title_l.add_theme_color_override("font_color", Color(0.96, 0.97, 1.0))
+	title_l.add_theme_color_override("font_color", UiDialogStyles.TITLE_COLOR)
 	vb.add_child(title_l)
 	var tex := _reward_texture(entry)
 	var icon_bg := PanelContainer.new()
@@ -315,7 +315,7 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 	amt_l.text = _reward_amount_line(entry)
 	amt_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	amt_l.add_theme_font_size_override("font_size", 14)
-	amt_l.add_theme_color_override("font_color", Color(0.88, 0.9, 0.94))
+	amt_l.add_theme_color_override("font_color", UiDialogStyles.BODY_COLOR)
 	vb.add_child(amt_l)
 	if is_premium and not LevelManager.is_golden_pass_purchased():
 		var lock_l := Label.new()

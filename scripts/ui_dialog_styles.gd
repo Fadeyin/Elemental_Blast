@@ -36,24 +36,37 @@ static func create_dimmer(alpha: float = 0.65) -> ColorRect:
 	return dimmer
 
 
-static func create_dialog_center() -> CenterContainer:
+static func mount_dialog_center(parent: Control, host_name: String = "DialogCenterHost", center_name: String = "DialogCenter") -> CenterContainer:
+	var host := VBoxContainer.new()
+	host.name = host_name
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	host.offset_left = 24.0
+	host.offset_top = 24.0
+	host.offset_right = -24.0
+	host.offset_bottom = -24.0
+	var top_spacer := Control.new()
+	top_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	top_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.add_child(top_spacer)
 	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.offset_left = 28.0
-	center.offset_top = 80.0
-	center.offset_right = -28.0
-	center.offset_bottom = -80.0
+	center.name = center_name
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	host.add_child(center)
+	var bottom_spacer := Control.new()
+	bottom_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.add_child(bottom_spacer)
+	parent.add_child(host)
 	return center
+
+
+static func create_dialog_center() -> CenterContainer:
+	return mount_dialog_center(Control.new(), "DialogCenterHost")
 
 
 static func create_level_end_dialog_center() -> CenterContainer:
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.offset_left = 28.0
-	center.offset_top = 210.0
-	center.offset_right = -28.0
-	center.offset_bottom = -56.0
-	return center
+	return mount_dialog_center(Control.new(), "LevelEndCenterHost", "LevelEndCenter")
 
 
 static func create_dialog_panel(width: float = COMPACT_DIALOG_WIDTH) -> PanelContainer:
@@ -182,11 +195,11 @@ static func create_accent_title_label(text: String, accent: Color = ACCENT_COLOR
 	return label
 
 
-static func create_title_label(text: String, font_size: int = 30) -> Label:
+static func create_title_label(text: String, font_size: int = 30, allow_wrap: bool = true) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if allow_wrap else TextServer.AUTOWRAP_OFF
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", TITLE_COLOR)
 	return label

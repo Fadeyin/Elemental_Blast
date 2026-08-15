@@ -17,8 +17,7 @@ func setup() -> void:
 		ch.free()
 	var bg := UiDialogStyles.create_dimmer()
 	add_child(bg)
-	var center := UiDialogStyles.create_dialog_center()
-	add_child(center)
+	var center := UiDialogStyles.mount_dialog_center(self, "SettingsCheatsCenterHost", "SettingsCheatsCenter")
 	var panel := UiDialogStyles.create_dialog_panel(UiDialogStyles.COMPACT_DIALOG_WIDTH)
 	panel.name = "SettingsCheatsPanel"
 	center.add_child(panel)
