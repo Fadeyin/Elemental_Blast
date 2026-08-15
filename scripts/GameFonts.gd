@@ -3,7 +3,17 @@ extends Node
 
 const RUBIK_VARIABLE_PATH := "res://fonts/Rubik-Variable.ttf"
 const WEIGHT_TEXT := 800.0
+const WEIGHT_UI_BODY := 700.0
 const WEIGHT_DIGIT := 900.0
+
+const OUTLINE_SOFT_SHADOW := Color(0.14, 0.09, 0.06, 0.32)
+const OUTLINE_HUD := Color(0.0, 0.0, 0.0, 0.42)
+
+enum OutlineMode {
+	NONE,
+	SOFT_SHADOW,
+	HUD,
+}
 
 const OUTLINE_DIRS: Array[Vector2i] = [
 	Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1),
@@ -15,6 +25,7 @@ const GAME_BUTTON_SCRIPT := preload("res://scripts/GameButton.gd")
 const META_MIXED_ACTIVE := &"game_fonts_mixed_active"
 
 var text_font: Font
+var ui_body_font: Font
 var digit_font: Font
 
 var _tracked: Array[Control] = []
@@ -40,6 +51,10 @@ func _build_fonts() -> void:
 	text_var.base_font = base
 	text_var.variation_opentype = { &"wght": WEIGHT_TEXT }
 	text_font = text_var
+	var body_var := FontVariation.new()
+	body_var.base_font = base
+	body_var.variation_opentype = { &"wght": WEIGHT_UI_BODY }
+	ui_body_font = body_var
 	var digit_var := FontVariation.new()
 	digit_var.base_font = base
 	digit_var.variation_opentype = { &"wght": WEIGHT_DIGIT }
@@ -208,7 +223,46 @@ static func effective_outline_size(requested: int) -> int:
 	return clampi(requested, 0, 2)
 
 
-func measure_mixed_text_layout(text: String, font_size: int, use_heavy: bool = false) -> Dictionary:
+static func apply_rubik_font(control: Control, use_body_weight: bool = false) -> void:
+	if control == null:
+		return
+	if use_body_weight and ui_body_font != null:
+		control.add_theme_font_override("font", ui_body_font)
+	elif text_font != null:
+		control.add_theme_font_override("font", text_font)
+
+
+static func apply_outline(control: Control, mode: OutlineMode) -> void:
+	if control == null:
+		return
+	match mode:
+		OutlineMode.NONE:
+			control.add_theme_constant_override("outline_size", 0)
+			control.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0))
+		OutlineMode.SOFT_SHADOW:
+			control.add_theme_constant_override("outline_size", 1)
+			control.add_theme_color_override("font_outline_color", OUTLINE_SOFT_SHADOW)
+		OutlineMode.HUD:
+			control.add_theme_constant_override("outline_size", 2)
+			control.add_theme_color_override("font_outline_color", OUTLINE_HUD)
+
+
+static func style_dialog_label(label: Label, font_size: int, color: Color, use_body_weight: bool = true) -> void:
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
+	apply_rubik_font(label, use_body_weight)
+	apply_outline(label, OutlineMode.NONE)
+	label.add_theme_constant_override("line_spacing", 2)
+
+
+static func style_button_label(label: Label, font_size: int, color: Color) -> void:
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
+	apply_rubik_font(label, false)
+	apply_outline(label, OutlineMode.SOFT_SHADOW)
+
+
+static func measure_mixed_text_layout(text: String, font_size: int, use_heavy: bool = false) -> Dictionary:
 	var width := 0.0
 	var max_ascent := 0.0
 	var max_descent := 0.0
@@ -370,18 +424,29 @@ func draw_mixed_string(
 		var font := font_for_char(ch, use_heavy)
 		var y: float = baseline_pos.y + (max_ascent - font.get_ascent(font_size))
 		if outline_px > 0 and outline_color.a > 0.0:
-			for dir: Vector2i in OUTLINE_DIRS:
-				for step in range(1, outline_px + 1):
-					var off := Vector2(dir.x * step, dir.y * step)
-					canvas.draw_string(
-						font,
-						Vector2(x, y) + off,
-						ch,
-						HORIZONTAL_ALIGNMENT_LEFT,
-						-1,
-						font_size,
-						outline_color
-					)
+			if outline_px == 1:
+				canvas.draw_string(
+					font,
+					Vector2(x + 1.0, y + 1.0),
+					ch,
+					HORIZONTAL_ALIGNMENT_LEFT,
+					-1,
+					font_size,
+					Color(outline_color.r, outline_color.g, outline_color.b, outline_color.a * 0.65)
+				)
+			else:
+				for dir: Vector2i in OUTLINE_DIRS:
+					for step in range(1, outline_px + 1):
+						var off := Vector2(dir.x * step, dir.y * step)
+						canvas.draw_string(
+							font,
+							Vector2(x, y) + off,
+							ch,
+							HORIZONTAL_ALIGNMENT_LEFT,
+							-1,
+							font_size,
+							Color(outline_color.r, outline_color.g, outline_color.b, outline_color.a * 0.75)
+						)
 		canvas.draw_string(font, Vector2(x, y), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 		x += font.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
 

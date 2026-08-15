@@ -157,12 +157,11 @@ func _add_mort_helmet_section(vbox: VBoxContainer):
 		else:
 			stage.add_theme_stylebox_override("panel", UiDialogStyles.make_slot_disabled_stylebox())
 		
-		var stage_label := Label.new()
-		stage_label.text = str(i)
-		stage_label.add_theme_font_size_override("font_size", 28)
-		stage_label.add_theme_color_override("font_color", Color.WHITE if i <= helmet_level else Color(0.6, 0.6, 0.6))
-		stage_label.add_theme_color_override("font_outline_color", Color.BLACK)
-		stage_label.add_theme_constant_override("outline_size", 3)
+		var stage_label := UiDialogStyles.create_stat_label(str(i), 28, i <= helmet_level)
+		if i <= helmet_level:
+			stage_label.add_theme_color_override("font_color", Color.WHITE)
+		else:
+			stage_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 		stage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		stage_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		stage_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -173,19 +172,11 @@ func _add_mort_helmet_section(vbox: VBoxContainer):
 	
 	# Описание текущего бонуса (на стадии 0 — поясняем как получить бонусы)
 	var bonus_chips: Dictionary = LevelManager.get_mort_helmet_bonus_chips()
-	var bonus_desc := Label.new()
-	bonus_desc.add_theme_font_size_override("font_size", 20)
-	bonus_desc.add_theme_color_override("font_outline_color", Color.BLACK)
-	bonus_desc.add_theme_constant_override("outline_size", 3)
-	bonus_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	bonus_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	bonus_desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bonus_desc.clip_contents = true
+	var bonus_desc := UiDialogStyles.create_emphasis_label("", 20, Color(0.4, 1.0, 0.4))
 	if not bonus_chips.is_empty():
 		var arrow_count: int = int(bonus_chips.get("arrow", 0))
 		var bomb_count: int = int(bonus_chips.get("bomb", 0))
 		bonus_desc.text = "Бонус: %d %s + %d %s" % [arrow_count, _decline_arrows(arrow_count), bomb_count, _decline_bombs(bomb_count)]
-		bonus_desc.add_theme_color_override("font_color", Color(0.4, 1.0, 0.4))
 	else:
 		bonus_desc.text = "Победите уровень, чтобы получить бонусы Шлема"
 		bonus_desc.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9))
@@ -337,13 +328,7 @@ func _populate_prelevel_boosts_row() -> void:
 		var name_label = UiDialogStyles.create_body_label(boost_names[boost_type], 20)
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		boost_vbox.add_child(name_label)
-		var count_label = Label.new()
-		count_label.text = "x" + str(boost_count)
-		count_label.add_theme_font_size_override("font_size", 24)
-		count_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3) if boost_count > 0 else Color(0.5, 0.5, 0.5))
-		count_label.add_theme_color_override("font_outline_color", Color.BLACK)
-		count_label.add_theme_constant_override("outline_size", 3)
-		count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var count_label := UiDialogStyles.create_stat_label("x" + str(boost_count), 24, boost_count > 0)
 		boost_vbox.add_child(count_label)
 		_prelevel_boosts_row.add_child(boost_vbox)
 

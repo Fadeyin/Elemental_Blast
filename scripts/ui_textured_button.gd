@@ -38,10 +38,7 @@ func setup(
 	_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_label.add_theme_font_size_override("font_size", font_size)
-	_label.add_theme_color_override("font_color", text_color)
-	_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	_label.add_theme_constant_override("outline_size", 4)
+	GameFonts.style_button_label(_label, font_size, text_color)
 	add_child(_label)
 
 

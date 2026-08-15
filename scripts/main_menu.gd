@@ -358,8 +358,8 @@ func _create_coins_display() -> Control:
 	coins_label.text = str(coins)
 	coins_label.add_theme_font_size_override("font_size", 28)
 	coins_label.add_theme_color_override("font_color", Color(0.34, 0.20, 0.0, 1.0))
-	coins_label.add_theme_color_override("font_outline_color", Color(0.92, 0.78, 0.38, 0.55))
-	coins_label.add_theme_constant_override("outline_size", 2)
+	GameFonts.apply_rubik_font(coins_label, false)
+	GameFonts.apply_outline(coins_label, GameFonts.OutlineMode.NONE)
 	coins_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	container.add_child(coins_label)
 	

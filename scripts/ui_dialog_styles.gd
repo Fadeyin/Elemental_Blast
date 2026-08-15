@@ -180,10 +180,7 @@ static func create_accent_title_label(text: String, accent: Color = ACCENT_COLOR
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", accent)
-	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	label.add_theme_constant_override("outline_size", 5)
+	GameFonts.style_dialog_label(label, font_size, accent, false)
 	return label
 
 
@@ -192,8 +189,7 @@ static func create_title_label(text: String, font_size: int = 30, allow_wrap: bo
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if allow_wrap else TextServer.AUTOWRAP_OFF
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", TITLE_COLOR)
+	GameFonts.style_dialog_label(label, font_size, TITLE_COLOR, false)
 	return label
 
 
@@ -202,8 +198,7 @@ static func create_body_label(text: String, font_size: int = 20) -> Label:
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", BODY_COLOR)
+	GameFonts.style_dialog_label(label, font_size, BODY_COLOR, true)
 	return label
 
 
@@ -212,6 +207,25 @@ static func create_muted_label(text: String, font_size: int = 16) -> Label:
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", MUTED_COLOR)
+	GameFonts.style_dialog_label(label, font_size, MUTED_COLOR, true)
+	return label
+
+
+static func create_emphasis_label(text: String, font_size: int = 20, color: Color = Color(0.4, 1.0, 0.4)) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.clip_contents = true
+	GameFonts.style_dialog_label(label, font_size, color, true)
+	return label
+
+
+static func create_stat_label(text: String, font_size: int = 24, active: bool = true) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var color := Color(1.0, 0.9, 0.3) if active else Color(0.5, 0.5, 0.5)
+	GameFonts.style_dialog_label(label, font_size, color, false)
 	return label
