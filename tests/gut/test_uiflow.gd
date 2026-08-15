@@ -167,6 +167,11 @@ func test_level_end_dialog_victory_confetti() -> void:
 	assert_not_null(dialog.find_child("TitleLabel", true, false))
 	assert_gt(dialog.find_child("TitleLabel", true, false).text.length(), 0)
 	assert_not_null(dialog.find_child("LevelEndVictoryGlow", true, false))
+	var glow := dialog.find_child("LevelEndVictoryGlow", true, false) as Control
+	var center := dialog.find_child("LevelEndCenter", true, false) as Control
+	assert_not_null(center)
+	assert_eq(glow.get_parent(), center, "Glow должен быть внутри LevelEndCenter")
+	assert_lt(glow.get_index(), center.find_child("LevelEndPanel", true, false).get_index(), "Glow должен быть за панелью")
 	assert_not_null(dialog.find_child("LevelEndConfetti", true, false))
 	assert_not_null(dialog.find_child("LevelEndFireworks", true, false))
 
