@@ -47,6 +47,9 @@ func _spawn_particle(from_top: bool) -> void:
 		Color(1.0, 0.78, 0.92),
 	]
 	var is_streamer := randf() < 0.22
+	var particle_w_max := 14.0 if is_streamer else 10.0
+	var particle_h_min := 3.0 if is_streamer else 4.0
+	var particle_h_max := 6.0 if is_streamer else 8.0
 	_particles.append({
 		"x": randf() * vp_size.x,
 		"y": randf_range(-vp_size.y * 0.45, vp_size.y * 0.05) if from_top else randf_range(-40.0, vp_size.y * 0.2),
@@ -54,8 +57,8 @@ func _spawn_particle(from_top: bool) -> void:
 		"vy": randf_range(120.0, 320.0),
 		"rot": randf() * TAU,
 		"vr": randf_range(-10.0, 10.0),
-		"w": randf_range(7.0, is_streamer ? 14.0 : 10.0),
-		"h": randf_range(is_streamer ? 3.0 : 4.0, is_streamer ? 6.0 : 8.0),
+		"w": randf_range(7.0, particle_w_max),
+		"h": randf_range(particle_h_min, particle_h_max),
 		"color": palette[randi() % palette.size()],
 		"life": randf_range(2.4, 4.2),
 		"t": 0.0,
