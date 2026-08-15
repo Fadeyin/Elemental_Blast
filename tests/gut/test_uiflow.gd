@@ -159,12 +159,11 @@ func test_level_end_dialog_victory_confetti() -> void:
 	assert_not_null(dialog.find_child("LevelEndConfetti", true, false))
 
 
-func test_ui_dialog_styles_panel_texture() -> void:
-	var style := UiDialogStyles.make_panel_stylebox()
-	assert_not_null(style, "Панель диалога должна использовать текстуру")
-	assert_not_null(style.texture, "StyleBoxTexture должен ссылаться на ingame_booster_slot_bg")
-	assert_gte(style.texture_margin_left, 200, "9-slice left margin должен защищать скругление")
-	assert_eq(style.axis_stretch_horizontal, StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH)
+func test_ui_dialog_styles_panel_uses_flat_style() -> void:
+	var style := UiDialogStyles.make_flat_panel_stylebox()
+	assert_true(style is StyleBoxFlat, "Панель диалога должна быть StyleBoxFlat")
+	assert_gt(style.bg_color.a, 0.9, "Фон панели должен быть непрозрачным")
+	assert_gte(style.get_corner_radius_min(), 12, "Панель должна иметь скругление")
 
 
 func test_clear_stack_unblocks_level_end_after_menu_tab() -> void:

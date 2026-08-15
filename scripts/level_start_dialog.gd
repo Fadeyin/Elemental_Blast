@@ -39,26 +39,22 @@ func _build_dialog():
 	add_child(bg)
 	
 	# Центральная панель диалога
+	var center := UiDialogStyles.create_dialog_center()
+	center.name = "LevelStartCenter"
+	add_child(center)
 	var panel = UiDialogStyles.create_dialog_panel(UiDialogStyles.MEDIUM_DIALOG_WIDTH)
 	panel.name = "LevelStartPanel"
-	panel.custom_minimum_size = Vector2(UiDialogStyles.MEDIUM_DIALOG_WIDTH, 0.0)
-	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	panel.offset_left = -UiDialogStyles.MEDIUM_DIALOG_WIDTH * 0.5
-	panel.offset_right = UiDialogStyles.MEDIUM_DIALOG_WIDTH * 0.5
-	panel.offset_top = -340.0
-	panel.offset_bottom = 340.0
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(panel)
-	
-	# VBoxContainer для вертикального расположения элементов
+	center.add_child(panel)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 4)
+	margin.add_theme_constant_override("margin_top", 4)
+	margin.add_theme_constant_override("margin_right", 4)
+	margin.add_theme_constant_override("margin_bottom", 4)
+	panel.add_child(margin)
 	var vbox = VBoxContainer.new()
-	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	vbox.add_theme_constant_override("separation", 20)
-	vbox.offset_left = 12
-	vbox.offset_right = -12
-	vbox.offset_top = 12
-	vbox.offset_bottom = -12
-	panel.add_child(vbox)
+	vbox.add_theme_constant_override("separation", 16)
+	margin.add_child(vbox)
 	
 	var header_row = HBoxContainer.new()
 	header_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -78,7 +74,7 @@ func _build_dialog():
 	var title = UiDialogStyles.create_accent_title_label(
 		"УРОВЕНЬ " + str(LevelManager.current_level if LevelManager else 1),
 		UiDialogStyles.ACCENT_COLOR,
-		48
+		36
 	)
 	vbox.add_child(title)
 	
@@ -90,9 +86,9 @@ func _build_dialog():
 	_add_prelevel_boosts_section(vbox)
 	
 	# Кнопка "Играть"
-	var play_btn = UiDialogStyles.create_primary_button("ИГРАТЬ", 320.0)
+	var play_btn = UiDialogStyles.create_primary_button("ИГРАТЬ", 280.0)
 	play_btn.name = "PlayButton"
-	play_btn.set_font_size(32)
+	play_btn.set_font_size(28)
 	
 	play_btn.pressed.connect(func():
 		if not _dialog_closing and not is_queued_for_deletion():
@@ -107,7 +103,7 @@ func _build_dialog():
 
 func _play_open_animations() -> void:
 	var dimmer := get_node_or_null("LevelStartDimmer") as CanvasItem
-	var panel := get_node_or_null("LevelStartPanel") as Control
+	var panel := find_child("LevelStartPanel", true, false) as Control
 	if dimmer == null or panel == null:
 		return
 	UiDialogAnima.play_dialog_open(dimmer, panel)
