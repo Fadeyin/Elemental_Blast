@@ -7,7 +7,7 @@ const SIMPLE_MESSAGE_FLOW_PAGE := preload("res://scripts/ui_flow/pages/simple_me
 const MORT_HELMET_RULES_FLOW_PAGE := preload("res://scripts/ui_flow/pages/mort_helmet_rules_flow_page.gd")
 const MORT_HELMET_TUTORIAL_FLOW_PAGE := preload("res://scripts/ui_flow/pages/mort_helmet_tutorial_flow_page.gd")
 const LEVEL1_TUTORIAL_FLOW_PAGE := preload("res://scripts/ui_flow/pages/level1_tutorial_flow_page.gd")
-const INGAME_BOOSTER_TUTORIAL_FLOW_PAGE := preload("res://scripts/ui_flow/pages/ingame_booster_tutorial_flow_page.gd")
+const SETTINGS_CHEATS_FLOW_PAGE := preload("res://scripts/ui_flow/pages/settings_cheats_flow_page.gd")
 
 
 func after_each() -> void:
@@ -157,13 +157,14 @@ func test_level_end_dialog_victory_confetti() -> void:
 	dialog.setup_victory(100, 50, 50, 2, 25)
 	await wait_process_frames(3)
 	assert_not_null(dialog.find_child("LevelEndConfetti", true, false))
+	assert_not_null(dialog.find_child("LevelEndFireworks", true, false))
 
 
 func test_ui_dialog_styles_panel_uses_flat_style() -> void:
 	var style := UiDialogStyles.make_flat_panel_stylebox()
 	assert_true(style is StyleBoxFlat, "Панель диалога должна быть StyleBoxFlat")
 	assert_gt(style.bg_color.a, 0.9, "Фон панели должен быть непрозрачным")
-	assert_gte(style.get_corner_radius_min(), 12, "Панель должна иметь скругление")
+	assert_gte(style.corner_radius_top_left, 12, "Панель должна иметь скругление")
 
 
 func test_clear_stack_unblocks_level_end_after_menu_tab() -> void:

@@ -111,6 +111,12 @@ func test_add_coins_increases_balance() -> void:
 	assert_eq(LevelManager.get_coins(), 140)
 
 
+func test_set_coins_cheat_sets_balance() -> void:
+	LevelManager.player_coins = 100
+	LevelManager.set_coins_cheat(999999)
+	assert_eq(LevelManager.get_coins(), 999999)
+
+
 func test_prelevel_boost_pack_costs() -> void:
 	assert_eq(LevelManager.get_prelevel_boost_pack_cost("rainbow"), 200)
 	assert_eq(LevelManager.get_prelevel_boost_pack_cost("bomb"), 100)

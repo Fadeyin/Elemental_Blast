@@ -23,7 +23,6 @@ const PRIMARY_TEXT_COLOR := Color(0.98, 0.96, 0.9, 1.0)
 const SECONDARY_TEXT_COLOR := Color(0.22, 0.14, 0.08, 1.0)
 
 const PANEL_BORDER_COLOR := Color(0.12, 0.62, 0.68, 1.0)
-const PANEL_BORDER_INNER := Color(0.72, 0.88, 0.9, 0.55)
 const PANEL_FILL_COLOR := Color(0.97, 0.91, 0.82, 1.0)
 const SECTION_FILL_COLOR := Color(0.93, 0.87, 0.78, 1.0)
 const SECTION_BORDER_COLOR := Color(0.22, 0.58, 0.64, 1.0)
@@ -44,6 +43,16 @@ static func create_dialog_center() -> CenterContainer:
 	center.offset_top = 80.0
 	center.offset_right = -28.0
 	center.offset_bottom = -80.0
+	return center
+
+
+static func create_level_end_dialog_center() -> CenterContainer:
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.offset_left = 28.0
+	center.offset_top = 210.0
+	center.offset_right = -28.0
+	center.offset_bottom = -56.0
 	return center
 
 

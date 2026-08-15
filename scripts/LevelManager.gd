@@ -549,6 +549,11 @@ func add_coins(amount: int):
 	_save_progress()
 	emit_signal("coins_changed", player_coins)
 
+func set_coins_cheat(amount: int) -> void:
+	player_coins = maxi(0, amount)
+	_save_progress()
+	emit_signal("coins_changed", player_coins)
+
 func spend_coins(amount: int) -> bool:
 	if player_coins >= amount:
 		player_coins -= amount

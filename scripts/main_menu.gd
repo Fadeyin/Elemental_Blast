@@ -34,6 +34,7 @@ var _golden_pass_fab_pulse_running: bool = false
 
 const MENU_TAB_FLOW_PAGE_SCRIPT := preload("res://scripts/ui_flow/pages/menu_tab_flow_page.gd")
 const SIMPLE_MESSAGE_FLOW_PAGE_SCRIPT := preload("res://scripts/ui_flow/pages/simple_message_flow_page.gd")
+const SETTINGS_CHEATS_FLOW_PAGE_SCRIPT := preload("res://scripts/ui_flow/pages/settings_cheats_flow_page.gd")
 const TEX_UI_TOOLBAR_BG := preload("res://textures/ui_main_menu_toolbar_bg.png")
 const TEX_UI_BUY_COINS_BTN := preload("res://textures/ui_buy_coins_button.png")
 const TEX_UI_PLAY_BTN := preload("res://textures/ui_main_menu_play_button.png")
@@ -407,7 +408,10 @@ func _push_simple_message_flow(title: String, body: String, ok_text: String = "�
 
 
 func _on_settings_pressed() -> void:
-	_push_simple_message_flow("Настройки", "Настройки будут добавлены позже", "Закрыть")
+	if UIFlow.has_page(SETTINGS_CHEATS_FLOW_PAGE_SCRIPT):
+		return
+	var page: SettingsCheatsFlowPage = SETTINGS_CHEATS_FLOW_PAGE_SCRIPT.new()
+	UIFlow.push_instance(page, {})
 
 
 func _show_buy_coins_dialog() -> void:
