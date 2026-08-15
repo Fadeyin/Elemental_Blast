@@ -36,10 +36,15 @@ func _build_base() -> void:
 	effects_back.name = "LevelEndEffectsBack"
 	effects_back.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	effects_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	effects_back.z_index = 1
 	add_child(effects_back)
 	var center = UiDialogStyles.mount_dialog_center(self, "LevelEndCenterHost", "LevelEndCenter")
+	var host := find_child("LevelEndCenterHost", true, false) as Control
+	if host != null:
+		host.z_index = 2
 	var panel = UiDialogStyles.create_dialog_panel(DIALOG_WIDTH)
 	panel.name = "LevelEndPanel"
+	panel.z_index = 1
 	center.add_child(panel)
 	var margin = MarginContainer.new()
 	margin.name = "LevelEndMargin"
@@ -142,19 +147,24 @@ func _spawn_victory_effects() -> void:
 	var effects_back := _effects_back()
 	if effects_back == null:
 		return
-	_spawn_victory_glow(effects_back)
+	_spawn_victory_glow()
 	_spawn_fireworks(effects_back)
 	_spawn_confetti(effects_back)
 
 
-func _spawn_victory_glow(parent: Control) -> void:
-	if parent.get_node_or_null("LevelEndVictoryGlow") != null:
+func _spawn_victory_glow() -> void:
+	var center := find_child("LevelEndCenter", true, false) as Control
+	if center == null:
+		return
+	if center.get_node_or_null("LevelEndVictoryGlow") != null:
 		return
 	var glow := Control.new()
 	glow.name = "LevelEndVictoryGlow"
 	glow.set_script(VICTORY_GLOW_OVERLAY_SCRIPT)
 	glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	parent.add_child(glow)
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.add_child(glow)
+	center.move_child(glow, 0)
 
 
 func _spawn_fireworks(parent: Control) -> void:
