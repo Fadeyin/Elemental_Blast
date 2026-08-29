@@ -38,7 +38,7 @@ func setup(
 	_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	GameFonts.style_button_label(_label, font_size, text_color)
+	GameFonts.style_button_label(_label, font_size, text_color, text_color.get_luminance() < 0.55)
 	add_child(_label)
 
 

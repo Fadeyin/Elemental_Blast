@@ -8,11 +8,13 @@ const WEIGHT_DIGIT := 900.0
 
 const OUTLINE_SOFT_SHADOW := Color(0.14, 0.09, 0.06, 0.32)
 const OUTLINE_HUD := Color(0.0, 0.0, 0.0, 0.42)
+const OUTLINE_DIALOG := Color(0.04, 0.03, 0.02, 0.48)
 
 enum OutlineMode {
 	NONE,
 	SOFT_SHADOW,
 	HUD,
+	DIALOG,
 }
 
 const OUTLINE_DIRS: Array[Vector2i] = [
@@ -245,21 +247,24 @@ static func apply_outline(control: Control, mode: OutlineMode) -> void:
 		OutlineMode.HUD:
 			control.add_theme_constant_override("outline_size", 2)
 			control.add_theme_color_override("font_outline_color", OUTLINE_HUD)
+		OutlineMode.DIALOG:
+			control.add_theme_constant_override("outline_size", 1)
+			control.add_theme_color_override("font_outline_color", OUTLINE_DIALOG)
 
 
 static func style_dialog_label(label: Label, font_size: int, color: Color, use_body_weight: bool = true) -> void:
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
 	apply_rubik_font(label, use_body_weight)
-	apply_outline(label, OutlineMode.NONE)
+	apply_outline(label, OutlineMode.DIALOG)
 	label.add_theme_constant_override("line_spacing", 2)
 
 
-static func style_button_label(label: Label, font_size: int, color: Color) -> void:
+static func style_button_label(label: Label, font_size: int, color: Color, dark_text: bool = false) -> void:
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
 	apply_rubik_font(label, false)
-	apply_outline(label, OutlineMode.SOFT_SHADOW)
+	apply_outline(label, OutlineMode.DIALOG if dark_text else OutlineMode.SOFT_SHADOW)
 
 
 static func measure_mixed_text_layout(text: String, font_size: int, use_heavy: bool = false) -> Dictionary:

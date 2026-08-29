@@ -175,6 +175,10 @@ static func create_round_info_button(text: String = "i", size: float = 36.0) -> 
 	return button
 
 
+static func style_panel_label(label: Label, font_size: int, color: Color, use_body_weight: bool = true) -> void:
+	GameFonts.style_dialog_label(label, font_size, color, use_body_weight)
+
+
 static func create_accent_title_label(text: String, accent: Color = ACCENT_COLOR, font_size: int = 48) -> Label:
 	var label := Label.new()
 	label.text = text

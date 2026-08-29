@@ -199,6 +199,15 @@ func test_ui_dialog_styles_panel_uses_flat_style() -> void:
 	assert_gte(style.corner_radius_top_left, 12, "Панель должна иметь скругление")
 
 
+func test_dialog_labels_have_readability_outline() -> void:
+	var title := UiDialogStyles.create_title_label("Тест", 24)
+	assert_eq(title.get_theme_constant("outline_size"), 1, "Заголовок диалога должен иметь тонкую обводку")
+	assert_gt(title.get_theme_color("font_outline_color").a, 0.2, "Обводка заголовка должна быть заметной")
+	assert_lt(title.get_theme_color("font_color").get_luminance(), 0.35, "Текст заголовка должен быть тёмным на светлой панели")
+	var body := UiDialogStyles.create_body_label("Текст 123", 18)
+	assert_eq(body.get_theme_constant("outline_size"), 1, "Текст диалога должен иметь тонкую обводку")
+
+
 func test_clear_stack_unblocks_level_end_after_menu_tab() -> void:
 	var host := Control.new()
 	host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

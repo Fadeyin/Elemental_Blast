@@ -159,9 +159,9 @@ func _add_mort_helmet_section(vbox: VBoxContainer):
 		
 		var stage_label := UiDialogStyles.create_stat_label(str(i), 28, i <= helmet_level)
 		if i <= helmet_level:
-			stage_label.add_theme_color_override("font_color", Color.WHITE)
+			stage_label.add_theme_color_override("font_color", UiDialogStyles.TITLE_COLOR)
 		else:
-			stage_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+			stage_label.add_theme_color_override("font_color", UiDialogStyles.MUTED_COLOR)
 		stage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		stage_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		stage_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -179,7 +179,7 @@ func _add_mort_helmet_section(vbox: VBoxContainer):
 		bonus_desc.text = "Бонус: %d %s + %d %s" % [arrow_count, _decline_arrows(arrow_count), bomb_count, _decline_bombs(bomb_count)]
 	else:
 		bonus_desc.text = "Победите уровень, чтобы получить бонусы Шлема"
-		bonus_desc.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9))
+		bonus_desc.add_theme_color_override("font_color", Color(0.22, 0.48, 0.28, 1.0))
 	inner.add_child(bonus_desc)
 
 func _decline_arrows(n: int) -> String:

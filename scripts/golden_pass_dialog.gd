@@ -198,8 +198,7 @@ func _header_cell(txt: String, w: float, narrow: bool) -> Control:
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.text = txt
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", 17)
-	l.add_theme_color_override("font_color", UiDialogStyles.ACCENT_COLOR)
+	UiDialogStyles.style_panel_label(l, 17, UiDialogStyles.ACCENT_COLOR, false)
 	if narrow:
 		l.custom_minimum_size = Vector2(w, 0)
 	else:
@@ -215,8 +214,7 @@ func _build_tier_row(tier_index: int) -> Control:
 	num.text = str(tier_index + 1)
 	num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	num.custom_minimum_size = Vector2(36, 0)
-	num.add_theme_font_size_override("font_size", 20)
-	num.add_theme_color_override("font_color", Color(0.95, 0.95, 1.0))
+	UiDialogStyles.style_panel_label(num, 20, UiDialogStyles.TITLE_COLOR, false)
 	row.add_child(num)
 	row.add_child(_build_reward_cell(tier_index, false))
 	row.add_child(_build_reward_cell(tier_index, true))
@@ -278,8 +276,7 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 	title_l.text = _reward_title(entry)
 	title_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	title_l.add_theme_font_size_override("font_size", 16)
-	title_l.add_theme_color_override("font_color", UiDialogStyles.TITLE_COLOR)
+	UiDialogStyles.style_panel_label(title_l, 16, UiDialogStyles.TITLE_COLOR, true)
 	vb.add_child(title_l)
 	var tex := _reward_texture(entry)
 	var icon_bg := PanelContainer.new()
@@ -314,32 +311,28 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 	amt_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	amt_l.text = _reward_amount_line(entry)
 	amt_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	amt_l.add_theme_font_size_override("font_size", 14)
-	amt_l.add_theme_color_override("font_color", UiDialogStyles.BODY_COLOR)
+	UiDialogStyles.style_panel_label(amt_l, 14, UiDialogStyles.BODY_COLOR, true)
 	vb.add_child(amt_l)
 	if is_premium and not LevelManager.is_golden_pass_purchased():
 		var lock_l := Label.new()
 		lock_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		lock_l.text = "Нужен пропуск"
 		lock_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lock_l.add_theme_font_size_override("font_size", 14)
-		lock_l.add_theme_color_override("font_color", Color(0.85, 0.75, 0.35))
+		UiDialogStyles.style_panel_label(lock_l, 14, Color(0.62, 0.38, 0.08, 1.0), true)
 		vb.add_child(lock_l)
 	elif not unlocked:
 		var wait_l := Label.new()
 		wait_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		wait_l.text = "Скоро"
 		wait_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		wait_l.add_theme_font_size_override("font_size", 14)
-		wait_l.add_theme_color_override("font_color", Color(0.65, 0.68, 0.75))
+		UiDialogStyles.style_panel_label(wait_l, 14, UiDialogStyles.MUTED_COLOR, true)
 		vb.add_child(wait_l)
 	elif claimed:
 		var got := Label.new()
 		got.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		got.text = "Получено"
 		got.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		got.add_theme_font_size_override("font_size", 14)
-		got.add_theme_color_override("font_color", Color(0.55, 0.85, 0.55))
+		UiDialogStyles.style_panel_label(got, 14, Color(0.18, 0.52, 0.22, 1.0), true)
 		vb.add_child(got)
 	elif can_claim:
 		var claim_wrap := CenterContainer.new()
