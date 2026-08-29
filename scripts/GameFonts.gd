@@ -8,7 +8,8 @@ const WEIGHT_DIGIT := 900.0
 
 const OUTLINE_SOFT_SHADOW := Color(0.14, 0.09, 0.06, 0.32)
 const OUTLINE_HUD := Color(0.0, 0.0, 0.0, 0.42)
-const OUTLINE_DIALOG := Color(0.04, 0.03, 0.02, 0.48)
+const OUTLINE_DIALOG := Color(0.04, 0.03, 0.02, 0.58)
+const META_DIALOG_STYLE := &"game_fonts_dialog_style"
 
 enum OutlineMode {
 	NONE,
@@ -188,9 +189,11 @@ func _setup_label(label: Label) -> void:
 				label._activate_mixed_draw()
 		elif label.has_method("_game_fonts_refresh"):
 			label._game_fonts_refresh()
+		_reapply_dialog_label_style(label)
 		return
 	_clear_label_script(label)
 	label.add_theme_font_override("font", text_font)
+	_reapply_dialog_label_style(label)
 
 
 func _setup_button(button: Button) -> void:
@@ -225,7 +228,7 @@ static func effective_outline_size(requested: int) -> int:
 	return clampi(requested, 0, 2)
 
 
-static func apply_rubik_font(control: Control, use_body_weight: bool = false) -> void:
+func apply_rubik_font(control: Control, use_body_weight: bool = false) -> void:
 	if control == null:
 		return
 	if use_body_weight and ui_body_font != null:
@@ -234,7 +237,7 @@ static func apply_rubik_font(control: Control, use_body_weight: bool = false) ->
 		control.add_theme_font_override("font", text_font)
 
 
-static func apply_outline(control: Control, mode: OutlineMode) -> void:
+func apply_outline(control: Control, mode: OutlineMode) -> void:
 	if control == null:
 		return
 	match mode:
@@ -248,23 +251,54 @@ static func apply_outline(control: Control, mode: OutlineMode) -> void:
 			control.add_theme_constant_override("outline_size", 2)
 			control.add_theme_color_override("font_outline_color", OUTLINE_HUD)
 		OutlineMode.DIALOG:
-			control.add_theme_constant_override("outline_size", 1)
+			control.add_theme_constant_override("outline_size", 2)
 			control.add_theme_color_override("font_outline_color", OUTLINE_DIALOG)
 
 
-static func style_dialog_label(label: Label, font_size: int, color: Color, use_body_weight: bool = true) -> void:
+func _apply_dialog_label_style(label: Label, font_size: int, color: Color, use_body_weight: bool) -> void:
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
+	label.set_meta(&"game_fonts_draw_color", color)
 	apply_rubik_font(label, use_body_weight)
 	apply_outline(label, OutlineMode.DIALOG)
 	label.add_theme_constant_override("line_spacing", 2)
+	if label.has_method("queue_redraw"):
+		label.queue_redraw()
 
 
-static func style_button_label(label: Label, font_size: int, color: Color, dark_text: bool = false) -> void:
+func _reapply_dialog_label_style(label: Label) -> void:
+	if not label.has_meta(META_DIALOG_STYLE):
+		return
+	var style: Dictionary = label.get_meta(META_DIALOG_STYLE)
+	_apply_dialog_label_style(
+		label,
+		int(style.get("font_size", label.get_theme_font_size("font_size"))),
+		style.get("color", label.get_theme_color("font_color")) as Color,
+		bool(style.get("use_body_weight", true))
+	)
+
+
+func style_dialog_label(label: Label, font_size: int, color: Color, use_body_weight: bool = true) -> void:
+	label.set_meta(META_DIALOG_STYLE, {
+		"font_size": font_size,
+		"color": color,
+		"use_body_weight": use_body_weight,
+	})
+	_apply_dialog_label_style(label, font_size, color, use_body_weight)
+	if not label.is_inside_tree():
+		label.tree_entered.connect(func() -> void:
+			_reapply_dialog_label_style(label)
+		, CONNECT_ONE_SHOT)
+
+
+func style_button_label(label: Label, font_size: int, color: Color, dark_text: bool = false) -> void:
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
+	label.set_meta(&"game_fonts_draw_color", color)
 	apply_rubik_font(label, false)
 	apply_outline(label, OutlineMode.DIALOG if dark_text else OutlineMode.SOFT_SHADOW)
+	if label.has_method("queue_redraw"):
+		label.queue_redraw()
 
 
 static func measure_mixed_text_layout(text: String, font_size: int, use_heavy: bool = false) -> Dictionary:

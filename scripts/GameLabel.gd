@@ -63,7 +63,7 @@ func _draw() -> void:
 	if text.is_empty():
 		return
 	var font_size := get_theme_font_size("font_size")
-	var color: Color = get_theme_color("font_color")
+	var color: Color = _resolved_draw_color()
 	var outline_color: Color = get_theme_color("font_outline_color")
 	var outline_size: int = get_theme_constant("outline_size")
 	var line_spacing := float(get_theme_constant("line_spacing"))
@@ -82,3 +82,9 @@ func _draw() -> void:
 		autowrap_mode,
 		line_spacing
 	)
+
+
+func _resolved_draw_color() -> Color:
+	if has_meta(&"game_fonts_draw_color"):
+		return get_meta(&"game_fonts_draw_color") as Color
+	return get_theme_color("font_color")

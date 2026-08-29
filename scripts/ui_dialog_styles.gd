@@ -26,6 +26,25 @@ const PANEL_BORDER_COLOR := Color(0.12, 0.62, 0.68, 1.0)
 const PANEL_FILL_COLOR := Color(0.97, 0.91, 0.82, 1.0)
 const SECTION_FILL_COLOR := Color(0.93, 0.87, 0.78, 1.0)
 const SECTION_BORDER_COLOR := Color(0.22, 0.58, 0.64, 1.0)
+const DIALOG_OUTLINE_COLOR := Color(0.04, 0.03, 0.02, 0.58)
+
+static var _dialog_panel_theme: Theme = null
+
+
+static func get_dialog_panel_theme() -> Theme:
+	if _dialog_panel_theme != null:
+		return _dialog_panel_theme
+	var theme := Theme.new()
+	theme.set_color("font_color", "Label", BODY_COLOR)
+	theme.set_color("font_outline_color", "Label", DIALOG_OUTLINE_COLOR)
+	theme.set_constant("outline_size", "Label", 2)
+	theme.set_constant("line_spacing", "Label", 2)
+	_dialog_panel_theme = theme
+	return _dialog_panel_theme
+
+
+static func apply_dialog_theme(control: Control) -> void:
+	control.theme = get_dialog_panel_theme()
 
 
 static func create_dimmer(alpha: float = 0.65) -> ColorRect:
@@ -118,6 +137,7 @@ static func make_flat_cell_stylebox(bg: Color, border: Color) -> StyleBoxFlat:
 
 static func apply_panel(panel: PanelContainer) -> void:
 	panel.add_theme_stylebox_override("panel", make_flat_panel_stylebox())
+	apply_dialog_theme(panel)
 
 
 static func apply_panel_style(control: Control) -> void:
@@ -125,10 +145,12 @@ static func apply_panel_style(control: Control) -> void:
 		apply_panel(control as PanelContainer)
 	else:
 		control.add_theme_stylebox_override("panel", make_flat_panel_stylebox())
+		apply_dialog_theme(control)
 
 
 static func apply_section(panel: PanelContainer) -> void:
 	panel.add_theme_stylebox_override("panel", make_flat_section_stylebox())
+	apply_dialog_theme(panel)
 
 
 static func make_slot_stylebox() -> StyleBoxFlat:
@@ -230,6 +252,6 @@ static func create_stat_label(text: String, font_size: int = 24, active: bool = 
 	var label := Label.new()
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var color := Color(1.0, 0.9, 0.3) if active else Color(0.5, 0.5, 0.5)
+	var color := ACCENT_COLOR if active else MUTED_COLOR
 	GameFonts.style_dialog_label(label, font_size, color, false)
 	return label

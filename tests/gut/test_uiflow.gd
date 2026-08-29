@@ -201,11 +201,40 @@ func test_ui_dialog_styles_panel_uses_flat_style() -> void:
 
 func test_dialog_labels_have_readability_outline() -> void:
 	var title := UiDialogStyles.create_title_label("Тест", 24)
-	assert_eq(title.get_theme_constant("outline_size"), 1, "Заголовок диалога должен иметь тонкую обводку")
+	assert_eq(title.get_theme_constant("outline_size"), 2, "Заголовок диалога должен иметь тонкую обводку")
 	assert_gt(title.get_theme_color("font_outline_color").a, 0.2, "Обводка заголовка должна быть заметной")
 	assert_lt(title.get_theme_color("font_color").get_luminance(), 0.35, "Текст заголовка должен быть тёмным на светлой панели")
 	var body := UiDialogStyles.create_body_label("Текст 123", 18)
-	assert_eq(body.get_theme_constant("outline_size"), 1, "Текст диалога должен иметь тонкую обводку")
+	assert_eq(body.get_theme_constant("outline_size"), 2, "Текст диалога должен иметь тонкую обводку")
+
+
+func test_dialog_panel_has_dark_label_theme() -> void:
+	var panel := UiDialogStyles.create_dialog_panel()
+	assert_not_null(panel.theme, "Панель диалога должна иметь локальную тему")
+	assert_lt(panel.theme.get_color("font_color", "Label").get_luminance(), 0.35)
+
+
+func test_level_start_dialog_labels_use_dark_colors() -> void:
+	var dialog := Control.new()
+	dialog.set_script(load("res://scripts/level_start_dialog.gd"))
+	add_child_autofree(dialog)
+	dialog.setup()
+	await wait_process_frames(5)
+	var panel := dialog.find_child("LevelStartPanel", true, false) as PanelContainer
+	assert_not_null(panel)
+	var labels: Array[Label] = []
+	_collect_labels(panel, labels)
+	assert_gt(labels.size(), 3, "В диалоге старта уровня должны быть подписи")
+	for label in labels:
+		var color := label.get_theme_color("font_color")
+		assert_lt(color.get_luminance(), 0.72, "Подпись '%s' должна быть тёмной: %s" % [label.text, str(color)])
+
+
+func _collect_labels(node: Node, out: Array[Label]) -> void:
+	if node is Label:
+		out.append(node as Label)
+	for child in node.get_children():
+		_collect_labels(child, out)
 
 
 func test_clear_stack_unblocks_level_end_after_menu_tab() -> void:
