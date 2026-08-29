@@ -269,6 +269,7 @@ func _build_reward_cell(tier_index: int, is_premium: bool) -> Control:
 		empty_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		empty_l.text = "—"
 		empty_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		UiDialogStyles.style_panel_label(empty_l, 16, UiDialogStyles.MUTED_COLOR, true)
 		vb.add_child(empty_l)
 		return wrap
 	var title_l := Label.new()
