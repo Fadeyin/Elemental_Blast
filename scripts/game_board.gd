@@ -117,7 +117,7 @@ var chips := []
 var enemies := [] # 2D массив здоровья врагов (y: 0..ENEMY_ROWS-1)
 var enemies_initial_hp := [] # Исходный HP врагов для целей
 var _enemies_hit_this_turn := [] # 2D массив флагов попадания в этом ходу
-var _enemy_vacated_cells := {} # "x,y" -> true: клетки, где монстр был уничтожен — враги не могут в них войти
+var _enemy_vacated_cells := {} # "x,y" -> true: клетки убитых монстров — блок для одного шага врагов
 var _monster_spawn_queue := [] # Очередь монстров для появления на поле
 var _scheduled_spawns := [] # [{hp:int, x:int, y:int, spawn_after_player_turns:int}]
 var _use_scheduled_spawns: bool = false
@@ -4010,6 +4010,7 @@ func _apply_enemy_moves_from_plan(moves: Array) -> void:
 
 	if _match3_anims.enemy_move_anims.size() > 0:
 		set_process(true)
+	_enemy_vacated_cells.clear()
 
 func _enemy_move_step() -> void:
 	if _enemy_attack_warn_pending:
@@ -4019,6 +4020,7 @@ func _enemy_move_step() -> void:
 		for y in range(ENEMY_ROWS):
 			for x in range(COLS):
 				_enemies_hit_this_turn[y][x] = false
+		_enemy_vacated_cells.clear()
 		return
 	var planned = _plan_enemy_moves()
 	if _enemy_moves_include_last_row_attack(planned):
