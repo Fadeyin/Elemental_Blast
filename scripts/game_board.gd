@@ -117,6 +117,7 @@ var chips := []
 var enemies := [] # 2D массив здоровья врагов (y: 0..ENEMY_ROWS-1)
 var enemies_initial_hp := [] # Исходный HP врагов для целей
 var _enemies_hit_this_turn := [] # 2D массив флагов попадания в этом ходу
+var _enemy_vacated_cells := {} # "x,y" -> true: клетки, где монстр был уничтожен — враги не могут в них войти
 var _monster_spawn_queue := [] # Очередь монстров для появления на поле
 var _scheduled_spawns := [] # [{hp:int, x:int, y:int, spawn_after_player_turns:int}]
 var _use_scheduled_spawns: bool = false
@@ -1082,6 +1083,7 @@ func _init_enemies_from_config(cfg: Dictionary):
 	enemies.clear()
 	enemies_initial_hp.clear()
 	_enemies_hit_this_turn.clear()
+	_enemy_vacated_cells.clear()
 	_level_targets.clear()
 	_monster_spawn_queue.clear()
 	_scheduled_spawns.clear()
@@ -1298,6 +1300,17 @@ func _enemy_hp_for_projectile_column(col_x: int, row_y: int) -> int:
 		return 0
 	return maxi(0, int(g.get("hp", 0)))
 
+func _enemy_vacated_key(x: int, y: int) -> String:
+	return "%d,%d" % [x, y]
+
+func _mark_enemy_cell_vacated(x: int, y: int) -> void:
+	if x < 0 or x >= COLS or y < 0 or y >= ENEMY_ROWS:
+		return
+	_enemy_vacated_cells[_enemy_vacated_key(x, y)] = true
+
+func _is_enemy_cell_vacated(x: int, y: int) -> bool:
+	return _enemy_vacated_cells.has(_enemy_vacated_key(x, y))
+
 func _apply_damage_to_enemy_cell(tx: int, ty: int) -> void:
 	if ty < 0 or ty >= ENEMY_ROWS or tx < 0 or tx >= COLS:
 		return
@@ -1327,6 +1340,7 @@ func _apply_damage_to_enemy_cell(tx: int, ty: int) -> void:
 						enemies[cy][cx] = 0
 						enemies_initial_hp[cy][cx] = 0
 						_boss_anchor_of[cy][cx] = Vector2i(-1, -1)
+						_mark_enemy_cell_vacated(cx, cy)
 				var boss_span_dead := _boss_cell_span_from_cells(g.get("cells", []))
 				_boss_registry.erase(key)
 				_decrement_level_target_for_init_hp(BOSS_GOAL_VISUAL_HP)
@@ -1345,6 +1359,7 @@ func _apply_damage_to_enemy_cell(tx: int, ty: int) -> void:
 	_match3_anims.monster_shakes[mid2] = {"t": 0.0, "d": 0.2, "intensity": 10.0}
 	if enemies[ty][tx] <= 0:
 		enemies[ty][tx] = 0
+		_mark_enemy_cell_vacated(tx, ty)
 		var init_hp: int = int(enemies_initial_hp[ty][tx])
 		_decrement_level_target_for_init_hp(int(init_hp))
 		_flash_monsters_goal_counter()
@@ -3568,7 +3583,7 @@ func _compute_enemy_move_plan() -> Array:
 	for yy in range(ENEMY_ROWS):
 		var row = []
 		for xx in range(COLS):
-			row.append(enemies[yy][xx] > 0)
+			row.append(enemies[yy][xx] > 0 or _is_enemy_cell_vacated(xx, yy))
 		occupied_next.append(row)
 	for y in range(ENEMY_ROWS - 1, -1, -1):
 		for x in range(COLS):
